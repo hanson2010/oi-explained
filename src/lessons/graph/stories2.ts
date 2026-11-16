@@ -17,6 +17,14 @@ const CUT_POS = at([[0, 0], [0, 2], [1, 1], [2, 1], [3, 1]])
 const CUT_ES = ed([[0, 1], [1, 2], [2, 0], [2, 3], [3, 4]])
 
 /** Flow network s → a, s → b, a → b, a → t, b → t, every capacity 1. */
+/** The "house": a square 1-2-4-3 with both diagonals and a roof 3-5-4. */
+const HOUSE_POS = at([[0, 2], [2, 2], [0, 1], [2, 1], [1, 0]])
+const HOUSE_ES = ed([[0, 1], [1, 3], [3, 2], [2, 0], [0, 3], [2, 4], [4, 3], [1, 2]])
+
+/** A small weighted graph for the second-shortest path story. */
+const W2_POS = at([[0, 1], [1, 0], [1, 2], [2, 1]])
+const W2_ES = ed([[0, 1, 2], [0, 2, 3], [1, 3, 3], [2, 3, 4], [1, 2, 2]])
+
 const NET_POS = at([[0, 1], [1, 0], [1, 2], [2, 1]])
 const NET_LABEL = ['s', 'a', 'b', 't']
 const NET_ES = ed([[0, 1, 1], [0, 2, 1], [1, 2, 1], [1, 3, 1], [2, 3, 1]], true)
@@ -212,6 +220,56 @@ export const GRAPH2: Record<string, Extras> = {
       { id: 'match', text: ['match[v] = u;  report success', 'match[v] = u；返回成功'], next: 'start' },
       { id: 'fail', text: ['no partner for u:  report failure', 'u 找不到对象：返回失败'], next: 'start' },
       { id: 'done', kind: 'end', text: ['print the number of matched pairs', '输出匹配的对数'] },
+    ],
+  },
+
+  'euler-path': {
+    story: [
+      { kind: 'term', title: ['Euler paths, Euler circuits, Eulerian graphs', '欧拉路径、欧拉回路、欧拉图'],
+        body: ['An **Euler path** is a walk that uses ==every edge exactly once==. If it ends where it began it is an **Euler circuit**, and a graph that has one is called **Eulerian**. Euler settled the question in 1736 for the seven bridges of Königsberg by looking at degrees. Each time a walk passes through a vertex it uses two of its edges, so every vertex except the two ends must have __even degree__. For a connected graph that is also enough: no odd vertex means a circuit; exactly two mean a path from one to the other; any other number means no such walk.', '**欧拉路径**是一条==经过每条边恰好一次==的路线。如果它最后回到起点，就叫**欧拉回路**；存在欧拉回路的图称为**欧拉图**。1736 年，欧拉通过观察顶点的度解决了哥尼斯堡七桥问题。路线每经过一个顶点一次，就用掉它的两条边，所以除了两个端点，每个顶点的度都必须是__偶数__。对连通图来说这个条件也是充分的：没有奇度顶点就有回路；恰好两个就有一条从其中一个到另一个的路径；其他情况都不存在这样的路线。'],
+        fig: () => [graph(HOUSE_POS, HOUSE_ES, { name: 'the "house": only the two bottom corners have odd degree, so start at one of them', tone: tn({ bad: [0, 1] }), sub: [3, 3, 4, 4, 2] })] },
+      { kind: 'naive', title: ['Start simple: just keep walking', '先从最简单的做起：一直往前走'],
+        body: ['Start at an odd vertex and follow any unused edge, again and again. You cannot get stuck in the middle of nowhere — but you can come to rest ==too early==, at a vertex with no free edge, while a whole loop elsewhere has not been walked.', '从一个奇度顶点出发，不断地沿任意一条没用过的边走。你不会卡在莫名其妙的地方——但可能==过早地==停下：停在一个没有空闲边的顶点，而别处还有一整圈没有走。'] },
+      { kind: 'insight', title: ['A loop you missed can be spliced in', '漏掉的那一圈可以接进去'],
+        body: ['An unwalked piece always hangs off a vertex of your walk, and — all its degrees being even — it is a closed loop back to that vertex. So the full path is your walk ==with the loop inserted at that vertex==. No searching again: just insert.', '没走到的部分一定挂在已走路线的某个顶点上，而且——因为剩下的度数都是偶数——它是一个回到该顶点的闭合圈。所以完整的路径就是原来的路线==在那个顶点处插入这一圈==。不需要重新搜索，只要插进去。'],
+        fig: () => [graph(HOUSE_POS, HOUSE_ES, { name: 'walked 1–2–3–1–4–2: stuck at 2, but the loop 4–3–5–4 is still unwalked', tone: tn({ act: 1 }), et: { 0: 'vis', 7: 'vis', 3: 'vis', 4: 'vis', 1: 'vis' } })] },
+      { kind: 'how', title: ['Write a vertex down only when it is finished', '顶点彻底走完时才把它记下来'],
+        body: ['Do the walk as a depth-first search over ==edges==. At vertex u, take the next unused edge and recurse. When u has none left, __append u to the answer__ and return. A vertex that still had a free edge when the walk first passed it gets its loop walked before it is written down — exactly the splice. The answer comes out ==backwards==.', '把这次行走写成对==边==的深度优先搜索。在顶点 u，取下一条没用过的边并递归下去。当 u 没有空闲的边时，__把 u 加到答案末尾__并返回。如果路线第一次经过某个顶点时它还有空闲的边，那么在它被记下之前，那一圈会先被走完——这正是前面说的“插入”。答案是==倒着==生成的。'] },
+      { kind: 'result', title: ['Each edge once: linear time', '每条边一次：线性时间'],
+        body: ['Every edge is walked once and every list is read once: **O(n + m)**. If fewer than m + 1 vertices were written, some edges were out of reach and there is no Euler path. For a directed graph the test becomes in-degree = out-degree, and the same procedure works.', '每条边走一次，每个邻接表读一遍：**O(n + m)**。如果记下的顶点不足 m + 1 个，说明有些边走不到，欧拉路径不存在。对于有向图，判别条件变成入度等于出度，做法完全相同。'] },
+    ],
+    flow: [
+      { id: 'odd', kind: 'test', text: ['0 or 2 vertices of odd degree ?', '奇度顶点有 0 个或 2 个 ？'], no: 'fail' },
+      { id: 'start', text: ['start at an odd vertex (or any vertex with an edge)', '从一个奇度顶点出发（没有则任选一个有边的顶点）'] },
+      { id: 'skip', kind: 'test', text: ['unused edge at u ?', 'u 还有没用过的边 ？'], no: 'stuck' },
+      { id: 'walk', text: ['mark it used;   move to the other end', '把它标记为已用；走到另一端'], next: 'skip' },
+      { id: 'stuck', text: ['append u to the path;   step back   (finished when the walk is empty)', '把 u 加到路径末尾；退回一步（路线退空时结束）'], next: 'skip' },
+      { id: 'split', kind: 'test', text: ['m + 1 vertices written ?', '记下了 m + 1 个顶点 ？'], no: 'fail', on: ['split'] },
+      { id: 'done', kind: 'end', text: ['print the path backwards', '把路径倒着输出'] },
+      { id: 'fail', kind: 'end', text: ['print −1', '输出 −1'], on: [] },
+    ],
+  },
+
+  'second-shortest': {
+    story: [
+      { kind: 'naive', title: ['Start simple: block one road and try again', '先从最简单的做起：封掉一条路再算一遍'],
+        body: ['Find the shortest path, then for each of its edges remove that edge, run Dijkstra again, and keep the best result. That is one Dijkstra per edge of the path — and it is not even right here, where the second-best route may use the same roads and merely add a detour.', '先求出最短路，然后对它上面的每条边：删掉这条边，重新跑一遍 Dijkstra，取其中最好的结果。这样最短路上有几条边就要跑几遍 Dijkstra——而且在这里连答案都不对，因为次优的路线可能走的还是同样的道路，只是多绕了一段。'] },
+      { kind: 'insight', title: ['A second-best route is built from best and second-best pieces', '次优路线由最优和次优的片段拼成'],
+        body: ['Look at the last edge u → v of the second-shortest route to v. The part before it is a route to u, and it is ==either the shortest or the second-shortest== one: anything longer could be swapped for a better piece. So it is enough to know __two__ distances per vertex.', '看到 v 的次短路线的最后一条边 u → v。它前面的部分是一条到 u 的路线，而且==要么是最短的，要么是次短的==：再长的话，就可以换成更好的一段。所以每个顶点只要知道__两个__距离就够了。'],
+        fig: () => [graph(W2_POS, W2_ES, { name: 'caption = d1 / d2', sub: ['0 / 4', '2 / 5', '3 / 4', '5 / 7'], tone: tn({ ok: 3 }) })] },
+      { kind: 'how', title: ['Dijkstra with two slots', '有两个位置的 Dijkstra'],
+        body: ['Keep `d1[v]` and `d2[v]`. When a popped distance `du` is extended to `nd = du + w`: if `nd < d1[v]`, it takes the first slot and ==the old d1 moves on as the candidate==; then, if the candidate is strictly between `d1[v]` and `d2[v]`, it takes the second slot. Every value that enters a slot is pushed on the heap. A popped entry is skipped only when it is __larger than d2__.', '保存 `d1[v]` 和 `d2[v]`。把取出的距离 `du` 延伸为 `nd = du + w` 时：如果 `nd < d1[v]`，它占据第一个位置，==原来的 d1 作为候选值继续往下比==；接着，如果候选值严格介于 `d1[v]` 和 `d2[v]` 之间，它就占据第二个位置。每个进入位置的值都要压入堆中。取出的值只有在__大于 d2__ 时才跳过。'] },
+      { kind: 'result', title: ['Twice the work of Dijkstra', '工作量是 Dijkstra 的两倍'],
+        body: ['Each vertex is expanded at most twice, so the cost stays **O(m log m)**. The same pattern gives the number of shortest paths, or the k shortest distances with k slots. And note what "second" means here: ==strictly longer==, with roads allowed to repeat.', '每个顶点至多被扩展两次，所以代价仍然是 **O(m log m)**。同样的套路还能求最短路的条数，或者用 k 个位置求前 k 短的距离。还要注意这里“次短”的含义：==严格更长==，并且道路可以重复经过。'] },
+    ],
+    flow: [
+      { id: 'init', kind: 'start', text: ['d1[1] = 0;   push (0, 1)', 'd1[1] = 0；(0, 1) 入堆'] },
+      { id: 'loop', kind: 'test', text: ['heap not empty ?   pop (du, u)', '堆非空 ？弹出 (du, u)'], no: 'done', on: [] },
+      { id: 'stale', kind: 'test', text: ['du > d2[u] ?   then skip', 'du > d2[u] ？是则跳过'], yes: 'loop' },
+      { id: 'pop', text: ['for each edge u → v of weight w:   nd = du + w', '对每条边 u → v（权值 w）：nd = du + w'] },
+      { id: 'first', text: ['nd < d1[v] ?   swap them, push the new d1[v]', 'nd < d1[v] ？交换两者，新的 d1[v] 入堆'] },
+      { id: 'second', text: ['d1[v] < nd < d2[v] ?   d2[v] = nd, push it', 'd1[v] < nd < d2[v] ？d2[v] = nd，入堆'], next: 'loop' },
+      { id: 'done', kind: 'end', text: ['print d2[n]  (−1 if it is still ∞)', '输出 d2[n]（仍为 ∞ 则输出 −1）'] },
     ],
   },
 }

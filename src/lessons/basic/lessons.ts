@@ -54,6 +54,7 @@ int main() {
     while (l < r) {
       const mid = (l + r) >> 1
       t.s('mid', () => [[`Probe the middle: a[${mid}] = ${a[mid]}.`, `查看中点：a[${mid}] = ${a[mid]}。`], view(mid), vars({ x })])
+      t.ask(() => [[`a[${mid}] = ${a[mid]} and x = ${x}. Where can the answer still be?`, `a[${mid}] = ${a[mid]}，x = ${x}。答案还可能在哪里？`], [['at mid or to its left', '在 mid 或它的左边'], ['to the right of mid', '在 mid 的右边']], a[mid] >= x ? 0 : 1])
       if (a[mid] >= x) {
         r = mid
         t.s('left', () => [[`${a[mid]} ≥ ${x}: the answer is at ${mid} or further left, so r = ${mid}.`, `${a[mid]} ≥ ${x}：答案在 ${mid} 或更左，令 r = ${mid}。`], view(), vars({ x })])
@@ -118,6 +119,10 @@ int main() {
     for (let k = 0; k < q; k++) {
       const l = rd.int(), r = rd.int()
       need(1 <= l && l <= r && r <= n, 'Queries need 1 ≤ l ≤ r ≤ n.', '查询须满足 1 ≤ l ≤ r ≤ n。')
+      t.ask(() => {
+        const idx = [...new Set([l - 1, l, r - 1])].sort((p, q) => p - q)
+        return [[`The sum of a[${l}..${r}] is s[${r}] minus which entry?`, `a[${l}..${r}] 的和等于 s[${r}] 减去哪一项？`], idx.map(k => [`s[${k}]`, `s[${k}]`] as const), idx.indexOf(l - 1)]
+      })
       out.push(s[r] - s[l - 1])
       t.s('query', () => [[`sum(${l}..${r}) = s[${r}] − s[${l - 1}] = ${s[r]} − ${s[l - 1]} = ${s[r] - s[l - 1]}`, `sum(${l}..${r}) = s[${r}] − s[${l - 1}] = ${s[r]} − ${s[l - 1]} = ${s[r] - s[l - 1]}`],
         arr('a', a, tn({ dim: 0, ok: span(l, r) })), arr('s', s, tn({ act: r, bad: l - 1 }), { r, 'l-1': l - 1 }), vars({ l, r, sum: s[r] - s[l - 1] })])
@@ -747,4 +752,62 @@ int main() {
   },
 }
 
-export default [binarySearch, prefixSum, difference, fastPow, hanoi, bigAdd, bigMul, baseConv, enumeration, simulation, bigSub, bigDiv]
+const coordCompress: Lesson = {
+  id: 'coord-compress', title: ['Coordinate compression', '离散化'], level: 'S', cat: 'basic', diff: 6,
+  needs: ['binary-search'],
+  blurb: ['Replace huge values by their ranks: sort, remove duplicates, and look each value up by binary search.', '用排名代替巨大的数值：排序、去重，再用二分查找确定每个数的位置。'],
+  ideas: [
+    ['Many algorithms use values as array indices. That fails when the values go up to 10⁹ but there are only 10⁵ of them.', '很多算法要把数值当作数组下标。当数值高达 10⁹、而总共只有 10⁵ 个数时，这就行不通了。'],
+    ['Often only the order of the values matters, not their size. Then each value can be replaced by its rank.', '很多时候只有数值之间的大小关系有用，具体多大并不重要。这时可以用排名来代替每个数。'],
+    ['Copy the values, sort the copy, and delete duplicates: position k of the result holds the k-th smallest distinct value.', '把数值复制一份，排序后去重：结果的第 k 个位置就是第 k 小的不同的值。'],
+    ['The rank of a value is its position in that array, found by binary search.', '一个数的排名就是它在这个数组中的位置，用二分查找得到。'],
+    ['Keep the sorted array: it translates a rank back into the original value.', '保留这个有序数组：它能把排名再翻译回原来的值。'],
+  ],
+  time: 'O(n log n)', space: 'O(n)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int n, a[300005], b[300005];
+
+int main() {
+    scanf("%d", &n);
+    for (int i = 0; i < n; i++) { scanf("%d", &a[i]); b[i] = a[i]; }
+    sort(b, b + n);  //@sort
+    int k = unique(b, b + n) - b;  //@uniq
+    for (int i = 0; i < n; i++)
+        printf("%d ", int(lower_bound(b, b + k, a[i]) - b) + 1);  //@map
+    puts("");  //@done
+}`,
+  notes: [
+    ['sort', ['Sort a copy: the original order of a is still needed.', '对副本排序：a 原来的顺序之后还要用。']],
+    ['uniq', ['unique moves the distinct values to the front and returns where they end.', 'unique 把不同的值移到前面，并返回它们结束的位置。']],
+    ['map', ['lower_bound finds the value in the sorted array; its position, counted from 1, is the rank.', 'lower_bound 在有序数组中找到这个值；它的位置（从 1 数起）就是排名。']],
+  ],
+  input: ['n, then n integers up to 10⁹. Prints each value replaced by its rank among the distinct values (the smallest gets 1; equal values get equal ranks).', 'n，随后 n 个不超过 10⁹ 的整数。把每个数替换成它在所有不同的值中的排名后输出（最小的为 1；相等的数排名相同）。'],
+  sizes: [6, 8, 12], lab: [10, 1000, 100000, 300000],
+  gen(n, r) {
+    const pool = r.ints(Math.max(2, Math.ceil(n * 0.7)), 1, n <= 30 ? 999 : 1000000000)
+    return `${n}\n${span(1, n).map(() => r.pick(pool)).join(' ')}\n`
+  },
+  run(inp, t) {
+    const rd = reader(inp), n = rd.int(), a = rd.ints(n)
+    const b = a.slice().sort((x, y) => x - y)
+    t.tick(Math.ceil(n * Math.log2(Math.max(2, n))))
+    t.s('sort', () => [['Sort a copy of the values.', '把数值复制一份并排序。'], arr('a', a), arr('b (sorted copy)', b)])
+    const u: number[] = []
+    for (const x of b) if (!u.length || u[u.length - 1] !== x) u.push(x)
+    t.s('uniq', () => [[`Remove duplicates: ${u.length} distinct value${u.length === 1 ? '' : 's'} remain. Position k holds the k-th smallest.`, `去重：剩下 ${u.length} 个不同的值。第 k 个位置就是第 k 小的值。`], arr('a', a), arr('b (distinct, sorted)', u, tn({ ok: span(0, u.length - 1) }), undefined, { base: 1 })])
+    const out: number[] = []
+    for (let i = 0; i < n; i++) {
+      let lo = 0, hi = u.length
+      while (lo < hi) { const mid = (lo + hi) >> 1; t.tick(); if (u[mid] >= a[i]) hi = mid; else lo = mid + 1 }
+      out.push(lo + 1)
+      const pos = lo
+      t.s('map', () => [[`a[${i}] = ${a[i]}: binary search finds it at position ${pos + 1} of b, so its rank is ${pos + 1}.`, `a[${i}] = ${a[i]}：二分查找发现它在 b 的第 ${pos + 1} 个位置，所以排名是 ${pos + 1}。`], arr('a', a, tn({ dim: span(0, i - 1), act: i })), arr('b (distinct, sorted)', u, tn({ ok: pos }), undefined, { base: 1 }), arr('ranks', [...out, ...new Array<string>(n - out.length).fill('')], tn({ act: i }))])
+    }
+    t.s('done', () => [[`Values up to ${Math.max(...u)} have become ranks 1 … ${u.length}, and every comparison between two of them is unchanged.`, `最大为 ${Math.max(...u)} 的数值变成了 1 … ${u.length} 的排名，而任意两个数之间的大小关系都没有变。`], arr('a', a), arr('ranks', out, tn({ ok: span(0, n - 1) }))])
+    t.out(out.join(' '))
+  },
+}
+
+export default [binarySearch, prefixSum, difference, fastPow, hanoi, bigAdd, bigMul, baseConv, enumeration, simulation, bigSub, bigDiv, coordCompress]

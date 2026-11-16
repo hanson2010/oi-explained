@@ -77,6 +77,20 @@ describe.each(LESSONS.map(l => [l.id, l] as const))('%s', (id, lesson) => {
     }
   })
 
+  it('asks well-formed questions, if any', () => {
+    for (const n of lesson.sizes) for (let seed = 1; seed <= 6; seed++) {
+      const t = run(id, lesson.gen(n, new Rng(seed)), true)
+      expect(t.steps[0].ask, 'the first step has nothing before it to predict from').toBeUndefined()
+      for (const q of t.steps.flatMap(s => s.ask ?? [])) {
+        expect(q.q[0] && q.q[1], 'question in both languages').toBeTruthy()
+        expect(q.options.length).toBeGreaterThanOrEqual(2)
+        expect(q.options.length).toBeLessThanOrEqual(4)
+        expect(Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length, `answer ${q.answer}`).toBe(true)
+        for (const k of [0, 1] as const) { expect(q.options.every(o => o[k])).toBe(true); expect(new Set(q.options.map(o => o[k])).size, 'options differ').toBe(q.options.length) }
+      }
+    }
+  })
+
   it('runs the data-lab sizes within budget', () => {
     for (const n of lesson.lab) {
       const t0 = performance.now()
@@ -124,6 +138,12 @@ describe.each(LESSONS.map(l => [l.id, l] as const))('%s', (id, lesson) => {
       expect(verdict === true ? '' : `${verdict}\n--- input ---\n${input}\n--- output ---\n${got}`).toBe('')
     }
   })
+})
+
+it('has "predict the next step" questions in the lessons chosen for them', () => {
+  const QUIZ = ['binary-search', 'prefix-sum', 'knapsack', 'kruskal', 'dijkstra', 'kmp', 'dsu', 'monotonic-queue', 'bfs-maze', 'merge-sort']
+  const none = QUIZ.filter(id => { const l = BY_ID.get(id)!; return [1, 2, 3].every(seed => !run(id, l.gen(l.sizes[1], new Rng(seed)), true).steps.some(s => s.ask)) })
+  expect(none).toEqual([])
 })
 
 it('every lesson has an oracle', () => {

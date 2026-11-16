@@ -203,6 +203,12 @@ int main() {
     while (pq.size) {
       const [du, u] = pq.pop()
       if (done[u]) { t.s('stale', () => [[`Pop (${du}, ${u + 1}): vertex ${u + 1} is already settled — skip.`, `弹出 (${du}, ${u + 1})：顶点 ${u + 1} 已确定——跳过。`], ...view(-1, { [u]: 'dim' })]); continue }
+      t.ask(() => {
+        const open = span(0, n - 1).filter(i => !done[i] && d[i] < INF)
+        if (open.length < 2 || open.some(i => i !== u && d[i] === du)) return undefined
+        const pick = [u, ...open.filter(i => i !== u).sort((p, q) => d[p] - d[q]).slice(0, 3)].sort((p, q) => p - q)
+        return [['Which vertex is settled next?', '下一个被确定的是哪个顶点？'], pick.map(i => [`vertex ${i + 1}`, `顶点 ${i + 1}`] as const), pick.indexOf(u)]
+      })
       done[u] = 1
       t.s('settle', () => [[`Pop (${du}, ${u + 1}): the smallest distance, so d[${u + 1}] = ${du} is final.`, `弹出 (${du}, ${u + 1})：距离最小，d[${u + 1}] = ${du} 已确定。`], ...view(u)])
       for (const [v, w, e] of g[u]) if (du + w < d[v]) {
@@ -485,6 +491,7 @@ int main() {
     t.s('sort', () => [[`Sort the ${m} edges by weight.`, `把 ${m} 条边按权值排序。`], graph(pos, ed), list(-1)])
     for (let k = 0; k < m; k++) {
       const [u, v, w] = es[ord[k]], a = find(u), b = find(v)
+      t.ask(() => [[`Edge ${u + 1} – ${v + 1} (${w}) is next. What happens to it?`, `下一条边是 ${u + 1} – ${v + 1}（${w}）。怎么处理它？`], [['Take it: it joins two components', '选中：它连接两个连通块'], ['Skip it: its ends are already connected', '跳过：两端已经连通']], a === b ? 1 : 0])
       if (a === b) { et[ord[k]] = 'dim'; t.s('skip', () => [[`Edge ${u + 1} – ${v + 1} (${w}): both ends are already connected — skip.`, `边 ${u + 1} – ${v + 1}（${w}）：两端已经连通——跳过。`], graph(pos, ed, { tone: comp(), et: { ...et, [ord[k]]: 'bad' }, name: 'colour = component' }), list(k), vars({ total })]); continue }
       fa[a] = b; total += w; taken++; et[ord[k]] = 'ok'
       t.s('take', () => [[`Edge ${u + 1} – ${v + 1} (${w}) joins two components: take it.`, `边 ${u + 1} – ${v + 1}（${w}）连接两个连通块：选中。`], graph(pos, ed, { tone: comp(), et, name: 'colour = component' }), list(k), vars({ total, edges: taken })])
@@ -1379,4 +1386,198 @@ int main() {
   },
 }
 
-export default [gdfs, gbfs, dijkstra, spfa, floyd, prim, kruskal, topo, bipartite, tarjan, cutBridge, lca, diameter, hld, dinic, hungarian]
+/** A random trail: every edge continues from where the last one ended, so the graph can be drawn in one stroke. */
+const genTrail = (n: number, r: Rng) => {
+  const m = n <= 30 ? n + 3 : 2 * n, seen = new Set<number>(), es: [number, number][] = []
+  let u = 0
+  for (let k = 0; k < m; k++) {
+    let v = -1
+    for (let tries = 0; tries < 8 && v < 0; tries++) { const c = r.int(0, n - 1); if (c !== u && !seen.has(Math.min(u, c) * n + Math.max(u, c))) v = c }
+    if (v < 0) break
+    seen.add(Math.min(u, v) * n + Math.max(u, v)); es.push([u, v]); u = v
+  }
+  return fmtGraph(n, es)
+}
+
+const eulerPath: Lesson = {
+  id: 'euler-path', title: ['Euler path (Hierholzer)', '欧拉路径（Hierholzer 算法）'], level: 'S', cat: 'graph', diff: 6,
+  needs: ['graph-dfs'],
+  blurb: ['Draw every edge exactly once without lifting the pen: walk until you are stuck, and record each vertex as you back out of it.', '一笔画过每条边恰好一次：一直走到走不动为止，在退出每个顶点时把它记下来。'],
+  ideas: [
+    ['An Euler path uses every edge exactly once. An Euler circuit also ends where it started.', '欧拉路径经过每条边恰好一次。欧拉回路还要求回到起点。'],
+    ['Each visit to a vertex uses two of its edges, one in and one out. So only the two ends of the path may have odd degree.', '每经过一个顶点一次，就用掉它的两条边：一条进、一条出。所以只有路径的两个端点可以有奇数度。'],
+    ['A connected graph has an Euler circuit if no vertex has odd degree, and an Euler path if exactly two do — start at one of them.', '连通图中，没有奇度顶点就有欧拉回路；恰好有两个奇度顶点就有欧拉路径——从其中一个出发。'],
+    ['Walk along unused edges until none is left at the current vertex. Then write the vertex down and step back.', '沿着没用过的边一直走，直到当前顶点没有可走的边。这时把这个顶点记下来，再退回一步。'],
+    ['The vertices are written in reverse order of the path. Detours found while backing out are spliced in automatically.', '顶点是按路径的逆序记下来的。回退途中发现的绕行路线会自动接进去。'],
+  ],
+  time: 'O(n + m)', space: 'O(n + m)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int n, m, cur[300005];
+vector<pair<int, int>> g[300005];  // (neighbour, edge number)
+bool used[600005];
+vector<int> path;
+
+void dfs(int u) {
+    while (cur[u] < (int)g[u].size()) {
+        auto [v, id] = g[u][cur[u]++];
+        if (used[id]) continue;  //@skip
+        used[id] = true;  //@walk
+        dfs(v);
+    }
+    path.push_back(u);  //@stuck
+}
+
+int main() {
+    scanf("%d%d", &n, &m);
+    for (int i = 0; i < m; i++) {
+        int u, v; scanf("%d%d", &u, &v);
+        g[u].push_back({v, i}); g[v].push_back({u, i});
+    }
+    int start = 0, odd = 0;
+    for (int i = n; i >= 1; i--) if (g[i].size() % 2) { odd++; start = i; }
+    if (!start) for (int i = n; i >= 1; i--) if (!g[i].empty()) start = i;
+    if (odd != 0 && odd != 2) { puts("-1"); return 0; }  //@odd
+    if (start) dfs(start);  //@start
+    if ((int)path.size() != m + 1) { puts("-1"); return 0; }  //@split
+    for (int i = m; i >= 0; i--) printf("%d ", path[i]);  //@done
+}`,
+  notes: [
+    ['skip', ['The edge was already walked from its other end.', '这条边已经从另一端走过了。']],
+    ['walk', ['cur[u] remembers how far the list of u has been read, so no edge is looked at twice from u.', 'cur[u] 记住 u 的邻接表读到了哪里，所以从 u 出发不会把同一条边看两遍。']],
+    ['stuck', ['No unused edge is left at u: u is final. It is recorded on the way back, so the path comes out reversed.', 'u 已经没有没用过的边：u 的位置确定了。它是在回退时记录的，所以得到的路径是倒着的。']],
+    ['odd', ['With one, three or more odd vertices no single stroke can exist.', '奇度顶点的个数是 1、3 或更多时，不可能一笔画成。']],
+    ['split', ['Fewer than m + 1 vertices were recorded: some edges are in another piece of the graph.', '记录下来的顶点不足 m + 1 个：说明有些边在图的另一个连通块里。']],
+  ],
+  input: ['n m, then m lines "u v": an undirected edge. Prints the m + 1 vertices of a walk that uses every edge exactly once, or −1 if there is none.', 'n m，随后 m 行 “u v”：一条无向边。输出一条经过每条边恰好一次的路线上的 m + 1 个顶点，不存在则输出 −1。'],
+  sizes: [5, 6, 7], lab: [10, 1000, 100000, 300000],
+  gen: genTrail,
+  run(inp, t) {
+    const { n, m, es } = readGraph(inp), g = adjOf(n, es), pos = lay(t.on, n, es), ed = toEdges(es)
+    const odd = span(0, n - 1).filter(i => g[i].length % 2 === 1)
+    const used = new Uint8Array(m), cur = new Int32Array(n), path: number[] = [], stack: number[] = []
+    const view = (at: number, last = -1, tone: Tone = 'act') => {
+      const et: Tones = {}
+      for (let i = 0; i < m; i++) if (used[i]) et[i] = 'vis'
+      if (last >= 0) et[last] = 'act'
+      return [graph(pos, ed, { tone: at >= 0 ? { [at]: tone } : {}, et, sub: g.map((x, i) => x.length - Array.from(x).filter(e => used[e[2]]).length), name: 'caption = unused edges at the vertex' }), arr('stack: the walk so far', stack.map(x => x + 1)), arr('path, written backwards', path.map(x => x + 1))] as const
+    }
+    const start = odd.length ? odd[0] : span(0, n - 1).find(i => g[i].length > 0) ?? -1
+    t.s('odd', () => [odd.length === 0 ? ['Every vertex has even degree: an Euler circuit may exist.', '所有顶点的度都是偶数：可能存在欧拉回路。'] : odd.length === 2 ? [`Exactly two vertices have odd degree (${odd[0] + 1} and ${odd[1] + 1}): the path must run from one to the other.`, `恰好有两个奇度顶点（${odd[0] + 1} 和 ${odd[1] + 1}）：路径必须从其中一个走到另一个。`] : [`${odd.length} vertices have odd degree: no Euler path.`, `有 ${odd.length} 个奇度顶点：不存在欧拉路径。`],
+      graph(pos, ed, { tone: tn({ bad: odd }), sub: g.map(x => x.length), name: 'caption = degree' })])
+    if (odd.length !== 0 && odd.length !== 2) { t.out(-1); return }
+    if (start >= 0) {
+      stack.push(start)
+      t.s('start', () => [[`Start at vertex ${start + 1}.`, `从顶点 ${start + 1} 出发。`], ...view(start)])
+      while (stack.length) {
+        const u = stack[stack.length - 1]
+        let moved = false
+        while (cur[u] < g[u].length) {
+          const [v, , id] = g[u][cur[u]++]
+          if (used[id]) { t.tick(); continue }
+          used[id] = 1; stack.push(v); moved = true
+          t.s('walk', () => [[`Walk the edge ${u + 1} – ${v + 1} and mark it used.`, `走过边 ${u + 1} – ${v + 1}，并把它标记为已用。`], ...view(v, id)])
+          break
+        }
+        if (moved) continue
+        stack.pop(); path.push(u)
+        t.s('stuck', () => [[`No unused edge at ${u + 1}: write it down and step back.`, `顶点 ${u + 1} 已经没有没用过的边：把它记下来，退回一步。`], ...view(u, -1, 'ok')])
+      }
+    }
+    if (path.length !== m + 1) {
+      t.s('split', () => [[`Only ${Math.max(0, path.length - 1)} of the ${m} edges were reached: the rest are in another part of the graph. No Euler path.`, `${m} 条边中只走到了 ${Math.max(0, path.length - 1)} 条：其余的边在图的另一部分。不存在欧拉路径。`], ...view(-1)])
+      t.out(-1); return
+    }
+    const res = path.slice().reverse().map(x => x + 1)
+    t.s('done', () => [[`Read backwards: ${res.length > 16 ? res.slice(0, 16).join(' → ') + ' …' : res.join(' → ')}.`, `倒过来读：${res.length > 16 ? res.slice(0, 16).join(' → ') + ' …' : res.join(' → ')}。`], graph(pos, ed, { et: Object.fromEntries(es.map((_, i) => [i, 'ok' as Tone])) }), arr('Euler path', res.slice(0, 24), tn({ ok: span(0, Math.min(23, res.length - 1)) }))])
+    t.out(res.join(' '))
+  },
+}
+
+const secondShortest: Lesson = {
+  id: 'second-shortest', title: ['Second-shortest path', '次短路'], level: 'S', cat: 'graph', diff: 7,
+  needs: ['dijkstra'],
+  blurb: ['Dijkstra with two distances per vertex: the shortest, and the shortest that is strictly longer.', '给每个顶点保存两个距离的 Dijkstra：最短的，以及严格更长的那些里最短的。'],
+  ideas: [
+    ['The second-shortest path to v ends with some edge u → v, and its part up to u is either a shortest or a second-shortest path to u.', '到 v 的次短路以某条边 u → v 结尾，而它到 u 的那一段，要么是到 u 的最短路，要么是到 u 的次短路。'],
+    ['So keep d1[v] and d2[v], and put both kinds of distance into the heap.', '所以为每个顶点保存 d1[v] 和 d2[v]，并把这两种距离都放进堆里。'],
+    ['A new distance below d1 becomes d1, and the old d1 is demoted: it is a candidate for d2.', '比 d1 更小的新距离成为新的 d1，原来的 d1 被“降级”：它成为 d2 的候选。'],
+    ['A new distance strictly between d1 and d2 becomes d2.', '严格介于 d1 和 d2 之间的新距离成为新的 d2。'],
+    ['A popped entry is useless only if it is larger than d2 of its vertex — not d1, as in plain Dijkstra.', '从堆里取出的距离只有在大于该顶点的 d2 时才作废——而不像普通 Dijkstra 那样与 d1 比较。'],
+  ],
+  time: 'O(m log m)', space: 'O(n + m)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+typedef pair<long long, int> P;
+int n, m;
+vector<pair<int, int>> g[300005];
+long long d1[300005], d2[300005];
+
+int main() {
+    scanf("%d%d", &n, &m);
+    for (int i = 0; i < m; i++) {
+        int u, v, w; scanf("%d%d%d", &u, &v, &w);
+        g[u].push_back({v, w}); g[v].push_back({u, w});
+    }
+    memset(d1, 0x3f, sizeof d1); memset(d2, 0x3f, sizeof d2);
+    priority_queue<P, vector<P>, greater<P>> pq;
+    d1[1] = 0; pq.push({0, 1});  //@init
+    while (!pq.empty()) {
+        auto [du, u] = pq.top(); pq.pop();
+        if (du > d2[u]) continue;  //@stale
+        for (auto [v, w] : g[u]) {  //@pop
+            long long nd = du + w;
+            if (nd < d1[v]) { swap(nd, d1[v]); pq.push({d1[v], v}); }  //@first
+            if (nd > d1[v] && nd < d2[v]) { d2[v] = nd; pq.push({d2[v], v}); }  //@second
+        }
+    }
+    printf("%lld\n", d2[n] > 1e18 ? -1 : d2[n]);  //@done
+}`,
+  notes: [
+    ['stale', ['du may equal d1[u] or d2[u]: both must be expanded. Anything larger is out of date.', 'du 可能等于 d1[u] 或 d2[u]：这两种都要扩展。比它们都大的就是过时的。']],
+    ['first', ['After the swap, nd holds the old d1[v] and falls through to the next test.', '交换之后，nd 里是原来的 d1[v]，接着进入下一个判断。']],
+    ['second', ['nd > d1[v] makes the second distance strictly longer than the first.', 'nd > d1[v] 保证了次短距离严格大于最短距离。']],
+  ],
+  input: ['n m, then m lines "u v w": an undirected edge of weight w ≥ 1. Prints the length of the shortest walk from 1 to n that is strictly longer than the shortest path (roads may be used more than once), or −1.', 'n m，随后 m 行 “u v w”：一条权值为 w（≥ 1）的无向边。输出从 1 到 n 的、严格长于最短路的最短路线的长度（道路可以重复经过），不存在则输出 −1。'],
+  sizes: [5, 6, 8], lab: [10, 1000, 100000, 200000],
+  gen: genW,
+  run(inp, t) {
+    const { n, es } = readGraph(inp, true), g = adjOf(n, es), pos = lay(t.on, n, es), ed = toEdges(es, true)
+    for (const e of es) need(e[2] >= 0, 'Weights must not be negative.', '边权不能为负。')
+    const d1 = new Array<number>(n).fill(INF), d2 = new Array<number>(n).fill(INF)
+    const pq = new Heap<[number, number]>((a, b) => a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]))
+    const view = (cur: number, hi: Tones = {}, ehi: Tones = {}) => {
+      const tone: Tones = {}
+      for (let i = 0; i < n; i++) if (d2[i] < INF) tone[i] = 'ok'; else if (d1[i] < INF) tone[i] = 'cmp'
+      if (cur >= 0) tone[cur] = 'act'
+      return [graph(pos, ed, { tone: { ...tone, ...hi }, et: ehi, sub: d1.map((x, i) => `${inf(x)} / ${inf(d2[i])}`), name: 'caption = d1 / d2' }), arr('heap (distance:vertex)', pq.a.slice().sort((a, b) => a[0] - b[0]).slice(0, 12).map(x => `${x[0]}:${x[1] + 1}`))] as const
+    }
+    d1[0] = 0; pq.push([0, 0])
+    t.s('init', () => [['d1[1] = 0. Every other distance, and every second distance, is ∞.', 'd1[1] = 0。其余的最短距离和所有的次短距离都是 ∞。'], ...view(-1)])
+    while (pq.size) {
+      const [du, u] = pq.pop()
+      if (du > d2[u]) { t.s('stale', () => [[`Pop (${du}, ${u + 1}): larger than d2[${u + 1}] = ${d2[u]}, out of date — skip.`, `弹出 (${du}, ${u + 1})：比 d2[${u + 1}] = ${d2[u]} 还大，已经过时——跳过。`], ...view(-1, { [u]: 'dim' })]); continue }
+      t.s('pop', () => [[`Pop (${du}, ${u + 1}): a ${du === d1[u] ? 'shortest' : 'second-shortest'} distance of vertex ${u + 1}. Extend it along every edge.`, `弹出 (${du}, ${u + 1})：这是顶点 ${u + 1} 的${du === d1[u] ? '最短' : '次短'}距离。沿每条边继续延伸。`], ...view(u)])
+      for (const [v, w, e] of g[u]) {
+        let nd = du + w
+        if (nd < d1[v]) {
+          const old = d1[v]
+          d1[v] = nd; nd = old; pq.push([d1[v], v])
+          t.s('first', () => [[`${u + 1} → ${v + 1}: ${du} + ${w} = ${d1[v]} beats d1[${v + 1}] = ${inf(old)}. The old value ${old < INF ? 'now competes for d2' : 'was ∞'}.`, `${u + 1} → ${v + 1}：${du} + ${w} = ${d1[v]}，比 d1[${v + 1}] = ${inf(old)} 更小。原来的值${old < INF ? '转而去竞争 d2' : '是 ∞'}。`], ...view(u, { [v]: 'alt' }, { [e]: 'act' })])
+        }
+        if (nd > d1[v] && nd < d2[v]) {
+          const old = d2[v], val = nd
+          d2[v] = nd; pq.push([d2[v], v])
+          t.s('second', () => [[`${val} is longer than d1[${v + 1}] = ${d1[v]} and shorter than d2[${v + 1}] = ${inf(old)}: it becomes the second distance.`, `${val} 比 d1[${v + 1}] = ${d1[v]} 长，比 d2[${v + 1}] = ${inf(old)} 短：它成为新的次短距离。`], ...view(u, { [v]: 'alt' }, { [e]: 'act' })])
+        }
+      }
+    }
+    const ans = d2[n - 1] >= INF ? -1 : d2[n - 1]
+    t.s('done', () => [ans < 0 ? [`d2[${n}] is still ∞: there is no second route.`, `d2[${n}] 仍然是 ∞：不存在第二条路线。`] : [`Shortest: ${d1[n - 1]}. Second-shortest: ${ans}.`, `最短路：${d1[n - 1]}。次短路：${ans}。`], ...view(-1, { [n - 1]: 'ok' })])
+    t.out(ans)
+  },
+}
+
+export default [gdfs, gbfs, dijkstra, spfa, floyd, prim, kruskal, topo, bipartite, tarjan, cutBridge, lca, diameter, hld, dinic, hungarian, eulerPath, secondShortest]

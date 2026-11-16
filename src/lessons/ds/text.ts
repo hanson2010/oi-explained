@@ -130,6 +130,16 @@ export const TEXT: Record<string, Prose> = {
       ['A linked list cannot jump to the k-th element: that costs k steps. Use an array when you need positions.', '链表无法直接跳到第 k 个元素：那需要走 k 步。需要按位置访问时应使用数组。'],
     ],
   },
+  'sweep-line': {
+    problem: ['n rectangles with sides parallel to the axes are drawn on a plane; they may overlap. What is the total area they cover?', '平面上画有 n 个边与坐标轴平行的矩形，它们可以互相重叠。它们一共覆盖了多大的面积？'],
+    why: ['Adding the areas counts overlaps twice, and correcting for every pair, triple and so on is hopeless. Instead, turn the two-dimensional question into a sequence of one-dimensional ones. Imagine a vertical line sliding from left to right. At any moment it cuts the rectangles in some set of y-intervals, and the total length of those intervals is the "covered height". That height changes only when the line reaches a left edge, where a rectangle starts, or a right edge, where one ends. Between two consecutive such events the picture under the line is constant, so the area of that strip is exactly the covered height times the width of the strip. The program therefore sorts the edges by x and processes them in order: first it adds the area of the strip that has just been crossed, then it updates the cover. The cover is stored as a count per elementary y-interval — the pieces between neighbouring y-coordinates after compression — because a rectangle always covers a whole number of those pieces. A left edge adds one to its pieces, a right edge takes one away, and a piece counts as covered while its number is positive.', '把面积直接相加会把重叠部分算两次，而要逐一修正每两个、每三个矩形的重叠是没有指望的。换个办法：把二维的问题变成一连串一维的问题。想象一条竖直线从左向右滑动。任何时刻，它被矩形截出若干段 y 区间，这些区间的总长度就是“被覆盖的高度”。这个高度只有在线到达某个矩形的左边（矩形开始）或右边（矩形结束）时才会改变。在相邻两个这样的事件之间，线下面的情况保持不变，所以这一条带的面积恰好是 被覆盖的高度 × 带的宽度。于是程序把所有的边按 x 排序并依次处理：先加上刚刚扫过的那条带的面积，再更新覆盖情况。覆盖情况按“小区间”保存——也就是离散化之后相邻两个 y 坐标之间的那些段——因为一个矩形覆盖的总是整数个这样的段。左边让它的那些段加一，右边让它们减一，计数为正的段就是被覆盖的。'],
+    pitfalls: [
+      ['Updating the counts before adding the strip uses the new cover for the old strip. Add the area first.', '先更新覆盖次数、再累加面积，就会用新的覆盖情况去算旧的那条带。要先加面积。'],
+      ['cnt belongs to intervals, not to points: k coordinates give k − 1 intervals, and the range [lo, hi) leaves hi out.', 'cnt 对应的是区间而不是点：k 个坐标只有 k − 1 个区间，范围 [lo, hi) 不包含 hi。'],
+      ['The area can exceed int: 10⁶ × 10⁶ = 10¹². Use long long.', '面积可能超出 int：10⁶ × 10⁶ = 10¹²。要用 long long。'],
+      ['Recomputing the covered height in a loop costs O(n) per event. For n = 10⁵ rectangles, keep the counts in a segment tree that stores the covered length of each node.', '每个事件都用循环重新计算被覆盖的高度，代价是 O(n)。n = 10⁵ 个矩形时，要用线段树维护覆盖次数，并在每个结点保存被覆盖的长度。'],
+    ],
+  },
 }
 
 /** Where each problem shows up outside contests, shown on the Problem tab. Same inline markup as the Ideas story. */
@@ -148,4 +158,5 @@ export const REAL: Record<string, L> = {
   'sqrt-decomposition': ['A big library does not keep one endless shelf: books are grouped into **sections**. To count something across a range you take whole sections by their summary and look at single books only at the two ends.', '大图书馆不会只有一个无限长的书架：书被分到一个个**分区**里。要统计一个范围内的东西，中间的整块分区直接用汇总结果，只有两端才需要一本一本地看。'],
   'leftist-heap': ['Two hospitals **merge their waiting lists**, or two task queues are combined when a server goes offline. An ordinary binary heap would have to be rebuilt; a leftist heap merges in logarithmic time.', '两家医院**合并候诊名单**，或者一台服务器下线时把它的任务队列并入另一台。普通的二叉堆只能重建，左偏树可以在对数时间内合并。'],
   'linked-list': ['The **undo history** of an editor and the list of open tabs in a browser are linked lists: items are inserted and removed in the middle all the time, and nobody asks for "item number 3 172". A music player\'s "play next" is one insertion after the current song.', '编辑器的**撤销记录**和浏览器的标签页列表都是链表：元素随时在中间插入和删除，没有人会去问“第 3 172 项”是什么。音乐播放器的“下一首播放”就是在当前歌曲后面做一次插入。'],
+  'sweep-line': ['A **chip designer** must know how much of the silicon is covered by metal, and a mapping service how much land a set of overlapping satellite photos shows. Both are unions of millions of rectangles, and both are computed by sweeping a line across them. A flatbed scanner works the same way: one line at a time.', '**芯片设计者**要知道硅片上有多大面积被金属覆盖，地图服务要知道一批互相重叠的卫星照片一共拍到了多大的地面。这两者都是上百万个矩形的并集，都是让一条线扫过它们来计算的。平板扫描仪的工作方式也一样：一次只看一条线。'],
 }

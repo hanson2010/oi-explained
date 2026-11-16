@@ -150,6 +150,26 @@ export const TEXT: Record<string, Prose> = {
       ['It is O(n · m); for very large graphs use Hopcroft–Karp or a flow algorithm.', '复杂度是 O(n · m)；图非常大时应使用 Hopcroft–Karp 或网络流。'],
     ],
   },
+  'euler-path': {
+    problem: ['Can a drawing made of points and lines be traced in one stroke, going over every line exactly once? If so, give the order in which the points are visited.', '一幅由点和线组成的图，能不能一笔画成，每条线恰好经过一次？如果能，给出经过各个点的顺序。'],
+    why: ['Whether a single stroke exists is decided by counting. Passing through a vertex uses two of its edges, one to arrive and one to leave, so every vertex except the first and the last of the walk must have even degree. A connected graph therefore has such a walk exactly when it has zero odd vertices (the walk is a closed circuit) or two (it runs from one to the other). Finding the walk is the subtle part. Simply walking along unused edges gets stuck too early: you return to a vertex with no free edge while other parts of the graph are still untouched. Hierholzer\'s method fixes this without ever searching again. Walk as far as possible; when stuck at a vertex, write it down and step back along the walk. On the way back, any vertex that still has a free edge sets off on a new side tour, which must eventually return to it. Because vertices are written down only when they are completely finished, each side tour is recorded in exactly the right place, and the list, read backwards, is the Euler path.', '能否一笔画成，数一数就知道。经过一个顶点一次要用掉它的两条边，一条进、一条出，所以除了路线的起点和终点，每个顶点的度都必须是偶数。因此一个连通图存在这样的路线，当且仅当奇度顶点有 0 个（路线是一个回路）或 2 个（从其中一个走到另一个）。真正微妙的是把路线找出来。只是沿着没用过的边往前走，会过早地卡住：你回到一个已经没有空闲边的顶点，而图的其他部分还没有走到。Hierholzer 的方法不需要重新搜索就解决了这个问题。尽量往前走；在某个顶点卡住时，把它记下来，沿着来路退回一步。回退途中，只要某个顶点还有空闲的边，就从它出发走一段新的支线，这段支线最终一定会回到它。由于顶点只在彻底走完时才被记下，每段支线都恰好记录在正确的位置，把这个列表倒过来读就是欧拉路径。'],
+    pitfalls: [
+      ['Checking degrees is not enough: the edges must also be connected. Compare the length of the result with m + 1.', '只检查度数是不够的：所有的边还必须连通。要把结果的长度与 m + 1 比较。'],
+      ['With two odd vertices, the walk must start at one of them. Starting anywhere else gets stuck for good.', '有两个奇度顶点时，必须从其中一个出发。从别处出发会彻底卡住。'],
+      ['Re-scanning the whole adjacency list of a vertex on every visit makes the method quadratic. Keep a position cur[u] per vertex.', '每次到达一个顶点都把它的邻接表从头扫一遍，会让算法退化成平方级。要为每个顶点记录读到的位置 cur[u]。'],
+      ['An undirected edge sits in two adjacency lists. Mark it by its edge number, or it will be walked twice.', '一条无向边同时在两个邻接表里。要按边的编号标记，否则它会被走两遍。'],
+    ],
+  },
+  'second-shortest': {
+    problem: ['Roads connect n junctions. Find the length of the shortest route from junction 1 to junction n that is strictly longer than the shortest one. A route may use a road more than once.', '有 n 个路口，由若干条道路相连。求从路口 1 到路口 n 的路线中，严格长于最短路的那些里最短的一条的长度。同一条道路可以经过多次。'],
+    why: ['Dijkstra\'s algorithm keeps one number per vertex, and that is one too few here. Think about where the second-shortest route to v comes from: it reaches some neighbour u and then takes the edge u → v. Its part up to u need not be shortest — but it is either a shortest or a second-shortest route to u, because any longer route to u could be replaced by a better one and still give a valid, shorter candidate. So two numbers per vertex are enough: d1, the shortest distance, and d2, the smallest distance strictly greater than d1. Both kinds go into the heap, and both are extended along the edges when they are popped. A new candidate that beats d1 takes its place, and the value it pushed out is not thrown away: it may be the new d2. A candidate strictly between d1 and d2 becomes d2. The heap still hands out distances in increasing order, so each of the two values of a vertex is final when it is popped.', 'Dijkstra 算法为每个顶点保存一个数，在这里少了一个。想想到 v 的次短路线是怎么来的：它先到达某个邻居 u，再走边 u → v。它到 u 的那一段不一定是最短的——但一定是到 u 的最短路或次短路，因为如果到 u 的那一段更长，就可以换成更好的一段，仍然得到一条合法且更短的候选路线。所以每个顶点保存两个数就够了：d1 是最短距离，d2 是严格大于 d1 的距离中最小的。这两种距离都要放进堆里，取出时都要沿着边继续延伸。一个新的候选值如果比 d1 小，就取代 d1，而被挤掉的那个值并不丢弃：它可能成为新的 d2。严格介于 d1 和 d2 之间的候选值则成为 d2。堆仍然按从小到大的顺序交出距离，所以一个顶点的两个值在被取出时就已经确定了。'],
+    pitfalls: [
+      ['Skipping a popped entry when du > d1[u], as in plain Dijkstra, throws away every second-shortest distance.', '像普通 Dijkstra 那样在 du > d1[u] 时跳过，会把所有的次短距离都丢掉。'],
+      ['When d1 improves, the old d1 must be offered to d2. Forgetting this loses the answer whenever the two best routes arrive in the "wrong" order.', 'd1 被更新时，原来的 d1 必须交给 d2 去比较。忘了这一点，只要两条最好的路线到达的先后顺序“不巧”，答案就会丢失。'],
+      ['Decide whether "second" means strictly longer. If equal lengths count, the test nd > d1[v] must become nd >= d1[v] — and the counting changes.', '要想清楚“次短”是否要求严格更长。如果长度相等也算，判断 nd > d1[v] 就得改成 nd >= d1[v]——含义也随之改变。'],
+      ['Here a route may repeat roads. If every vertex may be used only once, the problem is much harder and this method does not apply.', '这里的路线可以重复经过道路。如果要求每个顶点只能经过一次，问题就难得多，这个方法不再适用。'],
+    ],
+  },
 }
 
 /** Where each problem shows up outside contests, shown on the Problem tab. Same inline markup as the Ideas story. */
@@ -170,4 +190,6 @@ export const REAL: Record<string, L> = {
   hld: ['A tree-shaped **road or pipe network** where you repeatedly ask for the total toll, or raise the price, along the route between two towns. Cutting the tree into chains turns each route into a few array ranges.', '树形的**公路网或管网**，需要反复询问两个城镇之间路线上的总收费，或者给沿途统一涨价。把树剖成若干条链之后，每条路线就变成了数组上的几段区间。'],
   dinic: ['How many **cars per hour** can get from the city centre to the airport when every road has a capacity? The same model sizes pipelines and data networks, and schedules airline crews.', '每条道路都有通行能力，每小时最多能有多少**车辆**从市中心开到机场？同样的模型也用来设计输油管道和数据网络，以及给航班安排机组。'],
   hungarian: ['Assigning **workers to jobs** each is qualified for, students to dormitory rooms, or drivers to ride requests, so that as many as possible are matched.', '把**工人分配到**各自能胜任的岗位，把学生分配到宿舍，把司机分配给乘车请求，并让匹配成功的数量尽可能多。'],
+  'euler-path': ['A **snow plough** or a postal worker should cover every street of a district once and not twice. City planners use exactly this test — count the junctions where an odd number of streets meet — and add as few repeated streets as possible to make the tour work.', '**扫雪车**或邮递员应当把一个街区的每条街道走一遍，而不是两遍。城市规划者用的正是这个判别法——数一数有奇数条街道交汇的路口——然后补上尽量少的重复路段，使整条路线可行。'],
+  'second-shortest': ['A **navigation app** offers "alternative route: 4 minutes longer". The best route may be jammed or closed, so it also computes the next best — and a data network does the same to have a backup path ready when a cable fails.', '**导航软件**会提示“备选路线：多 4 分钟”。最佳路线可能堵车或封路，所以它还要算出次优的路线——数据网络也是如此，以便在线路故障时有备用路径可用。'],
 }

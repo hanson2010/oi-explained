@@ -275,6 +275,7 @@ int main() {
       ] as const
       while (i <= mid && j <= r) {
         const left = a[i] <= a[j], pick = left ? i : j
+        if (k === l) t.ask(() => [[`Merging: the fronts are ${a[i]} (left run) and ${a[j]} (right run). Which is taken?`, `归并：两段的队首分别是 ${a[i]}（左段）和 ${a[j]}（右段）。取哪一个？`], [[`${a[i]} from the left`, `左段的 ${a[i]}`], [`${a[j]} from the right`, `右段的 ${a[j]}`]], left ? 0 : 1])
         tmp[k] = a[pick]
         t.s('take', () => [[`${a[i]} ${left ? '≤' : '>'} ${a[j]}: take ${a[pick]} from the ${left ? 'left' : 'right'} run.`, `${a[i]} ${left ? '≤' : '>'} ${a[j]}：从${left ? '左' : '右'}段取出 ${a[pick]}。`], ...view(pick)])
         if (left) i++; else j++

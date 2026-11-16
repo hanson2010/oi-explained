@@ -254,7 +254,7 @@ export const SYLLABUS: SylLevel[] = [
         g('常见图', 'Common graphs', [
           [5, '稀疏图', 'Sparse graphs', ['graph-dfs']],
           [6, '偶图（二分图）', 'Bipartite graphs', ['bipartite']],
-          [6, '欧拉图', 'Eulerian graphs', 'planned'],
+          [6, '欧拉图', 'Eulerian graphs', ['euler-path']],
           [6, '有向无环图', 'Directed acyclic graphs', ['topo-sort']],
           [7, '连通图与强连通图', 'Connected and strongly connected graphs', ['tarjan-scc']],
           [7, '双连通图', 'Biconnected graphs', ['cut-bridge']],
@@ -271,8 +271,8 @@ export const SYLLABUS: SylLevel[] = [
           [6, '空间复杂度分析', 'Space complexity analysis', ['knapsack', 'floyd']],
         ]),
         g('算法策略', 'Algorithmic techniques', [
-          [6, '离散化', 'Coordinate compression', 'planned'],
-          [7, '扫描线', 'Sweep line', 'planned'],
+          [6, '离散化', 'Coordinate compression', ['coord-compress']],
+          [7, '扫描线', 'Sweep line', ['sweep-line']],
         ]),
         g('基础算法', 'Basic algorithms', [
           [6, '分治算法', 'Divide and conquer', ['merge-sort']],
@@ -290,18 +290,18 @@ export const SYLLABUS: SylLevel[] = [
         ]),
         g('搜索算法', 'Search', [
           [6, '搜索的剪枝优化', 'Pruning', ['n-queens']],
-          [6, '记忆化搜索', 'Memoised search', 'planned'],
+          [6, '记忆化搜索', 'Memoised search', ['memo-search']],
           [7, '启发式搜索', 'Heuristic search', ['a-star']],
-          [7, '双向广度优先搜索', 'Bidirectional BFS', 'planned'],
-          [7, '迭代加深搜索', 'Iterative deepening', 'planned'],
+          [7, '双向广度优先搜索', 'Bidirectional BFS', ['bidir-bfs']],
+          [7, '迭代加深搜索', 'Iterative deepening', ['iddfs']],
         ]),
         g('图论算法', 'Graph algorithms', [
           [6, '最小生成树：Prim和Kruskal等算法', 'Minimum spanning tree: Prim, Kruskal', ['prim', 'kruskal']],
           [6, '单源最短路：Bellman-Ford、Dijkstra、SPFA等算法', 'Single-source shortest paths: Bellman-Ford, Dijkstra, SPFA', ['dijkstra', 'spfa']],
-          [7, '单源次短路', 'Second-shortest path', 'planned'],
+          [7, '单源次短路', 'Second-shortest path', ['second-shortest']],
           [6, 'Floyd-Warshall算法', 'Floyd-Warshall', ['floyd']],
           [6, '有向无环图的拓扑排序', 'Topological sort of a DAG', ['topo-sort']],
-          [6, '欧拉道路和欧拉回路', 'Euler paths and circuits', 'planned'],
+          [6, '欧拉道路和欧拉回路', 'Euler paths and circuits', ['euler-path']],
           [6, '二分图的判定', 'Testing bipartiteness', ['bipartite']],
           [7, '强连通分量', 'Strongly connected components', ['tarjan-scc']],
           [7, '割点、割边', 'Cut vertices and bridges', ['cut-bridge']],

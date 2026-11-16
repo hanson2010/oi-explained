@@ -362,6 +362,12 @@ int main() {
       arr('deque (indices; front on the left)', q.length > h ? q.slice(h) : ['—']), arr('output', out.length ? out : ['—']),
     ] as const
     for (let i = 0; i < n; i++) {
+      if (i % 2 === 1) t.ask(() => {
+        const lo = q.length > h && q[h] <= i - k ? h + 1 : h
+        let c = 0
+        while (q.length - c > lo && a[q[q.length - 1 - c]] <= a[i]) c++
+        return c > 3 ? undefined : [[`a[${i}] = ${a[i]} arrives. How many indices are popped from the back of the deque first?`, `a[${i}] = ${a[i]} 到来。在它入队之前，要从队尾弹出几个下标？`], [0, 1, 2, 3].map(x => [String(x), String(x)] as const), c]
+      })
       if (q.length > h && q[h] <= i - k) { const x = q[h++]; t.s('expire', () => [[`Index ${x} has left the window: pop the front.`, `下标 ${x} 已滑出窗口：弹出队首。`], ...view(i, { [x]: 'bad' })]) }
       while (q.length > h && a[q[q.length - 1]] <= a[i]) { const x = q.pop()!; t.s('popback', () => [[`a[${x}] = ${a[x]} ≤ a[${i}] = ${a[i]}: it can never be a maximum again, pop the back.`, `a[${x}] = ${a[x]} ≤ a[${i}] = ${a[i]}：它不可能再成为最大值，弹出队尾。`], ...view(i, { [x]: 'bad', [i]: 'act' })]) }
       q.push(i)
@@ -501,6 +507,7 @@ int main() {
     for (let i = 0; i < m; i++) {
       const op = rd.int(), x = rd.int(), y = rd.int()
       need((op === 1 || op === 2) && x >= 1 && x <= n && y >= 1 && y <= n, `Operation ${i + 1} is invalid.`, `第 ${i + 1} 个操作不合法。`)
+      if (op === 2) t.ask(() => { const root = (v: number) => { while (fa[v] !== v) v = fa[v]; return v }; return [[`Query: are ${x} and ${y} in the same set?`, `询问：${x} 和 ${y} 在同一个集合里吗？`], [['Y', 'Y'], ['N', 'N']], root(x) === root(y) ? 0 : 1] })
       const a = find(x), b = find(y)
       if (op === 1) {
         fa[a] = b
@@ -1177,4 +1184,104 @@ int main() {
   },
 }
 
-export default [stack, traversal, huffman, bst, monoQueue, sparse, dsu, fenwick, segtree, trie, treap, sqrtDec, leftist, linkedList]
+const sweepLine: Lesson = {
+  id: 'sweep-line', title: ['Sweep line: area of a union of rectangles', '扫描线：矩形面积并'], level: 'S', cat: 'ds', diff: 7,
+  needs: ['coord-compress', 'difference'],
+  blurb: ['Move a vertical line across the plane. Between two rectangle edges nothing changes, so each strip is simply width × covered height.', '让一条竖直线扫过平面。在两条矩形边之间什么都不会变，所以每一条带的面积就是 宽度 × 被覆盖的高度。'],
+  ideas: [
+    ['Overlapping rectangles must not be counted twice, so adding up their areas is wrong.', '重叠的部分不能算两次，所以把各个矩形的面积直接相加是错的。'],
+    ['Sweep a vertical line from left to right. What it cuts changes only at a left or right edge of a rectangle: these are the events.', '让一条竖直线从左向右扫。它切到的东西只会在矩形的左边或右边处发生变化：这些位置就是“事件”。'],
+    ['A left edge adds 1 to the cover count of its y-range, a right edge subtracts 1 — a difference array over y.', '左边让它所在的 y 区间的覆盖次数加 1，右边让它减 1——这是 y 方向上的差分思想。'],
+    ['Compress the y-coordinates, so the count is kept per elementary interval between two neighbouring y-values.', '把 y 坐标离散化，这样覆盖次数就按相邻两个 y 值之间的小区间来保存。'],
+    ['Before each event, add (covered height) × (distance since the last event) to the area.', '处理每个事件之前，把 （被覆盖的高度）×（到上一个事件的距离）加到面积里。'],
+  ],
+  time: 'O(n²)', space: 'O(n)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+struct Event { int x, lo, hi, type; };  // at x, the y-range [lo, hi) gains (+1) or loses (-1) a rectangle
+int n, cnt[6005];
+vector<int> ys;
+vector<Event> ev;
+
+int main() {
+    scanf("%d", &n);
+    for (int i = 0; i < n; i++) {
+        int x1, y1, x2, y2; scanf("%d%d%d%d", &x1, &y1, &x2, &y2);
+        ev.push_back({x1, y1, y2, 1}); ev.push_back({x2, y1, y2, -1});
+        ys.push_back(y1); ys.push_back(y2);
+    }
+    sort(ys.begin(), ys.end());
+    ys.erase(unique(ys.begin(), ys.end()), ys.end());  //@ys
+    sort(ev.begin(), ev.end(), [](const Event& a, const Event& b) { return a.x < b.x; });  //@sort
+    long long area = 0;
+    int last = 0;
+    for (const Event& e : ev) {
+        long long len = 0;
+        for (size_t k = 0; k + 1 < ys.size(); k++)
+            if (cnt[k] > 0) len += ys[k + 1] - ys[k];
+        area += len * (e.x - last);  //@strip
+        last = e.x;
+        int lo = lower_bound(ys.begin(), ys.end(), e.lo) - ys.begin();
+        int hi = lower_bound(ys.begin(), ys.end(), e.hi) - ys.begin();
+        for (int k = lo; k < hi; k++) cnt[k] += e.type;  //@apply
+    }
+    printf("%lld\n", area);  //@done
+}`,
+  notes: [
+    ['ys', ['cnt[k] belongs to the interval from ys[k] to ys[k + 1].', 'cnt[k] 对应从 ys[k] 到 ys[k + 1] 的这一段。']],
+    ['sort', ['Events are handled from left to right.', '事件按从左到右的顺序处理。']],
+    ['strip', ['Between the previous event and this one the covered height did not change.', '在上一个事件和这个事件之间，被覆盖的高度没有变化。']],
+    ['apply', ['A rectangle covers whole elementary intervals, so its y-range is a range of indices.', '一个矩形覆盖的总是若干个完整的小区间，所以它的 y 范围对应一段连续的下标。']],
+  ],
+  input: ['n (≤ 3000), then n lines "x1 y1 x2 y2": the lower-left and upper-right corner of a rectangle with sides parallel to the axes. Prints the area covered by at least one rectangle.', 'n（≤ 3000），随后 n 行 “x1 y1 x2 y2”：一个边与坐标轴平行的矩形的左下角和右上角。输出至少被一个矩形覆盖的面积。'],
+  sizes: [2, 3, 4], lab: [10, 100, 1000, 3000],
+  gen(n, r) {
+    const top = n <= 30 ? 8 : 1000000
+    const side = () => { const a = r.int(0, top - 1), b = Math.min(top, a + r.int(1, n <= 30 ? 4 : top >> 2)); return [a, b] }
+    return `${n}\n` + span(1, n).map(() => { const [x1, x2] = side(), [y1, y2] = side(); return `${x1} ${y1} ${x2} ${y2}` }).join('\n') + '\n'
+  },
+  run(inp, t) {
+    const rd = reader(inp), n = rd.int()
+    need(Number.isInteger(n) && n >= 1 && n <= 3000, 'n must be between 1 and 3,000.', 'n 须在 1 到 3,000 之间。')
+    const rects = span(1, n).map(() => rd.ints(4))
+    for (const [x1, y1, x2, y2] of rects) need(x1 < x2 && y1 < y2 && x1 >= 0 && y1 >= 0, 'Each rectangle needs 0 ≤ x1 < x2 and 0 ≤ y1 < y2.', '每个矩形须满足 0 ≤ x1 < x2 且 0 ≤ y1 < y2。')
+    const ys = [...new Set(rects.flatMap(q => [q[1], q[3]]))].sort((a, b) => a - b), K = ys.length - 1
+    const ev = rects.flatMap(([x1, y1, x2, y2]) => [{ x: x1, lo: y1, hi: y2, type: 1 }, { x: x2, lo: y1, hi: y2, type: -1 }]).sort((a, b) => a.x - b.x)
+    const cnt = new Int32Array(Math.max(1, K)), X = Math.max(...rects.map(q => q[2])), Y = ys[K], small = X <= 14 && Y <= 14
+    t.tick(Math.ceil(2 * n * Math.log2(2 * n)))
+    // The plane as a grid of unit squares (small data only): row 0 is the top.
+    const plane = (from: number, to: number) => {
+      if (!small) return false
+      const tones: Record<string, Tone> = {}
+      const cells = span(0, Y - 1).map(row => span(0, X - 1).map(x => {
+        const y = Y - 1 - row, c = rects.filter(q => q[0] <= x && x < q[2] && q[1] <= y && y < q[3]).length
+        if (c) tones[row + ',' + x] = x < from ? 'ok' : x < to ? 'act' : 'vis'
+        return c || ''
+      }))
+      return grid('the plane: number of rectangles on each unit square', cells, tones, { sq: true, rows: span(0, Y - 1).map(row => 'y=' + (Y - 1 - row)), cols: span(0, X - 1) })
+    }
+    const counts = (hi: Tones = {}) => grid('cover count of each y-interval', [span(0, K - 1).map(k => `${ys[k]}–${ys[k + 1]}`), Array.from(cnt.subarray(0, K))], Object.fromEntries(span(0, K - 1).flatMap(k => (hi[k] ? [[`1,${k}`, hi[k]!]] : cnt[k] > 0 ? [[`1,${k}`, 'ok' as Tone]] : []))), { rows: ['y from–to', 'cnt'] })
+    t.s('ys', () => [[`The distinct y-coordinates ${ys.join(', ')} cut the y-axis into ${K} interval${K === 1 ? '' : 's'}.`, `不同的 y 坐标 ${ys.join('、')} 把 y 轴分成 ${K} 个小区间。`], plane(0, 0), counts()])
+    t.s('sort', () => [[`${2 * n} events — a left and a right edge per rectangle — sorted by x.`, `共 ${2 * n} 个事件——每个矩形一条左边、一条右边——按 x 排序。`], plane(0, 0), arr('events (x, + for a left edge, − for a right edge)', ev.slice(0, 16).map(e => `${e.x}${e.type > 0 ? '+' : '−'}`))])
+    let area = 0, last = 0
+    for (const e of ev) {
+      let len = 0
+      for (let k = 0; k < K; k++) { t.tick(); if (cnt[k] > 0) len += ys[k + 1] - ys[k] }
+      const from = last, gain = len * (e.x - last)
+      area += gain; last = e.x
+      const total = area
+      t.s('strip', () => [[`From x = ${from} to x = ${e.x}: covered height ${len} × width ${e.x - from} = ${gain}. Area so far: ${total}.`, `从 x = ${from} 到 x = ${e.x}：被覆盖的高度 ${len} × 宽度 ${e.x - from} = ${gain}。目前面积：${total}。`], plane(from, e.x), counts(), vars({ area: total })])
+      let lo = 0, hi = 0
+      while (ys[lo] < e.lo) lo++
+      while (ys[hi] < e.hi) hi++
+      for (let k = lo; k < hi; k++) { cnt[k] += e.type; t.tick() }
+      t.s('apply', () => [[`At x = ${e.x} a rectangle ${e.type > 0 ? 'begins' : 'ends'}: y from ${e.lo} to ${e.hi} gets ${e.type > 0 ? '+1' : '−1'}.`, `在 x = ${e.x} 处有一个矩形${e.type > 0 ? '开始' : '结束'}：y 从 ${e.lo} 到 ${e.hi} 的覆盖次数 ${e.type > 0 ? '+1' : '−1'}。`], plane(e.x, e.x), counts(Object.fromEntries(span(lo, hi - 1).map(k => [k, 'act' as Tone]))), vars({ area: total })])
+    }
+    const res = area
+    t.s('done', () => [[`The line has passed every rectangle: total area ${res}.`, `扫描线已经越过所有矩形：总面积为 ${res}。`], plane(X, X), vars({ answer: res })])
+    t.out(res)
+  },
+}
+
+export default [stack, traversal, huffman, bst, monoQueue, sparse, dsu, fenwick, segtree, trie, treap, sqrtDec, leftist, linkedList, sweepLine]

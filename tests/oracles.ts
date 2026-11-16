@@ -13,6 +13,81 @@ const same = (want: unknown, got: string): true | string => {
 const sorted = (skip: number): Oracle => ({ check: (i, o) => same(nums(i).slice(skip).sort((a, b) => a - b), o) })
 
 export const ORACLES: Record<string, Oracle | undefined> = {
+  'euler-path': { max: 60, check(i, o) {
+    const d = nums(i), n = d[0], m = d[1], es: [number, number][] = []
+    for (let k = 0; k < m; k++) es.push([d[2 + 2 * k], d[3 + 2 * k]])
+    const deg = new Array<number>(n + 1).fill(0), fa = Array.from({ length: n + 1 }, (_, k) => k)
+    const find = (x: number): number => (fa[x] === x ? x : (fa[x] = find(fa[x])))
+    for (const [u, v] of es) { deg[u]++; deg[v]++; fa[find(u)] = find(v) }
+    const odd = deg.filter(x => x % 2).length, joined = m > 0 && es.every(e => find(e[0]) === find(es[0][0]))
+    const exists = joined && (odd === 0 || odd === 2), p = nums(o)
+    if (!exists) return same(-1, o)
+    if (p.length !== m + 1) return `expected ${m + 1} vertices`
+    const left = new Map<string, number>()
+    for (const [u, v] of es) { const key = Math.min(u, v) + '-' + Math.max(u, v); left.set(key, (left.get(key) ?? 0) + 1) }
+    for (let k = 0; k < m; k++) { const key = Math.min(p[k], p[k + 1]) + '-' + Math.max(p[k], p[k + 1]); if (!left.get(key)) return `no unused edge ${key}`; left.set(key, left.get(key)! - 1) }
+    return true
+  } },
+  'second-shortest': { max: 60, check(i, o) {
+    const d = nums(i), n = d[0], m = d[1], best: number[][] = Array.from({ length: n + 1 }, () => [])
+    best[1] = [0]
+    // Relax every edge again and again, keeping the two smallest distinct walk lengths of each vertex.
+    for (let changed = true; changed;) {
+      changed = false
+      for (let k = 0; k < m; k++) for (const [u, v] of [[d[2 + 3 * k], d[3 + 3 * k]], [d[3 + 3 * k], d[2 + 3 * k]]]) for (const x of best[u].slice()) {
+        const c = x + d[4 + 3 * k]
+        if (best[v].includes(c) || (best[v].length === 2 && c >= best[v][1])) continue
+        best[v] = [...best[v], c].sort((a, b) => a - b).slice(0, 2); changed = true
+      }
+    }
+    return same(best[n][1] ?? -1, o)
+  } },
+  'sweep-line': { max: 40, check(i, o) {
+    const d = nums(i), n = d[0], rs: number[][] = []
+    for (let k = 0; k < n; k++) rs.push(d.slice(1 + 4 * k, 5 + 4 * k))
+    const xs = [...new Set(rs.flatMap(r => [r[0], r[2]]))].sort((a, b) => a - b), ys = [...new Set(rs.flatMap(r => [r[1], r[3]]))].sort((a, b) => a - b)
+    let area = 0
+    for (let a = 0; a + 1 < xs.length; a++) for (let b = 0; b + 1 < ys.length; b++)
+      if (rs.some(r => r[0] <= xs[a] && xs[a + 1] <= r[2] && r[1] <= ys[b] && ys[b + 1] <= r[3])) area += (xs[a + 1] - xs[a]) * (ys[b + 1] - ys[b])
+    return same(area, o)
+  } },
+  'memo-search': { max: 12, check(i, o) {
+    const d = nums(i), n = d[0], m = d[1], h = d.slice(2), f = new Array<number>(n * m).fill(1)
+    const ord = Array.from({ length: n * m }, (_, k) => k).sort((a, b) => h[a] - h[b])
+    for (const c of ord) for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      const x = Math.floor(c / m) + dx, y = (c % m) + dy
+      if (x >= 0 && y >= 0 && x < n && y < m && h[x * m + y] < h[c]) f[c] = Math.max(f[c], f[x * m + y] + 1)
+    }
+    return same(Math.max(...f), o)
+  } },
+  'bidir-bfs': { check(i, o) {
+    const [nm, ...g] = i.split('\n').filter(Boolean), [n, m] = nums(nm), d = new Map<string, number>([['0,0', 0]]), q: [number, number][] = [[0, 0]]
+    for (const [x, y] of q) for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      const a = x + dx, b = y + dy
+      if (a >= 0 && b >= 0 && a < n && b < m && g[a][b] === '.' && !d.has(a + ',' + b)) { d.set(a + ',' + b, d.get(x + ',' + y)! + 1); q.push([a, b]) }
+    }
+    return same(d.get(`${n - 1},${m - 1}`) ?? -1, o)
+  } },
+  iddfs: { max: 30, check(i, o) {
+    const n = nums(i)[0], [len, ...c] = nums(o)
+    if (c.length !== len + 1 || c[0] !== 1 || c[len] !== n) return 'the chain must start at 1, end at n and have one more number than additions'
+    for (let k = 1; k <= len; k++) if (!c.slice(0, k).some(x => c.slice(0, k).includes(c[k] - x))) return `${c[k]} is not the sum of two earlier numbers`
+    // The true optimum, by trying every chain in which each number is the sum of any two earlier ones.
+    const reach = (chain: number[], left: number): boolean => {
+      const top = chain[chain.length - 1]
+      if (top === n) return true
+      if (!left) return false
+      for (let a = chain.length - 1; a >= 0; a--) for (let b = a; b >= 0; b--) { const s = chain[a] + chain[b]; if (s > top && s <= n && reach([...chain, s], left - 1)) return true }
+      return false
+    }
+    let best = 0
+    while (!reach([1], best)) best++
+    return len === best ? true : `expected ${best} additions`
+  } },
+  'coord-compress': { check(i, o) {
+    const [, ...a] = nums(i), u = [...new Set(a)].sort((x, y) => x - y), rank = new Map(u.map((v, k) => [v, k + 1]))
+    return same(a.map(v => rank.get(v)!), o)
+  } },
   'linked-list': { max: 60, check(i, o) {
     const d = nums(i), n = d[0], q = d[1], list = Array.from({ length: n }, (_, k) => k + 1)
     let p = 2

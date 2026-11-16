@@ -77,6 +77,10 @@ int main() {
     for (let i = 0, j = 0; i < n; i++) {
       while (j && s[i] !== p[j]) {
         const old = j
+        t.ask(() => {
+          const c = [...new Set([0, nxt[old - 1], old - 1])].sort((x, y) => x - y)
+          return c.length < 2 ? undefined : [[`Mismatch: s[${i}] = '${s[i]}' but p[${old}] = '${p[old]}', with ${old} characters matched. What does j become?`, `失配：s[${i}] = '${s[i]}'，而 p[${old}] = '${p[old]}'，此前已匹配 ${old} 个字符。j 变成多少？`], c.map(x => [`j = ${x}`, `j = ${x}`] as const), c.indexOf(nxt[old - 1])]
+        })
         j = nxt[j - 1]
         t.s('fail', () => [[`s[${i}] = '${s[i]}' ≠ p[${old}] = '${p[old]}': keep the border of length ${j}, slide the pattern.`, `s[${i}] = '${s[i]}' ≠ p[${old}] = '${p[old]}'：保留长度为 ${j} 的 border，滑动模式串。`], arr('s', S, tn({ vis: span(i - j, i - 1), bad: i }), { i }), align(i, j, tn({ ok: span(0, j - 1), act: j })), arr('nxt', Array.from(nxt), tn({ act: old - 1 }))])
       }

@@ -111,6 +111,16 @@ export const TEXT: Record<string, Prose> = {
       ['This only works when the divisor fits in a built-in type. Dividing by another huge number needs a different method.', '这个方法只适用于除数是内置整数类型的情况。除以另一个大整数需要别的方法。'],
     ],
   },
+  'coord-compress': {
+    problem: ['You are given n integers as large as 10⁹. Replace each by a small number so that every comparison between two values stays the same: the smallest value becomes 1, the next larger 2, and so on.', '给定 n 个最大可达 10⁹ 的整数。把每个数换成一个小的数，并保持任意两个数之间的大小关系不变：最小的值变成 1，次小的变成 2，依此类推。'],
+    why: ['Counting arrays, Fenwick trees and segment trees all index an array by a value. With values up to a billion that array cannot be allocated, even though only n of its cells would ever be touched. Compression removes the gaps. If an algorithm only compares values — asks which is smaller, or whether two are equal — then the actual sizes are irrelevant and each value can be replaced by its rank among the distinct values. To compute the ranks, sort a copy of the values and delete the repeats: now the k-th cell holds the k-th smallest distinct value. Each original value is somewhere in this array, and binary search finds its position in log n steps; that position is its rank. The sorted array is worth keeping, because it is also the dictionary for the way back: rank k means the value in cell k.', '计数数组、树状数组和线段树都要以数值为下标开数组。数值高达十亿时，这个数组根本开不出来——尽管真正会被用到的格子只有 n 个。离散化把中间的空隙去掉。如果一个算法只比较数值的大小——谁更小，或者两个数是否相等——那么数值到底有多大就无关紧要，每个数都可以换成它在所有不同的值中的排名。求排名的办法是：把数值复制一份，排序并去重，这样第 k 个格子里就是第 k 小的不同的值。每个原来的数都在这个数组里，二分查找用 log n 步就能找到它的位置，这个位置就是它的排名。这个有序数组值得保留，因为它同时也是翻译回去的字典：排名 k 对应的就是第 k 个格子里的值。'],
+    pitfalls: [
+      ['Sorting a itself destroys the original order. Sort a copy.', '直接对 a 排序会破坏原来的顺序。要对副本排序。'],
+      ['Forgetting unique gives equal values different ranks.', '忘记去重会让相等的数得到不同的排名。'],
+      ['Compression keeps order but not distance: 1, 5, 1000 become 1, 2, 3. Do not use it when differences between values matter.', '离散化保持大小关系，但不保持差值：1, 5, 1000 变成 1, 2, 3。如果数值之间的差有意义，就不能直接用。'],
+      ['When values arrive later (in queries), compress them together with the data, or they will not be found.', '如果有些数值稍后才出现（比如在询问中），要把它们和原数据一起离散化，否则会查不到。'],
+    ],
+  },
 }
 
 /** Where each problem shows up outside contests, shown on the Problem tab. Same inline markup as the Ideas story. */
@@ -127,4 +137,5 @@ export const REAL: Record<string, L> = {
   simulation: ['A **weather forecast** is a simulation: the computer advances the state of the atmosphere a few minutes at a time, following the laws of physics. Games, traffic planners and flight simulators all work this way: store the state, apply the rules, repeat.', '**天气预报**就是模拟：计算机按照物理规律，把大气的状态每次向前推进几分钟。游戏、交通规划和飞行模拟器都是这样工作的：保存状态，应用规则，不断重复。'],
   'bignum-sub': ['A **bank** must know a balance to the last cent however large it grows, and checking a digital signature subtracts numbers hundreds of digits long. Rounding is not an option, so the subtraction is done digit by digit.', '**银行**的账户余额无论多大都必须精确到分，验证数字签名时也要对几百位的数做减法。不能四舍五入，所以减法只能一位一位地做。'],
   'bignum-div': ['Checking whether a huge number is divisible by a small prime — the first step in **testing a candidate key** for encryption — is exactly this: sweep the digits once, keeping only the remainder.', '判断一个巨大的数能否被某个小素数整除——**检验加密密钥候选数**的第一步——正是这样做的：把各位数字扫一遍，只保留余数。'],
+  'coord-compress': ['A **marathon results list** does this: finishing times such as 2:07:41 and 3:15:02 become places 1, 2, 3, … Most later questions — who beat whom, who is in the top ten — need only the places. Databases do the same when they replace long strings by small integer ids.', '**马拉松成绩单**就是这样做的：2:07:41、3:15:02 这样的完赛时间变成了第 1、2、3……名。之后的大多数问题——谁赢了谁、谁进了前十——只需要名次。数据库把长字符串换成小整数编号，也是同样的做法。'],
 }
