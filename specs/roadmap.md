@@ -5,25 +5,18 @@ Revised 2026-11-16 after a review against the code. The audience is self-learner
 ## Where the project stands
 
 - 69 lessons: 28 CSP-J, 30 CSP-S, 11 NOI. 14 have an earlier version.
-- `npm test` passes. With `GXX` set, all 69 C++ listings compile and agree with the animations (g++ 13, 73 seconds for the whole suite).
-- The site is one JavaScript file: 1.05 MB, 395 KB gzipped.
+- Milestone 0.2 (groundwork) is done. Next is 0.3.
 - A lesson costs about 150 lines on average, counting its program, story, text and oracle.
 
-Syllabus points that link to a lesson, by section:
+Syllabus points with a lesson, out of the points that should have one:
 
-| Section | CSP-J | CSP-S | NOI |
+| Level | With lessons | Wanted | Out of scope |
 |---|---|---|---|
-| Environment and basics | 0 / 12 | 0 / 5 | – |
-| C++ programming | 1 / 43 | 0 / 9 | 0 / 1 |
-| Data structures | 9 / 15 | 14 / 22 | 2 / 10 |
-| Algorithms | 22 / 29 | 24 / 33 | 7 / 21 |
-| Mathematics and others | 5 / 17 | 5 / 25 | 5 / 35 |
+| CSP-J | 42 | 54 | 62 |
+| CSP-S | 45 | 78 | 16 |
+| NOI | 14 | 59 | 8 |
 
-What this shows:
-
-- Data structures and algorithms at CSP-J and CSP-S are 70% covered (69 of 99 points). Several of the missing points are definitions that an existing lesson already teaches.
-- The real gaps are mathematics at every level (15 of 77) and everything at NOI level.
-- The environment and C++ sections are not what this site teaches. They should not count against coverage.
+Out of scope are computer basics, the C++ language itself, school mathematics, and concepts with no program to animate. The Syllabus page shows them greyed with the reason.
 
 ## Principles
 
@@ -42,66 +35,12 @@ What this shows:
 
 ---
 
-## Milestone 0.2: groundwork
+## Milestone 0.2: groundwork (done)
 
-In this order. The first two are small and everything later relies on them.
-
-### A. Continuous integration
-
-A GitHub Actions workflow on every push and pull request:
-
-- `npm ci`, then `npm run build` (which type-checks)
-- `ulimit -s unlimited && GXX=g++ npm test`
-
-CI only checks. Cloudflare keeps building and deploying.
-
-Done when: a pull request with a failing test shows a red check.
-
-### B. Sort every uncovered syllabus point
-
-Give `Item` in `src/data/syllabus.ts` a disposition beside its lesson list. Every point is in exactly one state:
-
-| State | Meaning | Syllabus page |
-|---|---|---|
-| lesson | Links to one or more lessons (as today) | Link |
-| planned | A lesson in this roadmap will cover it | "Planned" label |
-| out | Not taught here, with a reason: `env`, `lang`, `school` (school mathematics), `theory` | Greyed |
-
-Coverage is then lessons ÷ (lessons + planned). Out-of-scope points leave the ratio.
-
-Part of this step is linking definition points to lessons that already teach them. Candidates are below. Link one only if the lesson's story really explains the point; otherwise add a story card first.
-
-| Point | Candidate lesson |
-|---|---|
-| Trees: definition and terminology; representing trees | `bt-traversal` |
-| Binary trees and complete binary trees: definition and properties | `bt-traversal`, `heap-sort` |
-| Graphs: definition and terminology; sparse graphs | `graph-dfs` |
-| Basic concepts of sorting (stability, in place) | `bubble-sort`, `merge-sort` |
-| Divisibility, primes, composites | `sieve` |
-| Modular arithmetic and remainders | `fast-pow` |
-| Time and space complexity analysis | The data lab teaches this in every lesson. Link to one lesson whose story derives its cost step by step, or mark as taught throughout. |
-
-Done when: a test asserts every point has exactly one state, and the Syllabus page shows the new ratio.
-
-### C. Authoring checklist
-
-`specs/lesson-authoring.md`, one page, for the maintainer and for Claude sessions:
-
-- the `Lesson` fields, and the split across `<cat>.ts`, `text.ts`, `real.ts`, `rich.ts` and `stories/`
-- `//@tag` lines and how steps, notes and flowchart nodes refer to them
-- the oracle in `tests/oracles.ts` is written independently of the lesson
-- story card kinds, and the earlier-version rule (link `earlier-versions.md`)
-- both languages are written, not translated word for word
-- before merging: `GXX=g++ npm test` passes, all three animation sizes look right, the lab chart shows the expected curve, the syllabus point is linked
-
-### D. Split the bundle
-
-Less urgent than the first draft said: the download is 395 KB gzipped, not 1 MB. It grows with every lesson, though, so do it before the lesson count passes about 90.
-
-- Move what Home, Syllabus, Profile and search need (id, title, level, cat, diff, blurb) into a small index module.
-- Load each category's lessons, text and stories with `import()` when a lesson in it is opened.
-
-Done when: the first page loads under 150 KB gzipped, and no category chunk exceeds 120 KB gzipped.
+- **Continuous integration.** `.github/workflows/ci.yml` builds, then runs the tests with the C++ checks on, for every push and pull request. Cloudflare still builds and deploys.
+- **Syllabus states.** Every point in `src/data/syllabus.ts` is in one state: lessons, `planned`, or out of scope with a reason. A test enforces it. Seven definition points were linked to lessons whose story already teaches them.
+- **Authoring checklist.** `specs/lesson-authoring.md`.
+- **Bundle split.** Each category is a folder under `src/lessons/` and a separate download. The first page loads 141 KB of JavaScript gzipped (it was 395 KB); the largest category, graphs, is 72 KB. Lists and search use a generated index, `src/lessons/meta.ts` (`npm run gen`).
 
 ---
 
@@ -115,6 +54,16 @@ Tests: every id exists; there are no cycles; a prerequisite never comes after it
 
 Set `needs` for all 69 existing lessons in this milestone. Every lesson added later sets it from the start.
 
+### Cards for definition points
+
+Three existing lessons need one story card each before these syllabus points can link to them:
+
+| Points | Lesson |
+|---|---|
+| Trees: definition and terminology; representing and storing trees | `bt-traversal` |
+| Graphs: definition and terminology; sparse graphs | `graph-dfs` |
+| Equivalence relations and classes | `dsu` |
+
 ### CSP-J lessons (7)
 
 | Lesson | Syllabus point | Notes |
@@ -127,7 +76,7 @@ Set `needs` for all 69 existing lessons in this milestone. Every lesson added la
 | Prime factorisation | 2.1.5 [3] | Trial division to √n. Carries the fundamental theorem of arithmetic as a card. Leads to the sieve. |
 | Permutations and combinations | 2.1.5 [2–4] | Next permutation, generating combinations. Carries the rules of sum and product as cards. |
 
-Done when: CSP-J data structures and algorithms have no planned points left.
+Done when: CSP-J has no planned points left (42 of 54 today).
 
 ---
 
@@ -252,12 +201,13 @@ Valid syllabus points, each a large lesson for a small audience or a weak fit fo
 - CSP-S: Cartesian tree, double-ended stack, left-child right-sibling representation.
 - NOI data structures: link-cut tree, k-d tree, tree of trees, binomial heap, virtual tree, unrolled linked list.
 - NOI algorithms: minimum arborescence, general matching, suffix tree, unicyclic graphs, the simplex method, half-plane intersection.
-- NOI mathematics: primitive roots, quadratic residues, groups, Burnside and Pólya, generating functions, Stirling numbers, polynomial calculus.
+- NOI mathematics: primitive roots, quadratic residues, groups, Burnside and Pólya, generating functions, Stirling numbers, polynomial calculus, inverse matrices, vector spaces, area of general figures.
+- NOI, other: other persistent structures, finite automata, dominating, independent and covering sets.
 - The four second-tier earlier versions in `earlier-versions.md`.
 
 ## Polish, between milestones
 
-- Offline use through a service worker. Simpler after the bundle split, since the chunks are what it caches.
+- Offline use through a service worker, caching the per-category files.
 - Phone layout. There is one 900 px breakpoint today; check the code-beside-flowchart view and the lab chart at 375 px.
 - A Playwright smoke test that opens every lesson, plays the animation to the end and runs the lab. It catches rendering errors the logic tests cannot see.
 - Colour contrast of the seven tones in both themes.
@@ -276,8 +226,8 @@ Already in place, so removed from the plan: links to a tab and an animation step
 
 | Milestone | Engineering | Lessons | Total lessons |
 |---|---|---|---|
-| 0.2 | CI, syllabus states, authoring checklist, bundle split | – | 69 |
-| 0.3 | Lesson links | 7 CSP-J | 76 |
+| 0.2 (done) | CI, syllabus states, authoring checklist, bundle split | – | 69 |
+| 0.3 | Lesson links, three definition cards | 7 CSP-J | 76 |
 | 0.4 | Profile v2, predict the next step | 7 CSP-S | 83 |
 | 0.5 | Broken versions | 7 CSP-S | 90 |
 | 0.6 | Practice links, review | – | 90 |

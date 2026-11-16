@@ -1,10 +1,10 @@
 # Earlier versions: design
 
-Status: the 13 proposed versions and the 0/1 knapsack are implemented (`src/lessons/first.ts`, and `src/lessons/rich.ts` for KMP and the knapsack). The second tier is not.
+Status: the 13 proposed versions and the 0/1 knapsack are implemented (`first.ts` in each category's folder under `src/lessons/`; KMP and the knapsack have theirs in `stories.ts`). The second tier is not.
 
 ## Rule
 
-A lesson gets an earlier version (`first` in `src/lessons/rich.ts`) only when its program is **the same method before one optimisation**: you can get from version 1 to version 2 by a small, nameable edit, as the knapsack goes from a 2-D table to one row.
+A lesson gets an earlier version (the `first` field of a lesson) only when its program is **the same method before one optimisation**: you can get from version 1 to version 2 by a small, nameable edit, as the knapsack goes from a 2-D table to one row.
 
 A brute force that shares no code with the method does not qualify. Its idea is already told by the first card of the Ideas story, and reading a second, unrelated program does not help with the first.
 

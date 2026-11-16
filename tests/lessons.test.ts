@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { parseCode } from '../src/components/Code'
-import { SYLLABUS } from '../src/data/syllabus'
+import { lessonsOf, SYLLABUS } from '../src/data/syllabus'
 import { Rng, Tracer } from '../src/engine/types'
-import { BY_ID, LESSONS } from '../src/lessons'
+import { BY_ID, LESSONS, metaOf } from '../src/lessons/all'
+import { META } from '../src/lessons/meta'
 import { ORACLES } from './oracles'
 
 const run = (id: string, input: string, on: boolean) => {
@@ -11,8 +12,17 @@ const run = (id: string, input: string, on: boolean) => {
   return t
 }
 
+it('has an up-to-date lesson index (run `npm run gen` if this fails)', () => {
+  expect(META).toEqual(metaOf(LESSONS))
+})
+
 describe('syllabus', () => {
-  const refs = SYLLABUS.flatMap(l => l.sections.flatMap(s => s.groups.flatMap(g => g.items.flatMap(it => it[3] ?? []))))
+  const items = SYLLABUS.flatMap(l => l.sections.flatMap(s => s.groups.flatMap(g => g.items)))
+  const refs = items.flatMap(lessonsOf)
+  it('puts every point in exactly one state: lessons, planned, or out of scope with a reason', () => {
+    const bad = items.filter(it => (Array.isArray(it[3]) ? it[3].length === 0 : !['planned', 'env', 'lang', 'school', 'theory'].includes(it[3])))
+    expect(bad.map(it => it[2])).toEqual([])
+  })
   it('links only to existing lessons', () => {
     expect(refs.filter(id => !BY_ID.has(id))).toEqual([])
   })

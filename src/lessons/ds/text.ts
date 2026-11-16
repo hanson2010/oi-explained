@@ -1,0 +1,141 @@
+import type { L } from '../../engine/types'
+import type { Prose } from '../extras'
+
+/** The problem each lesson solves, why the method works, and common mistakes. */
+export const TEXT: Record<string, Prose> = {
+  stack: {
+    problem: ['Given a string of brackets ( ) [ ] { }, decide whether it is balanced: every opening bracket is closed by a bracket of the same kind, in the correct nested order.', '给定一个由 ( ) [ ] { } 组成的字符串，判断它是否匹配：每个左括号都被同种的右括号闭合，并且嵌套顺序正确。'],
+    why: ['Read the string from left to right. An opening bracket cannot be judged yet — remember it. A closing bracket must close the most recent opening bracket that is still open; any older one would mean two pairs crossing each other, like ( [ ) ]. "Most recent still open" is exactly what a stack gives you: the last thing pushed is the first thing popped. So push opening brackets, and for each closing bracket pop one and check that the kinds agree. The string is balanced if no check fails, the stack is never empty when a pop is needed, and the stack is empty at the end.', '从左到右读字符串。左括号暂时无法判断——先记下来。右括号必须闭合“最近的、仍未闭合的”那个左括号；如果闭合的是更早的，就意味着两对括号交叉了，比如 ( [ ) ]。“最近且仍未闭合”正是栈所提供的：最后压入的最先弹出。所以左括号入栈；遇到右括号就弹出一个，并检查种类是否相同。如果没有检查失败、需要弹出时栈不为空、并且结束时栈为空，这个字符串就是匹配的。'],
+    pitfalls: [
+      ['Calling top() or pop() on an empty stack is undefined behaviour — test empty() first.', '对空栈调用 top() 或 pop() 是未定义行为——要先判断 empty()。'],
+      ['Counting opening and closing brackets is not enough: "(]" and ")(" have equal counts.', '只统计左右括号的数量是不够的：“(]” 和 “)(” 数量也相等。'],
+      ['Forgetting the final emptiness check accepts "((".', '忘记最后检查栈是否为空，会把 “((” 判为合法。'],
+    ],
+  },
+  'bt-traversal': {
+    problem: ['A binary tree with n nodes is given by the left and right child of each node. Print its pre-order, in-order and post-order traversals.', '给出一棵 n 个结点的二叉树（每个结点的左孩子和右孩子），输出它的前序、中序和后序遍历。'],
+    why: ['A binary tree is defined recursively: a root with a left subtree and a right subtree, each of which is again a binary tree (possibly empty). A traversal follows the same shape: handle the root, traverse the left subtree, traverse the right subtree. The only freedom is when the root is handled relative to the two recursive calls — before both (pre-order), between them (in-order) or after both (post-order). The left subtree is always finished before the right one starts. That single choice determines properties that matter later: pre-order lists ancestors before descendants, post-order lists children before parents (useful for tree DP), and in-order on a search tree lists the keys in sorted order.', '二叉树是递归定义的：一个根，加上左子树和右子树，而它们各自又是二叉树（可能为空）。遍历遵循同样的结构：处理根、遍历左子树、遍历右子树。唯一可以选择的是根相对于两次递归调用的位置——在两者之前（前序）、之间（中序）还是之后（后序）。左子树总是在右子树开始之前处理完。这一个选择决定了以后很重要的性质：前序中祖先排在后代之前；后序中孩子排在父亲之前（树形 DP 正需要这个顺序）；对二叉搜索树做中序遍历，会按顺序输出键值。'],
+    pitfalls: [
+      ['Without the "empty node" check the recursion follows child 0 forever.', '没有“空结点”的判断，递归会沿着 0 号孩子无限进行下去。'],
+      ['On a degenerate tree (a chain of 10⁵ nodes) the recursion depth is 10⁵ — mind the stack limit.', '在退化的树（10⁵ 个结点连成一条链）上，递归深度达 10⁵——注意栈空间限制。'],
+      ['Pre-order plus post-order does not determine the tree uniquely; in-order is needed.', '只有前序和后序不能唯一确定一棵树；必须有中序。'],
+    ],
+  },
+  huffman: {
+    problem: ['Given n weights, build a binary tree with one leaf per weight that minimises the sum of weight × depth over all leaves. Print that minimum.', '给定 n 个权值，构造一棵以它们为叶子的二叉树，使所有叶子的“权值 × 深度”之和最小。输出这个最小值。'],
+    why: ['Depth is expensive, so heavy leaves should be shallow and light leaves deep. In an optimal tree the two lightest leaves can always be arranged as siblings at the deepest level: if a heavier leaf were deeper than a lighter one, swapping them would not increase the cost. Once those two are siblings, treat their parent as a single leaf whose weight is their sum — the problem is the same with one leaf fewer. Repeating this gives the algorithm: take the two smallest, merge, put the sum back. Each merge pushes every leaf beneath it one level deeper, which adds exactly the merged sum to the cost, so the answer is the total of all merge sums. A min-heap delivers the two smallest in O(log n).', '深度是有代价的，所以重的叶子应该浅、轻的叶子应该深。在最优的树中，最轻的两个叶子总可以安排成最深层的一对兄弟：如果某个较重的叶子比较轻的叶子更深，交换它们不会使代价增加。一旦这两个叶子成为兄弟，就可以把它们的父亲看作一个权值为两者之和的叶子——问题不变，只是叶子少了一个。如此重复就得到算法：取出最小的两个，合并，把和放回去。每次合并会让它下方的所有叶子加深一层，代价恰好增加合并得到的和，所以答案就是所有合并之和的总和。用小根堆可以在 O(log n) 内取出最小的两个。'],
+    pitfalls: [
+      ['priority_queue is a max-heap by default; forgetting greater<> merges the two largest.', 'priority_queue 默认是大根堆；忘了写 greater<> 就变成合并最大的两个。'],
+      ['Sums grow fast — use long long.', '和增长得很快——要用 long long。'],
+      ['Sorting once and merging neighbours is wrong: a merged sum may no longer be among the smallest.', '只排一次序然后依次合并相邻的两个是错的：合并出的和可能已经不是最小的了。'],
+    ],
+  },
+  bst: {
+    problem: ['Insert n keys one by one into an initially empty binary search tree, then print the keys in ascending order.', '把 n 个键值依次插入一棵初始为空的二叉搜索树，然后按升序输出所有键值。'],
+    why: ['A binary search tree keeps one rule at every node: all keys in the left subtree are smaller, all keys in the right subtree are larger. This rule turns the tree into a decision procedure. To locate a key, compare it with the root and you immediately know which subtree could contain it; repeat there. Inserting follows the same path and attaches the new key where the path leaves the tree, which preserves the rule. Printing the left subtree, then the node, then the right subtree visits the keys in increasing order. Every operation costs the height of the tree — about log₂ n when keys arrive in random order, but n when they arrive sorted, because then every key goes to the right of the previous one.', '二叉搜索树在每个结点上都保持一条规则：左子树的所有键值都更小，右子树的所有键值都更大。这条规则把树变成了一个判定过程。要定位一个键值，把它与根比较，立刻就知道它只可能在哪棵子树里；到那里再重复。插入沿着同样的路径走，在走出树的位置挂上新键值，规则依然成立。先输出左子树、再输出结点、最后输出右子树，就按升序访问了所有键值。每个操作的代价是树的高度——键值随机到达时约为 log₂ n，但如果键值有序到达，每个键值都接在前一个的右边，高度就是 n。'],
+    pitfalls: [
+      ['Passing the node index by value instead of by reference: the new node is never linked to its parent.', '结点下标按值传递而不是按引用传递：新结点永远接不到父结点上。'],
+      ['Sorted input makes a plain BST O(n²) overall; real solutions use a balanced tree or std::set.', '有序的输入会让普通 BST 整体退化为 O(n²)；实战中要用平衡树或 std::set。'],
+      ['Decide what to do with equal keys (ignore, count, or always go right) and do it consistently.', '要想清楚相等的键值怎么处理（忽略、计数或一律往右），并保持一致。'],
+    ],
+  },
+  'monotonic-queue': {
+    problem: ['Given n numbers and a window length k, print the maximum of every k consecutive elements as the window slides from left to right.', '给定 n 个数和窗口长度 k，窗口从左向右滑动，输出每个长度为 k 的窗口中的最大值。'],
+    why: ['Recomputing each window from scratch costs O(n · k). The saving comes from noticing that some elements are useless. Suppose a newer element is at least as large as an older one. The older one will leave the window first, and until then the newer one is in the window too and is no smaller — so the older one can never again be the maximum. Discard it. What remains is a list of candidates whose values strictly decrease from oldest to newest, and the oldest surviving candidate is the current maximum. New elements enter at the back after removing dominated ones; expired elements leave at the front. Each index enters once and leaves once, so the total cost is O(n) regardless of k.', '每个窗口都从头计算，代价是 O(n · k)。优化来自这样的观察：有些元素是没用的。假设一个较新的元素不小于某个较旧的元素。较旧的那个会先离开窗口，而在那之前较新的元素也在窗口里，并且不比它小——所以较旧的元素再也不可能成为最大值，可以直接丢掉。剩下的是一列候选者，它们的值从旧到新严格递减，最旧的那个候选者就是当前最大值。新元素先把被它“支配”的元素从队尾删掉，再从队尾进入；过期的元素从队首离开。每个下标只进一次、出一次，所以无论 k 多大，总代价都是 O(n)。'],
+    pitfalls: [
+      ['Storing values instead of indices: you can no longer tell when the front has left the window.', '队列中存值而不存下标：就无法判断队首何时离开了窗口。'],
+      ['Expiry test off by one: the window ending at i covers indices i − k + 1 … i.', '过期判断差一：以 i 结尾的窗口覆盖下标 i − k + 1 … i。'],
+      ['For window minima flip the comparison; do not just negate the output.', '求窗口最小值时要把比较方向反过来；不要只是把输出取反。'],
+    ],
+  },
+  'sparse-table': {
+    problem: ['Given n numbers that never change and q queries, each asking for the maximum of the elements from position l to r, answer every query in constant time.', '给定 n 个不会改变的数和 q 个询问，每个询问求第 l 个到第 r 个元素的最大值，要求每次询问 O(1) 回答。'],
+    why: ['Precomputing the answer for all n² ranges is too much. Precompute only the ranges whose length is a power of two: for each start i and each j, the maximum of the 2ʲ elements beginning at i. There are n log n of them, and each is the maximum of two already computed halves of length 2ʲ⁻¹. Now take any query [l, r] of length len and let 2ᵏ be the largest power of two not exceeding len. One block of length 2ᵏ starting at l and another ending at r together cover the whole range, because 2 · 2ᵏ > len. They overlap in the middle, but taking a maximum twice over some elements does no harm. So two table lookups answer the query.', '预处理全部 n² 个区间的答案太多了。只预处理长度是 2 的幂的区间：对每个起点 i 和每个 j，求从 i 开始的 2ʲ 个元素的最大值。这样的区间只有 n log n 个，而且每个都等于两个已经算好的、长度为 2ʲ⁻¹ 的半区间的最大值。现在任取一个长度为 len 的询问 [l, r]，设 2ᵏ 是不超过 len 的最大的 2 的幂。一个从 l 开始、长为 2ᵏ 的块，和另一个到 r 结束、长为 2ᵏ 的块，合起来就覆盖了整个区间，因为 2 · 2ᵏ > len。它们在中间重叠，但对某些元素重复取最大值并没有坏处。于是查两次表就回答了询问。'],
+    pitfalls: [
+      ['It works for max, min, gcd, and, or — not for sum: the overlap would count elements twice.', '它适用于 max、min、gcd、按位与、按位或——但不适用于求和：重叠部分会被重复计算。'],
+      ['Computing log2 with floating point can be off by one; precompute an integer lg[] table.', '用浮点数计算 log2 可能差一；应预处理整数的 lg[] 表。'],
+      ['The table cannot be updated; if values change, use a segment tree.', 'ST 表不支持修改；如果数值会变，要用线段树。'],
+    ],
+  },
+  dsu: {
+    problem: ['There are n elements, each initially in its own set. Process operations of two kinds: merge the sets containing x and y; or ask whether x and y are in the same set.', '有 n 个元素，初始时各自在一个集合中。处理两种操作：合并 x 和 y 所在的集合；或询问 x 和 y 是否在同一个集合。'],
+    why: ['Give every set a representative, and let every element point (directly or through others) to it. Each set then forms a tree whose root is the representative. Two elements are in the same set exactly when following the pointers from each leads to the same root. Merging two sets is a single assignment: make one root point to the other. The danger is long chains, which make "follow the pointers" slow. Path compression removes them as a side effect of searching: once the root has been found, every element on the path is re-pointed straight at it. After that, searches from any of those elements take one step. The amortised cost per operation becomes practically constant.', '给每个集合选一个代表，让每个元素（直接或间接地）指向它。每个集合于是构成一棵树，树根就是代表。两个元素在同一集合，当且仅当沿着指针走最终到达同一个根。合并两个集合只需要一次赋值：让一个根指向另一个根。危险在于长链，它会让“沿指针走”变慢。路径压缩在查找的同时顺便消除长链：找到根之后，把路径上的每个元素都直接指向根。此后从这些元素出发的查找都只需一步。每次操作的均摊代价因此几乎是常数。'],
+    pitfalls: [
+      ['Writing fa[x] = y instead of fa[find(x)] = find(y) detaches x from the rest of its set.', '把 fa[find(x)] = find(y) 写成 fa[x] = y，会把 x 从它原来的集合里拆出来。'],
+      ['Forgetting to initialise fa[i] = i: everything starts in set 0.', '忘记初始化 fa[i] = i：所有元素一开始都在 0 号集合里。'],
+      ['A DSU can merge but not split; "undo" needs a different technique.', '并查集只能合并不能拆分；需要“撤销”时要用别的技巧。'],
+    ],
+  },
+  fenwick: {
+    problem: ['Maintain an array under two operations: add v to the element at position i; and report the sum of the elements from position l to r.', '维护一个数组，支持两种操作：给第 i 个元素加上 v；查询第 l 个到第 r 个元素之和。'],
+    why: ['A plain array updates in O(1) but sums in O(n); a prefix-sum array sums in O(1) but updates in O(n). The Fenwick tree balances the two at O(log n) each. Cell c[i] stores the sum of a block of elements ending at i whose length is lowbit(i), the lowest set bit of i. Then any prefix 1..i splits into blocks following the binary digits of i: take c[i], remove the lowest bit of i, take the next block, and so on — at most log n blocks. In the other direction, the blocks that contain position i are found by repeatedly adding the lowest bit, again at most log n of them, and those are the cells an update must change. The whole structure is one array and two three-line loops.', '普通数组修改是 O(1)，求和却是 O(n)；前缀和数组求和是 O(1)，修改却是 O(n)。树状数组在两者之间取得平衡，都是 O(log n)。c[i] 保存以 i 结尾、长度为 lowbit(i)（i 的最低位的 1）的一段元素之和。于是任何前缀 1..i 都能按 i 的二进制位拆成若干段：取 c[i]，去掉 i 的最低位，再取下一段，如此继续——最多 log n 段。反过来，包含位置 i 的那些段可以通过不断加上最低位找到，同样最多 log n 个，它们就是修改时需要更新的格子。整个结构只是一个数组和两个三行的循环。'],
+    pitfalls: [
+      ['Indices must start at 1: lowbit(0) = 0 makes the update loop run forever.', '下标必须从 1 开始：lowbit(0) = 0 会让修改的循环永不结束。'],
+      ['The update loop bound is the array size n, not the value being added.', '修改循环的上界是数组大小 n，而不是所加的值。'],
+      ['A range sum needs sum(r) − sum(l − 1), not sum(l).', '区间和是 sum(r) − sum(l − 1)，不是减 sum(l)。'],
+    ],
+  },
+  'segment-tree': {
+    problem: ['Maintain an array under two operations: add v to every element from position l to r; and report the sum of the elements from position l to r.', '维护一个数组，支持两种操作：给第 l 个到第 r 个元素都加上 v；查询第 l 个到第 r 个元素之和。'],
+    why: ['Build a binary tree over the positions: the root is responsible for the whole array, its children for the two halves, and so on down to single elements. Each node stores the sum of its interval. Any range [l, r] can be assembled from O(log n) nodes that lie completely inside it, so a query adds up a handful of stored sums. A range update would have to change every node below those — too many. The lazy tag avoids that: at a node completely inside the update range, fix its own sum (add v times its length), write down "v still has to be added to everything below", and return. The debt is paid later, one level at a time, only when some operation actually needs to enter that node\'s children.', '在位置上建一棵二叉树：根负责整个数组，它的两个孩子各负责一半，依此类推直到单个元素。每个结点保存它所负责区间的和。任意区间 [l, r] 都能由 O(log n) 个完全落在其中的结点拼成，所以查询只需把几个已存的和加起来。但区间修改需要改动这些结点下面的所有结点——太多了。懒标记避免了这一点：在完全落入修改区间的结点处，更新它自己的和（加上 v 乘以区间长度），记下“下面的结点还欠着加 v”，然后直接返回。这笔账以后再还，而且每次只下传一层——只有当某个操作确实需要进入该结点的孩子时才下传。'],
+    pitfalls: [
+      ['The arrays need 4n cells, not 2n.', '数组要开 4n，而不是 2n。'],
+      ['Forgetting to push the tag down before descending — in update and in query — gives wrong sums.', '往下走之前忘记下传标记——修改和查询都要下传——会得到错误的和。'],
+      ['Forgetting to recompute the node from its children on the way back.', '回溯时忘记用孩子重新计算本结点。'],
+      ['The tag changes the sum by v × (length of the interval), not by v.', '标记对和的影响是 v ×（区间长度），而不是 v。'],
+    ],
+  },
+  trie: {
+    problem: ['Given n words and q queries, tell for each query how many of the words begin with it.', '给定 n 个单词和 q 个查询串，对每个查询串回答有多少个单词以它开头。'],
+    why: ['Comparing each query against every word is far too slow. A trie stores the words so that common beginnings are stored only once: the root stands for the empty string, and each edge adds one letter, so every node is a prefix of at least one word. All words that begin with a given prefix pass through the node of that prefix. If every node counts how many inserted words passed through it, the answer to a query is simply the counter of the node reached by spelling out the query — or zero if the path does not exist. Insertion and lookup both take time proportional to the length of the string, however many words are stored.', '把每个查询与每个单词逐一比较太慢了。字典树把单词存成这样的形式：公共的开头只存一份。根代表空串，每条边添加一个字母，所以每个结点都是至少一个单词的前缀。所有以某个前缀开头的单词都会经过这个前缀对应的结点。如果每个结点统计有多少个插入的单词经过了它，那么查询的答案就是按查询串走到的结点上的计数——如果路径不存在则为零。插入和查询的时间都与字符串长度成正比，与已存入多少单词无关。'],
+    pitfalls: [
+      ['The node array must be sized by the total number of letters, not by the number of words.', '结点数组的大小要按字符总数来开，而不是按单词个数。'],
+      ['Node 0 is both the root and "no child"; that is safe only because no edge ever leads back to the root.', '0 号结点既是根又表示“没有孩子”；这之所以安全，只是因为没有任何边会指回根。'],
+      ['To count whole words rather than prefixes, keep a separate end-of-word counter.', '若要统计完整的单词而不是前缀，需要另外维护一个“单词结束”的计数。'],
+    ],
+  },
+  treap: {
+    problem: ['Insert n keys into a search tree that stays balanced even when the keys arrive in sorted order, then print them in ascending order.', '把 n 个键值插入一棵即使键值有序到达也能保持平衡的搜索树，然后按升序输出。'],
+    why: ['A binary search tree built from keys in random order is shallow with overwhelming probability; the trouble is that the input order is not ours to choose. A treap makes the shape independent of the input order. Each node receives a random priority, and the tree must satisfy two rules at once: search-tree order on the keys and heap order on the priorities. Those two rules determine the shape completely — it is the tree you would get by inserting the keys in decreasing order of priority, which is a random order. To keep both rules, insert as in an ordinary search tree and then rotate the new node upward while its priority beats its parent\'s. A rotation changes which node is the parent but not the left-to-right order of the keys.', '按随机顺序插入键值建成的二叉搜索树，以极大的概率是很浅的；麻烦在于输入的顺序由不得我们选择。Treap 让树的形态与输入顺序无关。每个结点得到一个随机的优先级，树必须同时满足两条规则：键值满足搜索树的顺序，优先级满足堆的顺序。这两条规则完全确定了树的形态——它就是按优先级从大到小的顺序插入键值所得到的树，而这是一个随机的顺序。为了同时维持两条规则，先按普通搜索树的方式插入，然后只要新结点的优先级高于父亲，就把它往上旋转。旋转改变的是谁做父亲，而不改变键值从左到右的顺序。'],
+    pitfalls: [
+      ['Mixing up the two rotations: a left child rises by a right rotation and vice versa.', '把两种旋转弄混：左孩子要靠右旋上升，右孩子靠左旋上升。'],
+      ['The rotation functions must take the node by reference, or the parent keeps pointing at the old root of the subtree.', '旋转函数必须按引用接收结点，否则父结点仍然指向子树原来的根。'],
+      ['On some platforms rand() returns at most 32767; with many nodes, priorities collide and balance suffers.', '在某些平台上 rand() 最大只有 32767；结点很多时优先级大量重复，平衡性变差。'],
+    ],
+  },
+  'sqrt-decomposition': {
+    problem: ['Maintain an array under two operations: add v to every element from position l to r; and report the sum of the elements from position l to r.', '维护一个数组，支持两种操作：给第 l 个到第 r 个元素都加上 v；查询第 l 个到第 r 个元素之和。'],
+    why: ['Handling every element separately is O(n) per operation. Group the positions into consecutive blocks and keep one summary per block. A range then consists of some whole blocks in the middle and at most two incomplete blocks at the ends. A whole block is handled through its summary in O(1); an incomplete block is handled element by element. With blocks of size B there are at most n/B whole blocks and at most 2B loose elements, so the cost per operation is about n/B + 2B. That is smallest when the two terms are equal, B ≈ √n, giving O(√n). This balancing argument is the real lesson: split the work into two kinds and choose the parameter that makes them cost the same.', '每个元素单独处理，每次操作是 O(n)。把位置按顺序分成若干连续的块，每块维护一份汇总信息。一个区间于是由中间的若干整块和两端至多两个不完整的块组成。整块通过汇总信息 O(1) 处理；不完整的块逐个元素处理。块长为 B 时，整块至多 n/B 个，零散元素至多 2B 个，所以每次操作的代价约为 n/B + 2B。当两项相等，即 B ≈ √n 时最小，得到 O(√n)。这种平衡的思想才是真正要学的东西：把工作分成两类，选一个参数让它们的代价相等。'],
+    pitfalls: [
+      ['When l and r fall in the same block, the "left end" and "right end" loops must not both run.', '当 l 和 r 落在同一块时，“左端”和“右端”两个循环不能都执行。'],
+      ['A query on loose elements must add the block\'s tag to each element.', '查询零散元素时，每个元素都要加上所在块的标记。'],
+      ['The last block may be shorter than B.', '最后一块可能不足 B 个元素。'],
+    ],
+  },
+  'leftist-heap': {
+    problem: ['Push n numbers into a heap one at a time and then pop them all in ascending order, using a heap in which two heaps can be merged in O(log n).', '把 n 个数逐个插入堆，再按升序全部弹出；要求使用一种能在 O(log n) 内合并两个堆的堆。'],
+    why: ['A binary heap in an array cannot be merged with another one faster than rebuilding. A leftist heap is a heap-ordered binary tree that is deliberately lopsided: at every node the left subtree is the "deeper" one, measured by dist — the length of the shortest downward path to a missing child. That makes the path that always goes right the shortest way down, and so at most log(n + 1) nodes long. Merging works only along those short right paths: keep the smaller of the two roots on top and merge the other heap into its right subtree, recursively. On the way back, if a right subtree has become deeper than the left one, swap the two children. Pushing is merging with a one-node heap; popping is merging the root\'s two subtrees.', '用数组存储的二叉堆无法比重建更快地与另一个堆合并。左偏树是一棵满足堆序的二叉树，并且故意长得“偏”：在每个结点处，左子树是“更深”的那一个，这里的深度用 dist 衡量——向下走到空结点的最短路径长度。这样一来，一直往右走的路径就是向下最短的路，所以至多 log(n + 1) 个结点。合并只沿着这些很短的右链进行：两个根中较小的留在上面，把另一个堆递归地合并进它的右子树。回溯时，如果右子树变得比左子树更深，就交换两个孩子。插入就是与单结点的堆合并；弹出就是合并根的两棵子树。'],
+    pitfalls: [
+      ['dist of an empty tree must be 0 (and of a single node 1), or the swap test misfires.', '空树的 dist 必须为 0（单个结点为 1），否则交换的判断会出错。'],
+      ['Forgetting to update dist after the possible swap.', '可能交换之后忘记更新 dist。'],
+      ['A leftist heap is not balanced: its left spine can be n long. Only merge along the right.', '左偏树并不平衡：它的左链可能长达 n。只能沿右链合并。'],
+    ],
+  },
+}
+
+/** Where each problem shows up outside contests, shown on the Problem tab. Same inline markup as the Ideas story. */
+export const REAL: Record<string, L> = {
+  stack: ['Your editor **underlines an unmatched bracket** as you type, and a compiler rejects `( [ ) ]`. The same stack powers the Undo button and the Back button of a browser: the last thing in is the first thing out.', '你写代码时，编辑器会给**没配对的括号**画上波浪线，编译器也会拒绝 `( [ ) ]`。撤销键和浏览器的后退键靠的是同一个栈：最后进去的最先出来。'],
+  'bt-traversal': ['A **folder tree** on disk: listing a folder before its contents is a pre-order walk; computing folder sizes needs the contents first, a post-order walk. A calculator evaluates `(1 + 2) × 3` by a post-order walk of its expression tree.', '磁盘上的**文件夹树**：先列出文件夹再列出里面的内容，是先序遍历；统计文件夹大小要先算里面的内容，是后序遍历。计算器计算 `(1 + 2) × 3`，就是对表达式树做后序遍历。'],
+  huffman: ['Every **ZIP file, PNG image and JPEG photo** contains Huffman codes: frequent symbols get short bit strings and rare ones long, which is where a good part of the compression comes from.', '每一个 **ZIP 压缩包、PNG 图片和 JPEG 照片**里都有哈夫曼编码：常见的符号用短的比特串，少见的用长的，压缩效果有相当一部分来自这里。'],
+  bst: ['A **contacts list** that stays sorted while names are added and removed. `std::set` and `std::map` are binary search trees (kept balanced), and so are the indexes that let a database find a row without scanning the table.', '一份在不断增删的同时始终保持有序的**通讯录**。`std::set` 和 `std::map` 就是（保持平衡的）二叉搜索树，数据库不用扫全表就能找到一行，靠的索引也是这类结构。'],
+  'monotonic-queue': ['A stock app showing the **highest price of the last 30 minutes**, updated every second. Recomputing over the whole window each time would waste almost all the work; the monotonic queue keeps only the prices that can still become the maximum.', '股票软件显示**最近 30 分钟的最高价**，每秒更新一次。如果每次都把整个窗口重算一遍，几乎所有工作都是浪费；单调队列只保留那些还有可能成为最大值的价格。'],
+  'sparse-table': ['A weather archive that never changes: "what was the **coldest day between two dates**?" asked millions of times. Preparing the answers for all power-of-two ranges once makes each question instant.', '一份不再变化的气象档案：“**两个日期之间最冷的是哪一天**？”这样的问题要问几百万次。先把所有长度为 2 的幂的区间的答案备好，之后每个问题都能立刻回答。'],
+  dsu: ['A **social network** deciding whether two people are connected through friends of friends as friendships keep being added. Image software uses it to label connected regions, and Kruskal\'s algorithm to avoid cycles.', '**社交网络**在好友关系不断增加的同时，要判断两个人能否通过“朋友的朋友”联系上。图像软件用它给连通区域编号，Kruskal 算法用它避免成环。'],
+  fenwick: ['A live **leaderboard**: scores change all the time, and you want "how many players are below me?" at once. A plain prefix-sum array would have to be rebuilt after each change; the Fenwick tree updates in a handful of steps.', '实时**排行榜**：分数随时在变，而你想马上知道“有多少玩家排在我后面”。普通的前缀和数组每次修改后都要重建，树状数组只需几步就能更新。'],
+  'segment-tree': ['A **hotel chain**: a group booking adds guests to every night from l to r, and the manager keeps asking for the total number of guest-nights between two dates. Range changes and range questions, both in logarithmic time.', '**连锁酒店**：一个团体预订会让第 l 晚到第 r 晚每晚都增加若干客人，而经理不断询问两个日期之间的总入住人次。区间修改和区间询问，都只需对数时间。'],
+  trie: ['**Autocomplete** in a search box or on a phone keyboard: after you type "alg", every word below that node of the tree is a suggestion. Routers pick the route for an IP address by walking a trie of prefixes.', '搜索框和手机键盘的**自动补全**：输入 “alg” 之后，树上这个结点下面的所有单词都是候选。路由器为 IP 地址选路，也是沿着一棵前缀树往下走。'],
+  treap: ['An **online game ranking** where players join, leave and change score, and anyone may ask "who is in 1000th place?" or "what is my rank?". A balanced tree answers both while staying sorted.', '**网络游戏排名**：玩家不断加入、离开、改变分数，而且随时有人问“第 1000 名是谁”“我排第几”。平衡树在保持有序的同时能回答这两类问题。'],
+  'sqrt-decomposition': ['A big library does not keep one endless shelf: books are grouped into **sections**. To count something across a range you take whole sections by their summary and look at single books only at the two ends.', '大图书馆不会只有一个无限长的书架：书被分到一个个**分区**里。要统计一个范围内的东西，中间的整块分区直接用汇总结果，只有两端才需要一本一本地看。'],
+  'leftist-heap': ['Two hospitals **merge their waiting lists**, or two task queues are combined when a server goes offline. An ordinary binary heap would have to be rebuilt; a leftist heap merges in logarithmic time.', '两家医院**合并候诊名单**，或者一台服务器下线时把它的任务队列并入另一台。普通的二叉堆只能重建，左偏树可以在对数时间内合并。'],
+}

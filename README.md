@@ -14,7 +14,7 @@ The flowchart is also shown beside the code and is followed by the animation.
 
 Fourteen lessons additionally have an earlier version of the program to learn first: the same method before one optimisation, such as the knapsack's 2-D table before it is reduced to one row, Dijkstra with an array scan before the heap, or a segment tree before lazy tags. Both versions can be read and animated, and most pairs are raced in the data lab. `specs/earlier-versions.md` lists them and the rule for choosing them.
 
-The Syllabus page lists every syllabus point with its difficulty coefficient and links the points that have a lesson. The Profile page tracks learned and starred lessons; it is stored in the browser's local storage only and can be exported and imported as JSON.
+The Syllabus page lists every syllabus point with its difficulty coefficient and links the points that have a lesson. Points with a lesson to come are marked as planned; points outside what the site teaches (such as the C++ language itself) are greyed. The Profile page tracks learned and starred lessons; it is stored in the browser's local storage only and can be exported and imported as JSON.
 
 ## Run
 
@@ -27,7 +27,7 @@ npm run dev
 
 Open the address that is printed (http://localhost:5173 by default).
 
-`npm run build` writes a static site to `dist/`. It needs no server-side code and can be hosted from any path.
+`npm run build` writes a static site to `dist/`. It needs no server-side code and can be hosted from any path. Each category of lessons is a separate file that is downloaded when one of its lessons is opened.
 
 ## Keyboard
 
@@ -45,13 +45,19 @@ To also compile every C++ listing and compare its output with the animation, set
 GXX=/usr/bin/g++ npm test
 ```
 
+GitHub Actions runs the build and all tests, including the C++ checks, on every push (`.github/workflows/ci.yml`).
+
+## Adding a lesson
+
+`specs/lesson-authoring.md` says where each part of a lesson goes and what to check before merging. After adding a lesson or changing its title, level, difficulty, blurb or time, run `npm run gen` to rebuild the lesson index (`src/lessons/meta.ts`).
+
 ## Planned
 
 `specs/roadmap.md` has the full plan, in order. In short:
 
 - Lessons for the syllabus points that have none yet.
 - Predict the next step: the animation pauses at a decision and asks what happens next.
-- A broken version to fix: a common pitfall as real code, animated until it goes wrong.
+- A broken version to fix: a common pitfall as real code, to find by animating it on an input where it fails.
 - Links between lessons that build on each other (e.g. sieve → linear sieve).
 - Practice problems for each lesson.
 

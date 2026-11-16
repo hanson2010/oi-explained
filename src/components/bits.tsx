@@ -1,4 +1,5 @@
-import type { Lesson, Level } from '../engine/types'
+import type { Level } from '../engine/types'
+import type { Meta } from '../lessons/extras'
 import { CATS, LEVELS } from '../i18n'
 import { useApp } from '../store'
 
@@ -13,7 +14,7 @@ export function Diff({ d }: { d: number }) {
   return <span className="diff" title={`${ui('difficulty')} ${d}/10`}>【{d}】</span>
 }
 
-export function LessonCard({ lesson }: { lesson: Lesson }) {
+export function LessonCard({ lesson }: { lesson: Meta }) {
   const { tr, p } = useApp()
   return (
     <a className={'lesson-card lv-' + lesson.level + (p.done[lesson.id] ? ' done' : '')} href={'#/learn/' + lesson.id}>

@@ -1,17 +1,27 @@
 import { useEffect, useRef } from 'react'
 import { Jump } from './components/Jump'
-import { BY_ID } from './lessons'
+import { useLesson } from './lessons/load'
+import { META_BY_ID } from './lessons/meta'
 import { Home } from './pages/Home'
 import { LessonPage } from './pages/LessonPage'
 import { ProfilePage } from './pages/Profile'
 import { SyllabusPage } from './pages/Syllabus'
 import { useApp, useRoute } from './store'
 
+/** A lesson's category is downloaded the first time one of its lessons is opened. */
+function LessonRoute({ id, tab, step }: { id: string; tab?: string; step?: string }) {
+  const { ui } = useApp()
+  const { lesson, error } = useLesson(id)
+  if (lesson) return <LessonPage lesson={lesson} tab={tab} step={step} />
+  if (error) return <div className="empty"><p>{ui('loadFailed')}</p><button className="btn primary" onClick={() => location.reload()}>{ui('retry')}</button></div>
+  return <div className="empty" aria-busy="true"><p className="muted">{ui('loading')}</p></div>
+}
+
 export function App() {
   const { p, set, ui, tr } = useApp()
   const { path, query } = useRoute()
   const page = path[0] ?? ''
-  const lesson = page === 'learn' ? BY_ID.get(path[1] ?? '') : undefined
+  const lesson = page === 'learn' ? META_BY_ID.get(path[1] ?? '') : undefined
   const name = lesson ? tr(lesson.title) : page === '' ? '' : page === 'syllabus' ? ui('navSyllabus') : page === 'profile' ? ui('navProfile') : ui('notFound')
 
   // Sticky parts of a page (lesson tabs, side panels) sit below the header, whatever its height is.
@@ -47,7 +57,7 @@ export function App() {
         {page === '' ? <Home query={query} />
           : page === 'syllabus' ? <SyllabusPage level={path[1]} query={query} />
           : page === 'profile' ? <ProfilePage />
-          : lesson ? <LessonPage key={lesson.id} lesson={lesson} tab={path[2]} step={path[3]} />
+          : lesson ? <LessonRoute key={lesson.id} id={lesson.id} tab={path[2]} step={path[3]} />
           : <div className="empty"><p>{ui('notFound')}</p><a className="btn primary" href="#/">{ui('home')}</a></div>}
       </main>
       <footer className="foot">{ui('footer')}</footer>
