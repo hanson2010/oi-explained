@@ -47,6 +47,8 @@ GXX=/usr/bin/g++ npm test
 
 ## Planned
 
+`specs/roadmap.md` has the full plan, in order. In short:
+
 - Lessons for the syllabus points that have none yet.
 - Predict the next step: the animation pauses at a decision and asks what happens next.
 - A broken version to fix: a common pitfall as real code, animated until it goes wrong.
