@@ -219,4 +219,30 @@ export const MATH: Record<string, Extras> = {
       { id: 'done', kind: 'end', text: ['print the count', '输出个数'] },
     ],
   },
+
+  'prime-factor': {
+    story: [
+      { kind: 'term', title: ['The fundamental theorem of arithmetic', '算术基本定理'],
+        body: ['A **prime** is an integer above 1 whose only divisors are 1 and itself: 2, 3, 5, 7, 11, … Every other integer above 1 is **composite**. The theorem: every integer above 1 can be written as a product of primes, and ==in only one way== apart from the order of the factors. 360 is 2 · 2 · 2 · 3 · 3 · 5 and nothing else. The primes are the atoms of multiplication — which is why so many questions about a number (its divisors, its gcd with another number) become easy once it is factorised.', '**质数**是大于 1 且只能被 1 和它本身整除的整数：2、3、5、7、11……其余大于 1 的整数都是**合数**。定理说：每个大于 1 的整数都能写成质数的乘积，而且不计因数的顺序时==写法只有一种==。360 就是 2 · 2 · 2 · 3 · 3 · 5，没有别的写法。质数是乘法世界里的原子——所以一旦把一个数分解了，许多关于它的问题（有哪些约数、与另一个数的最大公约数）都变得容易。'],
+        fig: () => [arr('360 =', [2, 2, 2, 3, 3, 5], tn({ ok: [0, 1, 2], cmp: [3, 4], act: 5 }))] },
+      { kind: 'naive', title: ['Start simple: try every number below n', '先从最简单的做起：试遍小于 n 的每个数'],
+        body: ['For p = 2, 3, 4, … up to n: while p divides n, record p and divide. It works, but for a prime n near 10¹⁴ the loop runs **10¹⁴ times**. And it seems to need a test "is p prime?" before recording p.', '让 p = 2, 3, 4, … 一直到 n：只要 p 能整除 n，就记下 p 并除掉。这样是对的，但当 n 是接近 10¹⁴ 的质数时，循环要跑 **10¹⁴ 次**。而且看起来在记下 p 之前，还得先判断“p 是不是质数”。'] },
+      { kind: 'insight', title: ['Composites never divide — and factors come in pairs', '合数永远除不进——而且因数成对出现'],
+        body: ['When the loop reaches p, every smaller prime has been ==divided out completely==. A composite p is a product of smaller primes, so it cannot divide what is left: no primality test is needed. And if n = a · b, the smaller of a and b is at most √n. So if nothing up to √n divides n, ==n itself is prime==.', '循环走到 p 时，所有更小的质数都已经被==除得干干净净==。合数 p 是更小的质数的乘积，所以它不可能整除剩下的数：根本不需要判断质数。另外，若 n = a · b，a 和 b 中较小的那个不超过 √n。所以如果直到 √n 都没有数能整除 n，==n 本身就是质数==。'],
+        fig: () => [grid('factor pairs of 36: the smaller one never exceeds √36 = 6', [[1, 2, 3, 4, 6], [36, 18, 12, 9, 6]], gt({ ok: row(0, 0, 4) }), { rows: ['a ≤ 6', 'b = 36 / a'] })] },
+      { kind: 'how', title: ['Divide out, move on, stop at p · p > n', '除尽，往下试，到 p · p > n 就停'],
+        body: ['Loop `p` from 2 while `p · p ≤ n`. Inside, `while (n % p == 0)` prints p and divides — a __while__, because a prime can occur several times. The bound uses the ==current== n, which shrinks with every division, so the loop often ends long before the square root of the original number. Afterwards, if n > 1, it is the last prime factor.', '让 `p` 从 2 开始，只要 `p · p ≤ n` 就继续。循环内用 `while (n % p == 0)` 输出 p 并除掉——必须是 __while__，因为一个质数可能出现多次。上界用的是==当前的== n，它每除一次都会变小，所以循环往往远在原数的平方根之前就结束了。结束后如果 n > 1，它就是最后一个质因数。'],
+        fig: () => [grid('factorising 360', [[360, 180, 90, 45, 15, 5], [2, 2, 2, 3, 3, '5 is left: 3 · 3 > 5'], [180, 90, 45, 15, 5, '']], gt({ act: row(1, 0, 4), ok: [[1, 5]] }), { rows: ['n', 'divide by', 'leaves'] })] },
+      { kind: 'result', title: ['√n steps instead of n', '从 n 步降到 √n 步'],
+        body: ['At most **√n** trial divisions: ten million for n = 10¹⁴ instead of a hundred million million. For many numbers below a limit, sieve the primes first and divide by those only. For numbers with hundreds of digits no fast method is known — a fact that modern cryptography depends on.', '最多 **√n** 次试除：n = 10¹⁴ 时是一千万次，而不是一百万亿次。如果要分解某个范围内的许多数，可以先筛出质数，只用质数去试除。而对于几百位的数，目前还没有已知的快速方法——现代密码学正是建立在这个事实之上。'] },
+    ],
+    flow: [
+      { id: 'init', kind: 'start', text: ['p = 2', 'p = 2'], on: [] },
+      { id: 'try', kind: 'test', text: ['p · p ≤ n ?', 'p · p ≤ n ？'], no: 'last' },
+      { id: 'div', kind: 'test', text: ['p divides n ?', 'p 整除 n ？'], no: 'inc', on: [] },
+      { id: 'take', text: ['print p;   n = n / p', '输出 p；n = n / p'], next: 'div' },
+      { id: 'inc', text: ['p = p + 1', 'p = p + 1'], next: 'try', on: [] },
+      { id: 'last', kind: 'end', text: ['if n > 1, print n: it is prime', '若 n > 1，输出 n：它是质数'] },
+    ],
+  },
 }

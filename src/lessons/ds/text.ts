@@ -121,6 +121,15 @@ export const TEXT: Record<string, Prose> = {
       ['A leftist heap is not balanced: its left spine can be n long. Only merge along the right.', '左偏树并不平衡：它的左链可能长达 n。只能沿右链合并。'],
     ],
   },
+  'linked-list': {
+    problem: ['Keep a sequence of elements while elements are removed and moved to other places, each operation in constant time. Print the sequence at the end.', '维护一个元素序列，其间不断有元素被删除或被移到别处，每个操作都要在常数时间内完成。最后输出这个序列。'],
+    why: ['In an array, order is position: taking an element out of the middle leaves a hole, and everything behind it must move up — up to n steps. A linked list stores order differently. Each element records who comes after it and who comes before it, and the sequence is whatever you get by following those links. Then removing x needs no shifting at all: its predecessor is told to point past it, and its successor to point back past it. Inserting x after y is the reverse: x takes y and the old successor of y as neighbours, and those two are told about x. Either way only the few elements involved are touched. The price is that there is no "element number k" any more: to reach a place you must walk there, or already hold the element. Here the elements are the numbers 1 … n, so two arrays indexed by the element are the whole structure.', '在数组里，顺序就是位置：从中间取走一个元素会留下一个空位，后面的元素都要往前挪——最多 n 步。链表用另一种方式保存顺序。每个元素记下谁在它后面、谁在它前面，沿着这些指针走出来的就是整个序列。这样删除 x 完全不需要挪动：让它的前驱绕过它指向后面，让它的后继绕过它指向前面。把 x 插到 y 后面则正好相反：x 把 y 和 y 原来的后继当作邻居，再告诉这两个邻居有了 x。两种操作都只碰到相关的几个元素。代价是不再有“第 k 个元素”这种说法：要到达某个位置只能走过去，或者手里已经有那个元素。这里的元素就是数 1 … n，所以两个以元素为下标的数组就是整个数据结构。'],
+    pitfalls: [
+      ['Changing nxt[y] before reading it loses the old successor of y. Set the links of the new element first.', '还没用到 nxt[y] 就把它改掉，会丢失 y 原来的后继。要先设置新元素自己的指针。'],
+      ['Without a sentinel, the first and the last element need special cases in every operation.', '如果没有哨兵，每个操作都要对第一个和最后一个元素进行特判。'],
+      ['A linked list cannot jump to the k-th element: that costs k steps. Use an array when you need positions.', '链表无法直接跳到第 k 个元素：那需要走 k 步。需要按位置访问时应使用数组。'],
+    ],
+  },
 }
 
 /** Where each problem shows up outside contests, shown on the Problem tab. Same inline markup as the Ideas story. */
@@ -138,4 +147,5 @@ export const REAL: Record<string, L> = {
   treap: ['An **online game ranking** where players join, leave and change score, and anyone may ask "who is in 1000th place?" or "what is my rank?". A balanced tree answers both while staying sorted.', '**网络游戏排名**：玩家不断加入、离开、改变分数，而且随时有人问“第 1000 名是谁”“我排第几”。平衡树在保持有序的同时能回答这两类问题。'],
   'sqrt-decomposition': ['A big library does not keep one endless shelf: books are grouped into **sections**. To count something across a range you take whole sections by their summary and look at single books only at the two ends.', '大图书馆不会只有一个无限长的书架：书被分到一个个**分区**里。要统计一个范围内的东西，中间的整块分区直接用汇总结果，只有两端才需要一本一本地看。'],
   'leftist-heap': ['Two hospitals **merge their waiting lists**, or two task queues are combined when a server goes offline. An ordinary binary heap would have to be rebuilt; a leftist heap merges in logarithmic time.', '两家医院**合并候诊名单**，或者一台服务器下线时把它的任务队列并入另一台。普通的二叉堆只能重建，左偏树可以在对数时间内合并。'],
+  'linked-list': ['The **undo history** of an editor and the list of open tabs in a browser are linked lists: items are inserted and removed in the middle all the time, and nobody asks for "item number 3 172". A music player\'s "play next" is one insertion after the current song.', '编辑器的**撤销记录**和浏览器的标签页列表都是链表：元素随时在中间插入和删除，没有人会去问“第 3 172 项”是什么。音乐播放器的“下一首播放”就是在当前歌曲后面做一次插入。'],
 }

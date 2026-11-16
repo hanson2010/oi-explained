@@ -1,5 +1,5 @@
 import type { Lesson, Rng, Tone } from '../../engine/types'
-import { arr, grid, Heap, need, reader, tn, vars } from '../../engine/h'
+import { arr, grid, Heap, need, reader, span, tn, vars } from '../../engine/h'
 
 const cpp = String.raw
 const DX = [-1, 0, 1, 0], DY = [0, 1, 0, -1]
@@ -22,6 +22,7 @@ const genMaze = (n: number, r: Rng, wall = 0.25) => {
 
 const queens: Lesson = {
   id: 'n-queens', title: ['DFS & pruning: N queens', '深度优先搜索与剪枝：N 皇后'], level: 'J', cat: 'search', diff: 5,
+  needs: ['permutations'],
   blurb: ['Place one queen per row, back up as soon as a choice is attacked, and count every full board.', '每行放一个皇后，一旦发现冲突立刻回溯，统计所有放满的方案。'],
   ideas: [
     ['Depth-first search explores one choice as far as possible, then undoes it and tries the next (backtracking).', '深度优先搜索沿一个选择走到底，然后撤销它，再尝试下一个（回溯）。'],
@@ -172,6 +173,7 @@ int main() {
 
 const flood: Lesson = {
   id: 'flood-fill', title: ['Flood fill', '泛洪算法（Flood Fill）'], level: 'J', cat: 'search', diff: 5,
+  needs: ['bfs-maze'],
   blurb: ['Start from an unlabelled cell and spread to every connected neighbour — one fill per connected region.', '从一个未标记的格子出发，向所有相连的邻居扩散——每次填充得到一个连通块。'],
   ideas: [
     ['Scan the grid; whenever you meet an unlabelled land cell, you have found a new region.', '扫描网格；每遇到一个未标记的陆地格子，就发现了一个新的连通块。'],
@@ -251,6 +253,7 @@ int main() {
 
 const astar: Lesson = {
   id: 'a-star', title: ['Heuristic search: A*', '启发式搜索：A*'], level: 'S', cat: 'search', diff: 7,
+  needs: ['bfs-maze', 'dijkstra'],
   blurb: ['Order the frontier by distance so far plus an optimistic estimate of what remains, and head for the target.', '按“已走距离 + 对剩余距离的乐观估计”给待扩展结点排序，朝着终点搜索。'],
   ideas: [
     ['BFS expands in all directions. A* prefers cells that look closer to the target.', 'BFS 向四面八方扩展；A* 优先扩展看起来离终点更近的格子。'],
@@ -344,4 +347,76 @@ int main() {
   },
 }
 
-export default [queens, bfs, flood, astar]
+const permutations: Lesson = {
+  id: 'permutations', title: ['All permutations by backtracking', '全排列（回溯）'], level: 'J', cat: 'search', diff: 4,
+  needs: ['hanoi'],
+  blurb: ['Fill the positions one by one with a number that is still free; when you come back, free it again and try the next.', '一个位置一个位置地填上还没用过的数；返回时把它释放，再试下一个。'],
+  ideas: [
+    ['A permutation is an arrangement of n different things in a row. There are n! of them.', '排列就是把 n 个不同的东西排成一行。一共有 n! 种。'],
+    ['Build it position by position: position k can take any number not used in positions 1 … k − 1.', '一个位置一个位置地构造：第 k 个位置可以放任何没有在前 k − 1 个位置用过的数。'],
+    ['used[x] remembers which numbers are taken. After the recursive call returns, clear it: that is backtracking.', 'used[x] 记录哪些数已被占用。递归调用返回后要把它清除：这就是回溯。'],
+    ['Trying the numbers in increasing order produces the permutations in dictionary order.', '按从小到大的顺序尝试各个数，得到的排列就是字典序的。'],
+  ],
+  time: 'O(n · n!)', space: 'O(n)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int n, a[12];
+bool used[12];
+
+void dfs(int k) {  // choose the number for position k
+    if (k > n) {
+        for (int i = 1; i <= n; i++) printf("%d ", a[i]);  //@print
+        puts("");
+        return;
+    }
+    for (int x = 1; x <= n; x++) {
+        if (used[x]) continue;  //@skip
+        a[k] = x; used[x] = true;  //@put
+        dfs(k + 1);
+        used[x] = false;  //@undo
+    }
+}
+
+int main() {
+    scanf("%d", &n);
+    dfs(1);
+}`,
+  notes: [
+    ['print', ['All n positions are filled: one complete permutation.', 'n 个位置都填好了：得到一个完整的排列。']],
+    ['skip', ['x already stands in an earlier position.', 'x 已经放在前面的某个位置上了。']],
+    ['put', ['Position k is decided; the recursion decides the rest.', '第 k 个位置确定了；剩下的交给递归。']],
+    ['undo', ['Give x back, so that later choices for position k can use it further on.', '把 x 还回去，这样第 k 个位置换成别的数之后，后面的位置还能用它。']],
+  ],
+  input: ['n (1 ≤ n ≤ 9). Prints every permutation of 1 … n, one per line, in dictionary order.', 'n（1 ≤ n ≤ 9）。按字典序输出 1 … n 的所有排列，每行一个。'],
+  sizes: [2, 3, 4], lab: [3, 5, 7, 8],
+  gen: n => `${n}\n`,
+  run(inp, t) {
+    const n = reader(inp).int()
+    need(Number.isInteger(n) && n >= 1 && n <= 9, 'n must be between 1 and 9.', 'n 须在 1 到 9 之间。')
+    const a = new Array<number>(n + 1).fill(0), used = new Array<boolean>(n + 1).fill(false), out: string[] = []
+    const view = (k: number, tone: 'act' | 'ok' | 'bad') => [
+      arr('a: the permutation being built', a.slice(1).map((v, i) => (i < k ? v : '')), tn({ [tone]: tone === 'ok' ? span(0, n - 1) : k - 1 }), tone === 'ok' ? undefined : { k: k - 1 }, { base: 1 }),
+      arr('still free', span(1, n).map(x => (used[x] ? '' : x)), tn({ dim: span(1, n).filter(x => used[x]).map(x => x - 1) }), undefined, { base: 1 }),
+    ] as const
+    const dfs = (k: number) => {
+      if (k > n) {
+        out.push(a.slice(1).join(' '))
+        t.s('print', () => [[`All ${n} positions filled: permutation number ${out.length}.`, `${n} 个位置都填好了：这是第 ${out.length} 个排列。`], ...view(n, 'ok'), vars({ found: out.length })])
+        return
+      }
+      for (let x = 1; x <= n; x++) {
+        if (used[x]) { t.tick(); continue }
+        a[k] = x; used[x] = true
+        t.s('put', () => [[`Position ${k}: put ${x}.`, `第 ${k} 个位置：放 ${x}。`], ...view(k, 'act'), vars({ k, x, found: out.length })])
+        dfs(k + 1)
+        used[x] = false
+        t.s('undo', () => [[`Back at position ${k}: take ${x} out again and try the next number.`, `回到第 ${k} 个位置：把 ${x} 拿出来，试下一个数。`], ...view(k, 'bad'), vars({ k, x, found: out.length })])
+      }
+    }
+    dfs(1)
+    t.out(out.join('\n'))
+  },
+}
+
+export default [queens, bfs, flood, astar, permutations]

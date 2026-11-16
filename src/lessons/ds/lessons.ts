@@ -94,6 +94,7 @@ function genBin(n: number, rg: Rng) {
 
 const traversal: Lesson = {
   id: 'bt-traversal', title: ['Binary tree traversals', '二叉树的遍历'], level: 'J', cat: 'ds', diff: 4,
+  needs: ['hanoi'],
   blurb: ['Pre-, in- and post-order differ only in when the root is visited relative to its two subtrees.', '前序、中序、后序的区别只在于：相对于左右子树，根在什么时候被访问。'],
   ideas: [
     ['Store the tree with two arrays: l[u] and r[u] are the children of u (0 = none).', '用两个数组存树：l[u]、r[u] 是 u 的左右孩子（0 表示没有）。'],
@@ -171,6 +172,7 @@ int main() {
 
 const huffman: Lesson = {
   id: 'huffman', title: ['Huffman tree', '哈夫曼树'], level: 'J', cat: 'ds', diff: 4,
+  needs: ['bt-traversal'],
   blurb: ['Greedily merge the two lightest trees until one remains: frequent symbols end up near the root.', '贪心地反复合并权值最小的两棵树，直到只剩一棵：出现越频繁的符号离根越近。'],
   ideas: [
     ['Goal: a binary tree whose leaves are the symbols, minimising Σ weight × depth (the weighted path length).', '目标：以各符号为叶子的二叉树，使 Σ 权值 × 深度（带权路径长度 WPL）最小。'],
@@ -240,6 +242,7 @@ function binView(roots: number[], lc: number[], rc: number[], label: readonly (s
 
 const bst: Lesson = {
   id: 'bst', title: ['Binary search tree', '二叉搜索树'], level: 'J', cat: 'ds', diff: 4,
+  needs: ['bt-traversal'],
   blurb: ['Smaller keys go left, larger keys go right — so one comparison per level finds any key.', '小的往左、大的往右——每层只需比较一次就能定位任意键值。'],
   ideas: [
     ['Invariant: every key in the left subtree < the node < every key in the right subtree.', '性质：左子树所有键值 < 结点 < 右子树所有键值。'],
@@ -523,6 +526,7 @@ const genRange = (point: boolean) => (n: number, r: Rng) => {
 
 const fenwick: Lesson = {
   id: 'fenwick', title: ['Fenwick tree (BIT)', '树状数组'], level: 'S', cat: 'ds', diff: 6,
+  needs: ['prefix-sum'],
   blurb: ['c[i] stores the sum of the lowbit(i) elements ending at i, so point updates and prefix sums both take O(log n).', 'c[i] 保存以 i 结尾的 lowbit(i) 个元素之和，于是单点修改和前缀查询都只需 O(log n)。'],
   ideas: [
     ['lowbit(i) = i & −i is the lowest set bit of i, e.g. lowbit(12 = 1100₂) = 4.', 'lowbit(i) = i & −i 是 i 最低位的 1 所代表的值，例如 lowbit(12 = 1100₂) = 4。'],
@@ -608,6 +612,7 @@ int main() {
 
 const segtree: Lesson = {
   id: 'segment-tree', title: ['Segment tree with lazy tags', '线段树（懒标记）'], level: 'S', cat: 'ds', diff: 6,
+  needs: ['prefix-sum'],
   blurb: ['Each node stores the sum of an interval. Range updates stop at fully covered nodes and leave a tag to be pushed down later.', '每个结点保存一个区间的和。区间修改在被完全覆盖的结点处停下，留下标记，以后需要时再下传。'],
   ideas: [
     ['Node p covers [l, r]; its children 2p and 2p + 1 cover the two halves.', '结点 p 管辖 [l, r]；孩子 2p 和 2p + 1 各管辖一半。'],
@@ -826,6 +831,7 @@ int main() {
 
 const treap: Lesson = {
   id: 'treap', title: ['Balanced tree: Treap', '平衡树：Treap'], level: 'S', cat: 'ds', diff: 8,
+  needs: ['bst'],
   blurb: ['A binary search tree on keys that is also a heap on random priorities — rotations keep it balanced without thinking.', '键值满足二叉搜索树性质、随机优先级满足堆性质的树——靠旋转自动保持平衡。'],
   ideas: [
     ['A plain BST degenerates into a chain when keys arrive in sorted order.', '普通二叉搜索树在键值按顺序到达时会退化成一条链。'],
@@ -911,6 +917,7 @@ int main() {
 
 const sqrtDec: Lesson = {
   id: 'sqrt-decomposition', title: ['Square-root decomposition', '分块'], level: 'N', cat: 'ds', diff: 8,
+  needs: ['prefix-sum'],
   blurb: ['Cut the array into blocks of about √n: handle whole blocks with one number, and the ragged ends element by element.', '把数组切成大小约 √n 的块：整块用一个数处理，两端零散的部分逐个处理。'],
   ideas: [
     ['Per block keep its sum and an "add to everyone" tag.', '每块维护块内和，以及一个“整块都加”的标记。'],
@@ -994,6 +1001,7 @@ int main() {
 
 const leftist: Lesson = {
   id: 'leftist-heap', title: ['Leftist heap', '左偏树'], level: 'N', cat: 'ds', diff: 8,
+  needs: ['heap-sort'],
   blurb: ['A heap that merges in O(log n): always merge down the short right spine, and swap children to keep it short.', '能在 O(log n) 内合并的堆：总是沿着很短的右链合并，并通过交换左右孩子保持右链短。'],
   ideas: [
     ['dist(u) = length of the shortest path from u down to a missing child. Leftist rule: dist(left) ≥ dist(right).', 'dist(u) = 从 u 向下走到空结点的最短路径长度。左偏性质：dist(左孩子) ≥ dist(右孩子)。'],
@@ -1078,4 +1086,95 @@ int main() {
   },
 }
 
-export default [stack, traversal, huffman, bst, monoQueue, sparse, dsu, fenwick, segtree, trie, treap, sqrtDec, leftist]
+const linkedList: Lesson = {
+  id: 'linked-list', title: ['Linked list', '链表'], level: 'J', cat: 'ds', diff: 3,
+  blurb: ['Every element remembers its neighbours, so one can be taken out or put in anywhere by changing a few links — nothing is shifted.', '每个元素都记着自己的邻居，所以在任何位置删除或插入都只需改几个指针——不用移动其他元素。'],
+  ideas: [
+    ['An array keeps order by position, so inserting in the middle shifts everything behind it. A list keeps order by links.', '数组靠位置来保持顺序，在中间插入就要把后面的元素全部后移。链表靠指针来保持顺序。'],
+    ['Store two arrays: nxt[x] is the element after x and pre[x] the one before it.', '用两个数组：nxt[x] 是 x 的后一个元素，pre[x] 是它的前一个元素。'],
+    ['Removing x: make its two neighbours point at each other. Two assignments.', '删除 x：让它的两个邻居互相指向对方。两次赋值。'],
+    ['Inserting x after y: four assignments — set the two links of x first, then redirect the neighbours.', '把 x 插到 y 后面：四次赋值——先设置 x 的两个指针，再改邻居的指针。'],
+    ['A sentinel node 0 sits before the first and after the last element, closing the list into a ring: no special cases at the ends.', '用 0 号结点作哨兵，它既在第一个元素之前，又在最后一个元素之后，把链表连成一个环：两端不需要特判。'],
+  ],
+  time: 'O(1) per operation', space: 'O(n)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int n, q, nxt[1000005], pre[1000005];
+
+void cut(int x) {  // take x out of the list
+    nxt[pre[x]] = nxt[x];  //@cut
+    pre[nxt[x]] = pre[x];
+}
+
+void putAfter(int x, int y) {  // put x right after y
+    nxt[x] = nxt[y]; pre[x] = y;  //@own
+    pre[nxt[y]] = x; nxt[y] = x;  //@in
+}
+
+int main() {
+    scanf("%d%d", &n, &q);
+    for (int i = 0; i <= n; i++) { nxt[i] = (i + 1) % (n + 1); pre[i] = (i + n) % (n + 1); }  //@init
+    while (q--) {
+        int op, x, y;
+        scanf("%d%d", &op, &x);
+        cut(x);
+        if (op == 1) { scanf("%d", &y); putAfter(x, y); }
+    }
+    for (int u = nxt[0]; u != 0; u = nxt[u]) printf("%d ", u);  //@done
+}`,
+  notes: [
+    ['cut', ['x keeps its own links, but nobody points at it any more.', 'x 自己的指针还在，但已经没有谁指向它了。']],
+    ['own', ['First the links of x itself: nothing in the list changes yet, so nothing can be lost.', '先设置 x 自己的两个指针：此时链表本身还没有变，所以不会丢失任何信息。']],
+    ['in', ['nxt[y] must be changed last — it is the only way to reach the old successor of y.', 'nxt[y] 必须最后改——它是找到 y 原来的后继的唯一途径。']],
+    ['init', ['0 → 1 → 2 → … → n → 0: the sentinel closes the ring.', '0 → 1 → 2 → … → n → 0：哨兵把链表连成一个环。']],
+    ['done', ['Walk from the sentinel until you are back at it.', '从哨兵出发，一直走到回到哨兵为止。']],
+  ],
+  input: ['n q — the list starts as 1, 2, …, n. Then q operations: "1 x y" moves x to just after y (y = 0 means to the front), "2 x" removes x. Prints the final list.', 'n q —— 链表初始为 1, 2, …, n。随后 q 个操作：“1 x y” 把 x 移到 y 的后面（y = 0 表示移到最前面），“2 x” 删除 x。输出最终的链表。'],
+  sizes: [5, 7, 9], lab: [10, 1000, 100000, 500000],
+  gen(n, r) {
+    const q = n <= 30 ? 4 : n, alive = span(1, n)
+    let s = `${n} ${q}\n`
+    for (let k = 0; k < q; k++) {
+      const i = r.int(0, alive.length - 1), x = alive[i]
+      if (alive.length > 3 && r.int(0, 9) < 3) { alive[i] = alive[alive.length - 1]; alive.pop(); s += `2 ${x}\n`; continue }
+      let y = r.int(0, 5) === 0 ? 0 : r.pick(alive)
+      if (y === x) y = 0
+      s += `1 ${x} ${y}\n`
+    }
+    return s
+  },
+  run(inp, t) {
+    const rd = reader(inp), n = rd.int(), q = rd.int()
+    need(Number.isInteger(n) && n >= 1 && n <= 1e6, 'n must be between 1 and 1,000,000.', 'n 须在 1 到 1,000,000 之间。')
+    const nxt = span(0, n).map(i => (i + 1) % (n + 1)), pre = span(0, n).map(i => (i + n) % (n + 1)), here = new Array<boolean>(n + 1).fill(true)
+    const order = () => { const o: number[] = []; for (let u = nxt[0]; u !== 0; u = nxt[u]) o.push(u); return o }
+    const view = (hi: Tones, out?: number) => {
+      const o = order()
+      return [
+        arr('the list, from the sentinel', o, Object.fromEntries(o.map((v, i) => [i, hi[v]]).filter(e => e[1])) as Tones),
+        arr('nxt', nxt, { ...hi, ...(out === undefined ? {} : { [out]: 'dim' }) }, undefined, { base: 0 }),
+        arr('pre', pre, { ...hi, ...(out === undefined ? {} : { [out]: 'dim' }) }, undefined, { base: 0 }),
+      ] as const
+    }
+    t.s('init', () => [[`The list is 1 … ${n}. Node 0 is the sentinel: nxt[0] is the first element, pre[0] the last.`, `链表为 1 … ${n}。0 号结点是哨兵：nxt[0] 是第一个元素，pre[0] 是最后一个。`], ...view({ 0: 'vis' })])
+    for (let k = 0; k < q; k++) {
+      const op = rd.int(), x = rd.int()
+      need((op === 1 || op === 2) && Number.isInteger(x) && x >= 1 && x <= n && here[x], `Operation ${k + 1}: x must be an element that is still in the list.`, `第 ${k + 1} 个操作：x 必须是仍在链表中的元素。`)
+      const a = pre[x], b = nxt[x]
+      nxt[a] = b; pre[b] = a
+      t.s('cut', () => [[`Take ${x} out: its neighbours ${a || 'the sentinel'} and ${b || 'the sentinel'} now point at each other.`, `取出 ${x}：它的两个邻居 ${a || '哨兵'} 和 ${b || '哨兵'} 现在互相指向对方。`], ...view({ [a]: 'cmp', [b]: 'cmp' }, x), vars({ x })])
+      if (op === 2) { here[x] = false; continue }
+      const y = rd.int()
+      need(Number.isInteger(y) && y >= 0 && y <= n && y !== x && (y === 0 || here[y]), `Operation ${k + 1}: y must be 0 or another element in the list.`, `第 ${k + 1} 个操作：y 必须是 0 或链表中的另一个元素。`)
+      const c = nxt[y]
+      nxt[x] = c; pre[x] = y; pre[c] = x; nxt[y] = x
+      t.s('in', () => [[`Put ${x} after ${y || 'the sentinel'}: ${x} points at ${y || 'the sentinel'} and ${c || 'the sentinel'}, then they point at ${x}.`, `把 ${x} 放到 ${y || '哨兵'} 后面：${x} 指向 ${y || '哨兵'} 和 ${c || '哨兵'}，然后它们再指向 ${x}。`], ...view({ [y]: 'cmp', [c]: 'cmp', [x]: 'act' }), vars({ x, y })])
+    }
+    const res = order()
+    t.s('done', () => [['Walk from the sentinel along nxt until it comes round again.', '从哨兵出发沿着 nxt 走，直到回到哨兵。'], arr('the list', res, tn({ ok: span(0, res.length - 1) }))])
+    t.out(res.join(' '))
+  },
+}
+
+export default [stack, traversal, huffman, bst, monoQueue, sparse, dsu, fenwick, segtree, trie, treap, sqrtDec, leftist, linkedList]

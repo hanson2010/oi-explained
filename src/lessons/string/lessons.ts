@@ -163,6 +163,7 @@ int main() {
 
 const zfn: Lesson = {
   id: 'z-function', title: ['Extended KMP (Z-function)', '扩展 KMP（Z 函数）'], level: 'N', cat: 'string', diff: 8,
+  needs: ['kmp'],
   blurb: ['z[i] is how far the suffix starting at i agrees with the whole string. A sliding "Z-box" lets each value start from what is already known.', 'z[i] 表示从 i 开始的后缀与整个串能匹配多长。借助滑动的“Z 盒子”，每个值都可以从已知信息出发。'],
   ideas: [
     ['z[i] = length of the longest common prefix of s and s[i..].', 'z[i] = s 与 s[i..] 的最长公共前缀长度。'],
@@ -228,6 +229,7 @@ int main() {
 
 const ac: Lesson = {
   id: 'ac-automaton', title: ['Aho–Corasick automaton', 'AC 自动机'], level: 'N', cat: 'string', diff: 8,
+  needs: ['kmp', 'trie'],
   blurb: ['A trie of all patterns plus KMP-style failure links: one pass over the text finds every occurrence of every pattern.', '所有模式串的字典树，加上类似 KMP 的失配指针：扫一遍文本就能找出每个模式串的每次出现。'],
   ideas: [
     ['Build a trie of the patterns: each node is a prefix of some pattern — a state of a finite automaton.', '把所有模式串建成字典树：每个结点是某个模式串的前缀——也就是有穷自动机的一个状态。'],
@@ -331,6 +333,7 @@ int main() {
 
 const sa: Lesson = {
   id: 'suffix-array', title: ['Suffix array (doubling)', '后缀数组（倍增）'], level: 'N', cat: 'string', diff: 8,
+  needs: ['radix-sort'],
   blurb: ['Sort all suffixes by their first 1, 2, 4, 8… characters. Each round reuses the previous ranks, so a comparison stays O(1).', '把所有后缀依次按前 1、2、4、8……个字符排序。每一轮都复用上一轮的排名，比较始终是 O(1)。'],
   ideas: [
     ['sa[k] = starting index of the k-th smallest suffix; rk[i] = rank of the suffix starting at i.', 'sa[k] = 第 k 小的后缀的起始下标；rk[i] = 从 i 开始的后缀的排名。'],

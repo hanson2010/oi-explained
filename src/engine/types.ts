@@ -46,8 +46,8 @@ export type Cat = 'basic' | 'sort' | 'search' | 'ds' | 'graph' | 'dp' | 'string'
  * **strong**, ==highlight==, __underline__ and `code`.
  */
 export interface Card {
-  /** naive = the obvious first attempt; insight = the observation that unlocks the method; how = a step of the method; result = what you gain. */
-  kind: 'naive' | 'insight' | 'how' | 'result'
+  /** term = words, definitions or a theorem the lesson relies on; naive = the obvious first attempt; insight = the observation that unlocks the method; how = a step of the method; result = what you gain. */
+  kind: 'term' | 'naive' | 'insight' | 'how' | 'result'
   title?: L
   body: L
   /** A static diagram, drawn with the same views as the animation. */
@@ -94,6 +94,8 @@ export interface Lesson {
   cat: Cat
   /** Syllabus difficulty coefficient, 1–10. */
   diff: number
+  /** Lessons to learn first: only direct prerequisites, by id. They always come earlier in the learning path. */
+  needs?: string[]
   blurb: L
   /** Key ideas, shown as a numbered list. */
   ideas: L[]

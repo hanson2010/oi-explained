@@ -178,6 +178,7 @@ int main() {
 
 const lcs: Lesson = {
   id: 'lcs', title: ['Longest common subsequence', '最长公共子序列'], level: 'S', cat: 'dp', diff: 6,
+  needs: ['lis'],
   blurb: ['A two-dimensional DP over prefixes: match the last characters if they agree, otherwise drop one of them.', '在两个前缀上做二维 DP：末尾字符相同就配对，否则丢掉其中一个。'],
   ideas: [
     ['State: f[i][j] = LCS length of the first i characters of a and the first j of b.', '状态：f[i][j] = a 的前 i 个字符与 b 的前 j 个字符的 LCS 长度。'],
@@ -238,6 +239,7 @@ int main() {
 
 const treeDp: Lesson = {
   id: 'tree-dp', title: ['Tree DP: maximum independent set', '树形 DP：没有上司的舞会'], level: 'S', cat: 'dp', diff: 6,
+  needs: ['graph-dfs'],
   blurb: ['Pick vertices of maximum total weight with no two adjacent. Each subtree reports two numbers: its best with and without its root.', '选出总权值最大的一组互不相邻的顶点。每棵子树向上汇报两个数：选根和不选根时的最优值。'],
   ideas: [
     ['On a tree, a subtree interacts with the rest only through its root — so the root\'s choice is the state.', '在树上，子树只通过它的根与外界发生关系——所以根的选择就是状态。'],

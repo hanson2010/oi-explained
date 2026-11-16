@@ -8,7 +8,7 @@ Each category has a folder in `src/lessons/` (`basic`, `sort`, `search`, `ds`, `
 
 | File | Holds | Type |
 |---|---|---|
-| `lessons.ts` | The lesson object: `id`, titles, level, difficulty, `blurb`, `ideas`, complexity, the C++ listing, `notes`, input format, `gen`, `sizes`, `lab`, `run`. Add it to the default export at the bottom. | `Lesson` |
+| `lessons.ts` | The lesson object: `id`, titles, level, difficulty, `needs` (direct prerequisites), `blurb`, `ideas`, complexity, the C++ listing, `notes`, input format, `gen`, `sizes`, `lab`, `run`. Add it to the default export at the bottom. | `Lesson` |
 | `text.ts` | `TEXT[id]`: `problem`, `why`, `pitfalls` (two or more). `REAL[id]`: where the problem shows up outside contests. | `Prose`, `L` |
 | `stories.ts` | `story` (four or more cards) and `flow` (the flowchart). | `Extras` |
 | `first.ts` | Optional: the earlier version and the `label` of the lesson's own version. | `Variant` |
@@ -35,7 +35,7 @@ A new category also needs an entry in `load.ts`, `all.ts` and `order.ts`, in `Ca
 
 ## The story
 
-Cards are of four kinds, usually in this order: `naive` (the obvious first attempt and what is wrong with it), `insight` (the observation that unlocks the method), `how` (a step of the method), `result` (what is gained, with the cost). A card can carry a figure drawn with the same views as the animation.
+Cards are of five kinds. `term` holds words, definitions or a theorem the lesson relies on, and can stand anywhere. The other four usually come in this order: `naive` (the obvious first attempt and what is wrong with it), `insight` (the observation that unlocks the method), `how` (a step of the method), `result` (what is gained, with the cost). A card can carry a figure drawn with the same views as the animation.
 
 A definition or a theorem the lesson relies on gets a card here. A syllabus point may link to the lesson only if a card or the `why` text really explains it.
 

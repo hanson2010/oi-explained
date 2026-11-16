@@ -1,5 +1,5 @@
 import { Lesson } from '../../engine/types'
-import { arr, need, reader, span, tn, vars } from '../../engine/h'
+import { arr, grid, gt, need, reader, span, tn, vars } from '../../engine/h'
 
 const cpp = String.raw
 
@@ -128,6 +128,7 @@ int main() {
 
 const difference: Lesson = {
   id: 'difference', title: ['Difference array', '差分'], level: 'J', cat: 'basic', diff: 4,
+  needs: ['prefix-sum'],
   blurb: ['Turn "add v to a whole range" into two point updates, then rebuild with a prefix sum.', '把“区间整体加 v”变成两次单点修改，最后用前缀和还原。'],
   ideas: [
     ['Store d[i] = a[i] − a[i−1]; the prefix sum of d gives a back.', '保存 d[i] = a[i] − a[i−1]；对 d 求前缀和就得到 a。'],
@@ -375,6 +376,7 @@ int main() {
 
 const bigMul: Lesson = {
   id: 'bignum-mul', title: ['High-precision multiplication', '高精度乘法'], level: 'J', cat: 'basic', diff: 4,
+  needs: ['bignum-add'],
   blurb: ['Every digit pair a[i]·b[j] lands in column i + j; settle the carries afterwards.', '每一对数字 a[i]·b[j] 都累加到第 i + j 位，最后统一处理进位。'],
   ideas: [
     ['Digit i of a is worth 10ⁱ and digit j of b is worth 10ʲ, so their product belongs to 10^(i+j).', 'a 的第 i 位权值为 10ⁱ，b 的第 j 位为 10ʲ，乘积的权值就是 10^(i+j)。'],
@@ -487,4 +489,262 @@ int main() {
   },
 }
 
-export default [binarySearch, prefixSum, difference, fastPow, hanoi, bigAdd, bigMul, baseConv]
+/** Hundred fowls: x roosters at 5 coins, y hens at 3, z chicks at three for 1 — n birds for n coins. */
+const fowlsView = (n: number, x: number, y: number | undefined, sols: number[][]) => {
+  const top = Math.floor((n - 5 * x) / 3), hit = sols.filter(s => s[0] === x).map(s => s[1])
+  return [
+    arr(`y: hens tried with x = ${x} roosters`, span(0, top), tn({ vis: y === undefined ? [] : span(0, y - 1), ok: hit, ...(y === undefined ? {} : { act: y }) }), y === undefined ? undefined : { y }, { base: 0 }),
+    sols.length > 0 && grid('solutions', sols, gt({ ok: sols.flatMap((_, i) => [[i, 0], [i, 1], [i, 2]] as [number, number][]) }), { cols: ['roosters', 'hens', 'chicks'] }),
+  ] as const
+}
+const enumeration: Lesson = {
+  id: 'enumeration', title: ['Enumeration: a hundred fowls', '枚举：百钱买百鸡'], level: 'J', cat: 'basic', diff: 1,
+  blurb: ['Try every candidate and keep the ones that pass the test — after shrinking the set of candidates as far as you can.', '把所有可能的情况都试一遍，留下通过检验的——但先要尽量缩小需要尝试的范围。'],
+  ideas: [
+    ['Enumeration needs three things: what a candidate is, the range each part can take, and a test that recognises an answer.', '枚举需要三样东西：候选解是什么、每个部分的取值范围、以及判断候选解是否正确的条件。'],
+    ['The cost is the number of candidates, so every loop you can remove or shorten pays off directly.', '代价就是候选解的个数，所以每去掉或缩短一层循环，都会直接见效。'],
+    ['A value that is fixed by the others should be computed, not looped over: here z = n − x − y.', '能由其他量确定的量应当直接算出来，而不是再套一层循环：这里 z = n − x − y。'],
+    ['A loop can stop as soon as its candidates stop making sense: x roosters cost 5x, so 5x ≤ n.', '一旦候选值不再合理，循环就可以停下：x 只公鸡要花 5x 文，所以 5x ≤ n。'],
+  ],
+  time: 'O(n²)', space: 'O(1)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    int n, cnt = 0;
+    scanf("%d", &n);
+    for (int x = 0; 5 * x <= n; x++) {  //@x
+        for (int y = 0; 5 * x + 3 * y <= n; y++) {
+            int z = n - x - y;  //@z
+            if (z % 3 == 0 && 5 * x + 3 * y + z / 3 == n) {  //@check
+                printf("%d %d %d\n", x, y, z);  //@found
+                cnt++;
+            }
+        }
+    }
+    printf("%d\n", cnt);  //@done
+}`,
+  notes: [
+    ['x', ['Roosters alone must not cost more than n coins, so x stops at n / 5.', '光是公鸡就不能超过 n 文，所以 x 最多到 n / 5。']],
+    ['z', ['The number of birds is fixed, so z is not a choice: no third loop.', '鸡的总数是固定的，所以 z 没有选择的余地：不需要第三层循环。']],
+    ['check', ['Chicks are sold in threes, so z must be a multiple of 3 before z / 3 means anything.', '小鸡三只一卖，所以必须先保证 z 是 3 的倍数，z / 3 才有意义。']],
+  ],
+  input: ['n — buy exactly n birds for exactly n coins. A rooster costs 5, a hen 3, and three chicks cost 1. Prints every solution "roosters hens chicks", then the number of solutions.', 'n —— 用恰好 n 文钱买恰好 n 只鸡。公鸡 5 文一只，母鸡 3 文一只，小鸡 1 文三只。输出所有方案“公鸡 母鸡 小鸡”，最后输出方案数。'],
+  sizes: [20, 30, 40], lab: [30, 100, 300, 1000, 3000],
+  gen: n => `${n}\n`,
+  run(inp, t) {
+    const n = reader(inp).int(), sols: number[][] = []
+    need(Number.isInteger(n) && n >= 1 && n <= 100000, 'n must be between 1 and 100,000.', 'n 须在 1 到 100,000 之间。')
+    for (let x = 0; 5 * x <= n; x++) {
+      t.s('x', () => [[`Fix x = ${x} roosters: ${5 * x} coins spent, ${n - 5 * x} left for hens and chicks.`, `固定 x = ${x} 只公鸡：花掉 ${5 * x} 文，还剩 ${n - 5 * x} 文买母鸡和小鸡。`], ...fowlsView(n, x, undefined, sols), vars({ x })])
+      for (let y = 0; 5 * x + 3 * y <= n; y++) {
+        const z = n - x - y, cost = 5 * x + 3 * y + z / 3, ok = z % 3 === 0 && cost === n
+        if (ok) sols.push([x, y, z])
+        t.s(ok ? 'found' : 'check', () => [
+          z % 3 !== 0 ? [`y = ${y}: z = ${n} − ${x} − ${y} = ${z} chicks, not a multiple of 3. Reject.`, `y = ${y}：z = ${n} − ${x} − ${y} = ${z} 只小鸡，不是 3 的倍数。舍去。`]
+            : ok ? [`y = ${y}: z = ${z}. Cost ${5 * x} + ${3 * y} + ${z / 3} = ${n}. A solution!`, `y = ${y}：z = ${z}。花费 ${5 * x} + ${3 * y} + ${z / 3} = ${n}。找到一组解！`]
+            : [`y = ${y}: z = ${z}. Cost ${5 * x} + ${3 * y} + ${z / 3} = ${cost}, not ${n}. Reject.`, `y = ${y}：z = ${z}。花费 ${5 * x} + ${3 * y} + ${z / 3} = ${cost}，不等于 ${n}。舍去。`],
+          ...fowlsView(n, x, y, sols), vars({ x, y, z })])
+      }
+    }
+    t.s('done', () => [[`Every candidate tried: ${sols.length} solution${sols.length === 1 ? '' : 's'}.`, `所有候选都试过了：共 ${sols.length} 组解。`], sols.length > 0 && grid('solutions', sols, undefined, { cols: ['roosters', 'hens', 'chicks'] }), vars({ answer: sols.length })])
+    t.out([...sols.map(s => s.join(' ')), sols.length].join('\n'))
+  },
+}
+
+const simulation: Lesson = {
+  id: 'simulation', title: ['Simulation: counting out', '模拟：约瑟夫问题'], level: 'J', cat: 'basic', diff: 1,
+  blurb: ['Do exactly what the statement says, step by step, with variables that mirror the situation.', '题目怎么说，程序就怎么一步一步地做，用变量如实记录当前的局面。'],
+  ideas: [
+    ['Simulation has no trick: the program acts out the process described in the statement.', '模拟没有技巧：程序把题目描述的过程原样演一遍。'],
+    ['First decide what the state is — here, who is still in the circle and who spoke last.', '先确定要记录哪些状态——这里是谁还在圈里，以及上一个报数的是谁。'],
+    ['Moving round a circle is p = p % n + 1: after person n comes person 1.', '在圈上前进一位就是 p = p % n + 1：n 号的下一个是 1 号。'],
+    ['People who have left stay in the array, marked as gone, and are skipped when counting.', '已经出圈的人仍留在数组里，只是打上标记，报数时跳过。'],
+  ],
+  time: 'O(n · m · log n)', space: 'O(n)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int n, m;
+bool gone[100005];
+
+int main() {
+    scanf("%d%d", &n, &m);
+    int p = 0;
+    for (int left = n; left > 0; left--) {
+        int said = 0;
+        while (said < m) {
+            p = p % n + 1;  //@next
+            if (!gone[p]) said++;  //@count
+        }
+        gone[p] = true;  //@leave
+        printf("%d ", p);
+    }
+}  //@done`,
+  notes: [
+    ['next', ['p % n + 1 turns n into 1 and every other p into p + 1.', 'p % n + 1 把 n 变成 1，其余的 p 变成 p + 1。']],
+    ['count', ['Only people still in the circle say a number.', '只有还在圈里的人才报数。']],
+    ['leave', ['p is not reset: the next count starts from the neighbour of the person who just left.', 'p 不用重置：下一轮从刚出圈的人的下一位开始报数。']],
+  ],
+  input: ['n m — n people numbered 1 … n stand in a circle and count 1, 2, …, m; whoever says m leaves, and counting restarts at 1 with the next person. Prints the order in which they leave.', 'n m —— 编号 1 … n 的 n 个人围成一圈，从 1 开始报数，报到 m 的人出圈，下一个人重新从 1 开始报。输出出圈的顺序。'],
+  sizes: [5, 8, 12], lab: [10, 100, 1000, 5000],
+  gen: (n, r) => `${n} ${n <= 30 ? r.int(2, 4) : r.int(2, 9)}\n`,
+  run(inp, t) {
+    const rd = reader(inp), n = rd.int(), m = rd.int()
+    need(Number.isInteger(n) && n >= 1 && n <= 100000 && Number.isInteger(m) && m >= 1, 'Need 1 ≤ n ≤ 100,000 and m ≥ 1.', '需要 1 ≤ n ≤ 100,000 且 m ≥ 1。')
+    const gone = new Array<boolean>(n + 1).fill(false), order: number[] = []
+    const circle = (p: number, tone: 'act' | 'bad') => arr('circle (after the last person comes person 1 again)', span(1, n), tn({ dim: span(1, n).filter(i => gone[i]).map(i => i - 1), [tone]: p - 1 }), { p: p - 1 }, { base: 1 })
+    let p = 0
+    for (let left = n; left > 0; left--) {
+      let said = 0
+      while (said < m) {
+        p = p % n + 1
+        if (gone[p]) { t.tick(); continue }
+        said++
+        const k = said, q = p
+        t.s('count', () => [[`Person ${q} says ${k}.`, `${q} 号报 ${k}。`], circle(q, 'act'), arr('leaving order', order), vars({ said: k, m })])
+      }
+      gone[p] = true; order.push(p)
+      const q = p
+      t.s('leave', () => [[`${q} said ${m} and leaves. ${left - 1} left.`, `${q} 号报到 ${m}，出圈。还剩 ${left - 1} 人。`], circle(q, 'bad'), arr('leaving order', order, tn({ ok: order.length - 1 })), vars({ left: left - 1 })])
+    }
+    t.s('done', () => [[`Everyone has left. The last one out is ${order[n - 1]}.`, `所有人都已出圈。最后一个出圈的是 ${order[n - 1]} 号。`], arr('leaving order', order, tn({ ok: n - 1 }))])
+    t.out(order.join(' '))
+  },
+}
+
+const bigSub: Lesson = {
+  id: 'bignum-sub', title: ['High-precision subtraction', '高精度减法'], level: 'J', cat: 'basic', diff: 4,
+  needs: ['bignum-add'],
+  blurb: ['Column subtraction with a borrow — after making sure the larger number is on top.', '带借位的竖式减法——但要先保证被减数不小于减数。'],
+  ideas: [
+    ['Same layout as addition: one digit per cell, lowest digit first.', '存储方式与加法相同：每格一位，低位在前。'],
+    ['Compare first. If a < b, compute b − a and print a minus sign: the loop only works with the larger number on top.', '先比较大小。若 a < b，就计算 b − a 并输出负号：下面的循环只在被减数较大时才正确。'],
+    ['Per column: d = a[i] − borrow − b[i]. If d < 0, add 10 and borrow 1 from the next column.', '每一位：d = a[i] − 借位 − b[i]。若 d < 0，就加上 10，并向高一位借 1。'],
+    ['The result can be much shorter than a (1000 − 999 = 1): strip leading zeros, but keep one digit.', '结果可能比 a 短得多（1000 − 999 = 1）：要去掉前导零，但至少保留一位。'],
+  ],
+  time: 'O(n)', space: 'O(n)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+// Is a < b? Both are stored lowest digit first, without leading zeros.
+bool smaller(const vector<int>& a, const vector<int>& b) {
+    if (a.size() != b.size()) return a.size() < b.size();
+    for (int i = a.size() - 1; i >= 0; i--)
+        if (a[i] != b[i]) return a[i] < b[i];
+    return false;
+}
+
+int main() {
+    string s, t;
+    cin >> s >> t;
+    vector<int> a, b, c;
+    for (int i = s.size() - 1; i >= 0; i--) a.push_back(s[i] - '0');
+    for (int i = t.size() - 1; i >= 0; i--) b.push_back(t[i] - '0');
+    if (smaller(a, b)) { swap(a, b); printf("-"); }  //@swap
+    int borrow = 0;
+    for (size_t i = 0; i < a.size(); i++) {
+        int d = a[i] - borrow - (i < b.size() ? b[i] : 0);  //@digit
+        borrow = d < 0 ? 1 : 0;
+        c.push_back(d < 0 ? d + 10 : d);
+    }
+    while (c.size() > 1 && c.back() == 0) c.pop_back();  //@strip
+    for (int i = c.size() - 1; i >= 0; i--) printf("%d", c[i]);  //@done
+}`,
+  notes: [
+    ['swap', ['A longer number is larger; with equal lengths the first differing digit from the top decides.', '位数多的数更大；位数相同时，从高位起第一个不同的数字决定大小。']],
+    ['digit', ['d is at least 0 − 1 − 9 = −10, so adding 10 once is always enough.', 'd 最小是 0 − 1 − 9 = −10，所以加一次 10 就一定够了。']],
+    ['strip', ['size() > 1 keeps the single digit of the answer 0.', 'size() > 1 保证答案为 0 时仍保留一位。']],
+  ],
+  input: ['Two non-negative integers without leading zeros, one per line. Prints the first minus the second. (n is the number of digits.)', '两个没有前导零的非负整数，每行一个。输出第一个数减第二个数的差。（n 为位数。）'],
+  sizes: [4, 8, 14], lab: [10, 1000, 100000, 500000],
+  gen(n, r) {
+    // One time in four the two numbers share their leading digits, so that the difference loses digits.
+    const x = rndNum(n, r), k = r.int(0, 3), y = k === 0 && n >= 3 ? x.slice(0, n - 2) + rndNum(2, r) : rndNum(Math.max(1, n - Math.max(0, k - 1)), r)
+    return r.int(0, 2) === 0 ? `${y}\n${x}\n` : `${x}\n${y}\n`
+  },
+  run(inp, t) {
+    const rd = reader(inp)
+    let a = digitsOf(rd.str()), b = digitsOf(rd.str())
+    const c: number[] = [], len = Math.max(a.length, b.length)
+    const less = a.length !== b.length ? a.length < b.length : (() => { for (let i = a.length - 1; i >= 0; i--) if (a[i] !== b[i]) return a[i] < b[i]; return false })()
+    if (less) [a, b] = [b, a]
+    t.s('swap', () => [less ? ['The first number is smaller: swap them and remember the minus sign.', '第一个数较小：交换两数，并记下负号。'] : ['The first number is not smaller: subtract directly.', '第一个数不小于第二个数：直接相减。'], big('a', a, len), big('b', b, len), vars({ sign: less ? '−' : '+' })])
+    let borrow = 0
+    for (let i = 0; i < a.length; i++) {
+      const old = borrow, d = a[i] - borrow - (b[i] ?? 0)
+      borrow = d < 0 ? 1 : 0
+      c.push(d < 0 ? d + 10 : d)
+      t.s('digit', () => [[`Column ${i}: ${a[i]} − borrow ${old} − ${b[i] ?? 0} = ${d}${d < 0 ? ` → write ${d + 10}, borrow 1` : ' → write it, no borrow'}.`, `第 ${i} 位：${a[i]} − 借位 ${old} − ${b[i] ?? 0} = ${d}${d < 0 ? ` → 写 ${d + 10}，向高位借 1` : ' → 直接写下，不借位'}。`],
+        big('a', a, len, { [i]: 'cmp' }), big('b', b, len, { [i]: 'cmp' }), big('c', c, len, { [i]: 'act' }), vars({ d, borrow })])
+    }
+    const before = c.length
+    while (c.length > 1 && c[c.length - 1] === 0) c.pop()
+    t.s('strip', () => [before === c.length ? ['No leading zeros to remove.', '没有需要去掉的前导零。'] : [`Remove ${before - c.length} leading zero${before - c.length === 1 ? '' : 's'}.`, `去掉 ${before - c.length} 个前导零。`], big('a', a, len), big('b', b, len), big('c', c, len)])
+    const res = (less ? '-' : '') + c.slice().reverse().join('')
+    t.s('done', () => [[`Result: ${res.length > 40 ? res.slice(0, 40) + '…' : res}`, `结果：${res.length > 40 ? res.slice(0, 40) + '…' : res}`], big('a', a, len), big('b', b, len), big('c', c, len, Object.fromEntries(c.map((_, i) => [i, 'ok' as const])))])
+    t.out(res)
+  },
+}
+
+const bigDiv: Lesson = {
+  id: 'bignum-div', title: ['High-precision ÷ a small number', '高精度除以单精度'], level: 'J', cat: 'basic', diff: 4,
+  needs: ['bignum-add'],
+  blurb: ['Long division: bring down one digit at a time and carry the remainder to the next step.', '竖式除法：每次落下一位数字，把余数带到下一步。'],
+  ideas: [
+    ['Division starts at the top digit, the opposite of addition and subtraction — so read the digits in the order they are written.', '除法从最高位开始，与加法和减法相反——所以按书写顺序处理各位数字即可。'],
+    ['Keep one number, the remainder so far. Bringing down a digit turns it into r · 10 + digit.', '只需记住一个数：到目前为止的余数。落下一位数字后，它变成 r · 10 + 这一位。'],
+    ['The next quotient digit is r / b and the new remainder is r % b. Because r < b before the step, the digit is at most 9.', '下一位商是 r / b，新的余数是 r % b。因为这一步之前 r < b，所以商的这一位不会超过 9。'],
+    ['The remainder is always below b, so r · 10 + 9 fits in long long whenever b fits in int.', '余数始终小于 b，所以只要 b 在 int 范围内，r · 10 + 9 就不会超出 long long。'],
+  ],
+  time: 'O(n)', space: 'O(n)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    string s;
+    long long b;
+    cin >> s >> b;
+    vector<int> q;
+    long long r = 0;
+    for (char ch : s) {
+        r = r * 10 + (ch - '0');  //@bring
+        q.push_back(r / b);  //@digit
+        r %= b;
+    }
+    size_t k = 0;
+    while (k + 1 < q.size() && q[k] == 0) k++;  //@strip
+    for (; k < q.size(); k++) printf("%d", q[k]);
+    printf("\n%lld\n", r);  //@done
+}`,
+  notes: [
+    ['bring', ['"Bringing down" a digit: the old remainder moves one place to the left.', '“落下”一位数字：原来的余数向左移了一位。']],
+    ['digit', ['r was below b, so r · 10 + digit is below 10 · b and the quotient digit is 0 … 9.', 'r 原来小于 b，所以 r · 10 + 这一位小于 10 · b，商的这一位在 0 到 9 之间。']],
+    ['strip', ['The quotient has one digit per digit of a, so it usually starts with zeros. Keep the last one.', '商的位数与 a 相同，所以开头通常有若干个 0。要保留最后一位。']],
+  ],
+  input: ['A non-negative integer a with up to hundreds of thousands of digits, then b (1 ≤ b ≤ 10⁹). Prints the quotient and the remainder. (n is the number of digits of a.)', '一个可能有几十万位的非负整数 a，随后是 b（1 ≤ b ≤ 10⁹）。输出商和余数。（n 为 a 的位数。）'],
+  sizes: [4, 7, 12], lab: [10, 1000, 100000, 500000],
+  gen: (n, r) => `${rndNum(n, r)}\n${n <= 30 ? r.int(2, r.int(0, 1) ? 9 : 99) : r.int(2, 1000000000)}\n`,
+  run(inp, t) {
+    const rd = reader(inp), s = rd.str(), b = rd.int()
+    need(/^\d+$/.test(s), 'Expected a non-negative integer.', '需要非负整数。')
+    need(Number.isInteger(b) && b >= 1 && b <= 1e9, 'b must be between 1 and 1,000,000,000.', 'b 须在 1 到 1,000,000,000 之间。')
+    const a = s.split('').map(Number), n = a.length, q: number[] = []
+    let r = 0
+    for (let i = 0; i < n; i++) {
+      const old = r, cur = r * 10 + a[i], d = Math.floor(cur / b)
+      q.push(d); r = cur % b
+      const rem = r
+      t.s('digit', () => [[`Bring down ${a[i]}: ${old} · 10 + ${a[i]} = ${cur}. ${cur} ÷ ${b} = ${d}, remainder ${rem}.`, `落下 ${a[i]}：${old} · 10 + ${a[i]} = ${cur}。${cur} ÷ ${b} = ${d}，余 ${rem}。`],
+        arr('a', a, tn({ dim: span(0, i - 1), act: i })), arr('quotient', [...q, ...new Array<string>(n - q.length).fill('')], tn({ ok: i })), vars({ b, r: rem })])
+    }
+    let k = 0
+    while (k + 1 < n && q[k] === 0) k++
+    const lead = k, res = q.slice(k).join('')
+    t.s('strip', () => [lead ? [`Skip ${lead} leading zero${lead === 1 ? '' : 's'} of the quotient.`, `跳过商开头的 ${lead} 个 0。`] : ['The quotient has no leading zeros.', '商没有前导零。'], arr('a', a), arr('quotient', q, tn({ dim: span(0, lead - 1) })), vars({ b, r })])
+    t.s('done', () => [[`Quotient ${res.length > 40 ? res.slice(0, 40) + '…' : res}, remainder ${r}.`, `商为 ${res.length > 40 ? res.slice(0, 40) + '…' : res}，余数为 ${r}。`], arr('a', a), arr('quotient', q, tn({ dim: span(0, lead - 1), ok: span(lead, n - 1) })), vars({ b, remainder: r })])
+    t.out(res + '\n' + r)
+  },
+}
+
+export default [binarySearch, prefixSum, difference, fastPow, hanoi, bigAdd, bigMul, baseConv, enumeration, simulation, bigSub, bigDiv]

@@ -104,13 +104,13 @@ export const SYLLABUS: SylLevel[] = [
       ] },
       { no: '2.1.3', zh: '数据结构', en: 'Data structures', groups: [
         g('线性结构', 'Linear structures', [
-          [3, '链表：单链表、双向链表、循环链表', 'Linked lists: singly, doubly, circular', 'planned'],
+          [3, '链表：单链表、双向链表、循环链表', 'Linked lists: singly, doubly, circular', ['linked-list']],
           [3, '栈', 'Stack', ['stack']],
           [3, '队列', 'Queue', ['bfs-maze']],
         ]),
         g('简单树', 'Simple trees', [
-          [3, '树的定义与相关概念', 'Trees: definition and terminology', 'planned'],
-          [4, '树的表示与存储', 'Representing and storing trees', 'planned'],
+          [3, '树的定义与相关概念', 'Trees: definition and terminology', ['bt-traversal']],
+          [4, '树的表示与存储', 'Representing and storing trees', ['bt-traversal']],
           [3, '二叉树的定义与基本性质', 'Binary trees: definition and basic properties', ['bt-traversal']],
           [4, '二叉树的表示与存储', 'Representing and storing binary trees', ['bt-traversal']],
           [4, '二叉树的遍历：前序、中序、后序', 'Binary tree traversals: pre-, in-, post-order', ['bt-traversal']],
@@ -122,7 +122,7 @@ export const SYLLABUS: SylLevel[] = [
           [4, '二叉搜索树的定义和构造', 'Binary search trees: definition and construction', ['bst']],
         ]),
         g('简单图', 'Simple graphs', [
-          [3, '图的定义与相关概念', 'Graphs: definition and terminology', 'planned'],
+          [3, '图的定义与相关概念', 'Graphs: definition and terminology', ['graph-dfs']],
           [4, '图的表示与存储：邻接矩阵', 'Graph storage: adjacency matrix', ['floyd']],
           [4, '图的表示与存储：邻接表', 'Graph storage: adjacency list', ['graph-dfs']],
         ]),
@@ -133,8 +133,8 @@ export const SYLLABUS: SylLevel[] = [
           [2, '算法描述：自然语言描述、流程图描述、伪代码描述', 'Describing algorithms: natural language, flowcharts, pseudocode', 'theory'],
         ]),
         g('入门算法', 'First algorithms', [
-          [1, '枚举法', 'Enumeration (brute force)', 'planned'],
-          [1, '模拟法', 'Simulation', 'planned'],
+          [1, '枚举法', 'Enumeration (brute force)', ['enumeration']],
+          [1, '模拟法', 'Simulation', ['simulation']],
         ]),
         g('基础算法', 'Basic algorithms', [
           [3, '贪心法', 'Greedy', ['huffman']],
@@ -149,9 +149,9 @@ export const SYLLABUS: SylLevel[] = [
         ]),
         g('数值处理算法', 'Numeric algorithms', [
           [4, '高精度的加法', 'High-precision addition', ['bignum-add']],
-          [4, '高精度的减法', 'High-precision subtraction', 'planned'],
+          [4, '高精度的减法', 'High-precision subtraction', ['bignum-sub']],
           [4, '高精度的乘法', 'High-precision multiplication', ['bignum-mul']],
-          [4, '高精度整数除以单精度整数的商和余数', 'High-precision ÷ single-precision: quotient and remainder', 'planned'],
+          [4, '高精度整数除以单精度整数的商和余数', 'High-precision ÷ single-precision: quotient and remainder', ['bignum-div']],
         ]),
         g('排序算法', 'Sorting', [
           [3, '排序的基本概念', 'Basic concepts of sorting', ['bubble-sort']],
@@ -186,18 +186,18 @@ export const SYLLABUS: SylLevel[] = [
           [1, '几何（初中部分）', 'Geometry (junior secondary)', 'school'],
         ]),
         g('初等数论', 'Elementary number theory', [
-          [3, '整除、因数、倍数、指数、质（素）数、合数', 'Divisibility, factors, multiples, exponents, primes, composites', ['sieve']],
+          [3, '整除、因数、倍数、指数、质（素）数、合数', 'Divisibility, factors, multiples, exponents, primes, composites', ['sieve', 'prime-factor']],
           [3, '取整', 'Floor and ceiling', 'school'],
           [3, '模运算与取余', 'Modular arithmetic and remainders', ['fast-pow']],
-          [3, '整数唯一分解定理', 'The fundamental theorem of arithmetic', 'planned'],
+          [3, '整数唯一分解定理', 'The fundamental theorem of arithmetic', ['prime-factor']],
           [3, '辗转相除法（欧几里得算法）', 'The Euclidean algorithm', ['gcd']],
           [4, '素数筛法：埃氏筛法与线性筛法', 'Prime sieves: Eratosthenes and the linear sieve', ['sieve', 'linear-sieve']],
         ]),
         g('离散与组合数学', 'Discrete mathematics and combinatorics', [
           [2, '集合', 'Sets', 'school'],
-          [2, '加法原理', 'The rule of sum', 'planned'],
-          [2, '乘法原理', 'The rule of product', 'planned'],
-          [4, '排列', 'Permutations', 'planned'],
+          [2, '加法原理', 'The rule of sum', ['permutations']],
+          [2, '乘法原理', 'The rule of product', ['permutations']],
+          [4, '排列', 'Permutations', ['permutations']],
           [4, '组合', 'Combinations', ['pascal']],
           [4, '杨辉三角', "Pascal's triangle", ['pascal']],
         ]),
@@ -252,7 +252,7 @@ export const SYLLABUS: SylLevel[] = [
           [8, '平衡树：AVL、Treap、Splay等', 'Balanced trees: AVL, Treap, Splay, …', ['treap']],
         ]),
         g('常见图', 'Common graphs', [
-          [5, '稀疏图', 'Sparse graphs', 'planned'],
+          [5, '稀疏图', 'Sparse graphs', ['graph-dfs']],
           [6, '偶图（二分图）', 'Bipartite graphs', ['bipartite']],
           [6, '欧拉图', 'Eulerian graphs', 'planned'],
           [6, '有向无环图', 'Directed acyclic graphs', ['topo-sort']],
@@ -333,7 +333,7 @@ export const SYLLABUS: SylLevel[] = [
         ]),
         g('离散与组合数学', 'Discrete mathematics and combinatorics', [
           [6, '多重集合', 'Multisets', 'planned'],
-          [6, '等价关系与等价类', 'Equivalence relations and classes', 'planned'],
+          [6, '等价关系与等价类', 'Equivalence relations and classes', ['dsu']],
           [6, '多重集上的排列', 'Permutations of multisets', 'planned'],
           [6, '多重集上的组合', 'Combinations of multisets', 'planned'],
           [6, '错排列、圆排列', 'Derangements and circular permutations', 'planned'],

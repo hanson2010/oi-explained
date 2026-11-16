@@ -154,6 +154,10 @@ select { padding: 4px 6px; }
 /* lesson page */
 .crumbs { font-size: .85rem; color: var(--muted); margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: center; }
 .crumbs a.plain { text-decoration: none; }
+.rel { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; margin: 6px 0 0; font-size: .85rem; }
+.rel span { color: var(--muted); margin-right: 2px; }
+.rel a { text-decoration: none; background: var(--sunken); border-radius: 99px; padding: 1px 10px; white-space: nowrap; }
+.rel a.done { background: var(--ok-bg); color: var(--ink); }
 .mini-pager { display: inline-flex; align-items: center; gap: 2px; font-family: var(--mono); font-size: .8rem; }
 .mini-pager a, .mini-pager > span[aria-hidden] { width: 1.9em; height: 1.9em; display: grid; place-items: center; border-radius: 6px; text-decoration: none; font-size: 1.15rem; line-height: 1; }
 .mini-pager a:hover { background: var(--sunken); color: var(--ink); }
@@ -349,6 +353,7 @@ mark { background: linear-gradient(transparent 55%, color-mix(in srgb, var(--gol
 .story { list-style: none; margin: 0; padding: 0; position: relative; display: flex; flex-direction: column; gap: 18px; }
 .story::before { content: ""; position: absolute; left: 19px; top: 20px; bottom: 20px; width: 2px; background: var(--line); }
 .beat { position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 14px; }
+.k-term { --kc: var(--muted); --kb: var(--sunken); }
 .k-naive { --kc: var(--bad); --kb: var(--bad-bg); }
 .k-insight { --kc: #b7791f; --kb: color-mix(in srgb, var(--gold) 28%, var(--surface)); }
 .k-how { --kc: var(--cmp); --kb: var(--cmp-bg); }

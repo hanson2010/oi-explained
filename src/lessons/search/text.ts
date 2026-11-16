@@ -39,6 +39,15 @@ export const TEXT: Record<string, Prose> = {
       ['In the worst case (a maze full of dead ends) A* still explores everything.', '在最坏情况下（到处是死胡同的迷宫），A* 仍然要探索全部格子。'],
     ],
   },
+  permutations: {
+    problem: ['Print every way to arrange the numbers 1 … n in a row, in dictionary order.', '按字典序输出把 1 … n 排成一行的所有方法。'],
+    why: ['For a fixed small n you could write n nested loops, but the number of loops would depend on the input. Recursion provides "a loop inside a loop, n deep". The function dfs(k) is responsible for position k: it tries each number that is still free, places it, and calls dfs(k + 1) to deal with the remaining positions. When all n positions are filled, a permutation is complete and is printed. The step that makes this a search is what happens after the call returns: the number just placed is marked free again. Without that, the first complete permutation would use up all the numbers and nothing else could ever be placed. Placing, exploring, and undoing — backtracking — walks through a tree whose leaves are exactly the n! permutations, and because the numbers are tried in increasing order, the leaves are reached in dictionary order.', '如果 n 是一个固定的小数，可以写 n 重循环，但循环的层数不能由输入决定。递归正好提供了“循环套循环，一共 n 层”。函数 dfs(k) 负责第 k 个位置：它依次尝试每个还没用过的数，放上去，再调用 dfs(k + 1) 处理剩下的位置。n 个位置都填好时，一个排列就完成了，把它输出。让这个过程成为“搜索”的关键在于递归返回之后做的事：把刚才放上去的数重新标记为可用。如果不这样做，第一个完整的排列就会把所有数用光，之后什么都放不了。放置、探索、撤销——也就是回溯——走遍了一棵树，树的叶子正好是 n! 个排列；又因为各个数是从小到大尝试的，叶子被访问的顺序就是字典序。'],
+    pitfalls: [
+      ['Forgetting used[x] = false after the recursive call: only the first permutation is printed.', '递归调用之后忘记写 used[x] = false：只会输出第一个排列。'],
+      ['n! grows explosively: 10! is 3.6 million, 13! is over 6 billion. Check n before generating all permutations.', 'n! 增长得极快：10! 是 360 万，13! 超过 60 亿。生成全排列之前先看看 n 有多大。'],
+      ['Printing inside the loop instead of at k > n outputs unfinished arrangements.', '在循环里而不是在 k > n 时输出，会把还没填完的排列也输出来。'],
+    ],
+  },
 }
 
 /** Where each problem shows up outside contests, shown on the Problem tab. Same inline markup as the Ideas story. */
@@ -47,4 +56,5 @@ export const REAL: Record<string, L> = {
   'bfs-maze': ['A **robot vacuum** or a game character finding the shortest way through rooms and corridors. With every step costing the same, exploring outward ring by ring reaches each place first by a shortest route.', '**扫地机器人**或游戏角色在房间和走廊里找最短路线。当每一步代价相同时，一圈一圈向外探索，第一次到达某处走的一定是最短路线。'],
   'flood-fill': ['The **paint bucket** in a drawing program fills the connected area you clicked on. Minesweeper opens a whole empty region with one click, and satellite-image software counts lakes, with the same routine.', '画图软件里的**油漆桶**会填满你点击的那片连通区域。扫雷里点一下就翻开一整片空白、卫星图像软件统计湖泊的个数，用的都是同一个过程。'],
   'a-star': ['Navigation apps and almost every **video game** route their units with A*: knowing roughly where the goal lies lets the search head towards it instead of spreading out in every direction.', '导航软件和几乎所有**电子游戏**都用 A* 给单位寻路：知道目标大致在哪个方向，搜索就可以朝它前进，而不是向四面八方铺开。'],
+  permutations: ['A **delivery driver** with 8 stops has 8! = 40 320 possible orders to visit them. A route planner can simply try them all; with 20 stops there are more orders than seconds since the universe began, and smarter methods are needed. Seating plans, timetables and anagram solvers begin the same way.', '一位要送 8 个地点的**快递员**有 8! = 40 320 种访问顺序。路线规划程序可以直接全部试一遍；而 20 个地点的顺序数比宇宙诞生以来的秒数还多，就必须用更聪明的方法了。排座位、排课表、解字谜也都是从这里起步的。'],
 }

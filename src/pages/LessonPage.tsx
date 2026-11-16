@@ -9,14 +9,14 @@ import { Stage } from '../components/Stage'
 import { Rng, Tracer, type Card, type Lesson, type Variant } from '../engine/types'
 import { CATS } from '../i18n'
 import type { Meta } from '../lessons/extras'
-import { META } from '../lessons/meta'
+import { leadsTo, META, META_BY_ID } from '../lessons/meta'
 import { href, isRevisit, useApp } from '../store'
 
 /** Learning order: what is asked, how to think about it, the program, watching it run, scaling it up. */
 const TABS = ['problem', 'idea', 'code', 'viz', 'lab'] as const
 type Tab = (typeof TABS)[number]
 const TAB_KEY = { problem: 'tabProblem', idea: 'tabIdea', code: 'tabCode', viz: 'tabViz', lab: 'tabLab' } as const
-const KIND_KEY = { naive: 'kindNaive', insight: 'kindInsight', how: 'kindHow', result: 'kindResult' } as const
+const KIND_KEY = { term: 'kindTerm', naive: 'kindNaive', insight: 'kindInsight', how: 'kindHow', result: 'kindResult' } as const
 
 function ProblemTab({ lesson }: { lesson: Lesson }) {
   const { ui, tr } = useApp()
@@ -172,6 +172,10 @@ export function LessonPage({ lesson, tab, step }: { lesson: Lesson; tab?: string
     ? <a href={'#/learn/' + l.id} title={`${label}: ${tr(l.title)}`} aria-label={`${label}: ${tr(l.title)}`}>{sign}</a>
     : <span aria-hidden="true">{sign}</span>
 
+  const links = (label: string, ls: Meta[]) => ls.length > 0 && (
+    <p className="rel"><span>{label}</span>{ls.map(l => <a key={l.id} className={p.done[l.id] ? 'done' : ''} href={'#/learn/' + l.id}>{p.done[l.id] ? '✓ ' : ''}{tr(l.title)}</a>)}</p>
+  )
+
   return (
     <article className={'lesson lv-' + lesson.level}>
       <header className="lesson-head">
@@ -182,6 +186,8 @@ export function LessonPage({ lesson, tab, step }: { lesson: Lesson; tab?: string
           </div>
           <h1>{tr(lesson.title)}</h1>
           <p className="lede">{tr(lesson.blurb)}</p>
+          {links(ui('needsTitle'), (lesson.needs ?? []).map(id => META_BY_ID.get(id)).filter(x => !!x))}
+          {links(ui('leadsTitle'), leadsTo(lesson.id))}
         </div>
         <div className="row actions">
           <span className="chip">{ui('time')} <code>{lesson.time}</code></span>
