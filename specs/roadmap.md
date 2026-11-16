@@ -29,6 +29,8 @@ There is no CI. Add a GitHub Actions workflow that runs, on every push and pull 
 
 The suite takes about a minute without `GXX`, so no sharding is needed yet.
 
+The site is built and hosted by Cloudflare Pages, so CI only checks; it does not deploy. Cloudflare's build should keep running `npm run build`, which type-checks before bundling. Cloudflare Pages also builds a preview for each branch, which is a good place to review a new lesson before merging.
+
 ### 0.2 Split the bundle
 
 Every lesson's code, story and generator is in the one 1.05 MB chunk, which loads before the home page can render. Load each category file (`src/lessons/{basic,sort,…}.ts` plus its `stories/` file) with `import()` when a lesson in it is opened. Home, Syllabus and search need only a small index (id, title, level, cat, diff, blurb), so split that out of `Lesson` into its own module.
@@ -158,7 +160,6 @@ Lower priority; pick up between lessons.
 - **Accessibility**: announce each step's message to screen readers (`aria-live`), respect `prefers-reduced-motion`, check colour contrast of the tones in both themes.
 - **Phone layout**: the code-plus-flowchart view and the lab chart at 375 px wide.
 - **Browser smoke test**: a Playwright test that opens every lesson, plays the animation to the end and runs the lab, catching rendering errors the logic tests cannot.
-- **Hosting**: publish `dist/` to GitHub Pages from CI on each push to the default branch.
 
 ---
 
@@ -173,4 +174,3 @@ Lower priority; pick up between lessons.
 
 - Who is the main audience: self-learners or teachers using it in class? Teachers raise the priority of deep links, offline use and practice lists.
 - Will outside contributions be accepted? If so, the licence and authoring guide move to the very top.
-- Where will the site be hosted, and at which path?
