@@ -48,6 +48,16 @@ export const TEXT: Record<string, Prose> = {
       ['With std::sort each round is O(n log n); the radix-sort version brings the total to O(n log n).', '使用 std::sort 时每轮是 O(n log n)；改用基数排序可使总复杂度降到 O(n log n)。'],
     ],
   },
+  'string-hash': {
+    problem: ['Given a long string and many questions of the form "is the substring from l1 to r1 the same as the substring from l2 to r2?", answer each question in constant time.', '给定一个很长的字符串和许多形如“从 l1 到 r1 的子串与从 l2 到 r2 的子串是否相同”的询问，每个询问都要在常数时间内回答。'],
+    why: ['Two substrings can only be compared quickly if each can be summed up in a single number. A natural summary is to read the string as a number: treat each character as a digit in some base B, so that "abc" is a · B² + b · B + c. Two strings of the same length have the same value exactly when they are the same string. The values are far too large to store, so only the remainder modulo 2⁶⁴ is kept — which is what unsigned 64-bit arithmetic does by itself. The second ingredient is the prefix trick from prefix sums. Let h[i] be the value of the first i characters. The value of the substring from l to r is then what remains of h[r] after removing the prefix of length l − 1 — and because that prefix stands to the left of the substring, it must first be shifted by as many digits as the substring is long, that is, multiplied by B^(r − l + 1). With the powers of B precomputed, any substring hash costs one multiplication and one subtraction. Equal strings always get equal hashes. Different strings get different hashes except with a probability of about one in 2⁶⁴, which is the price of the speed.', '要想快速比较两个子串，就得把每个子串概括成一个数。一种自然的概括方式是把字符串读成一个数：把每个字符看作某个进制 B 下的一位数字，于是 "abc" 就是 a · B² + b · B + c。两个长度相同的字符串数值相等，当且仅当它们是同一个字符串。这些数值大得无法保存，所以只保留它们模 2⁶⁴ 的余数——无符号 64 位整数的运算本来就是这样做的。第二个要素是前缀和的技巧。设 h[i] 是前 i 个字符对应的数值。那么从 l 到 r 的子串的数值，就是从 h[r] 中去掉长度为 l − 1 的前缀之后剩下的部分——由于这个前缀排在子串的左边，要先把它左移与子串长度相同的位数，也就是乘上 B^(r − l + 1)。预先算好 B 的各次幂之后，任何子串的哈希值都只需一次乘法和一次减法。相同的字符串哈希值一定相同。不同的字符串哈希值也不同，只有大约 2⁶⁴ 分之一的概率例外——这是换取速度的代价。'],
+    pitfalls: [
+      ['Forgetting to multiply h[l − 1] by the power of B subtracts digits that are not lined up, and the result is meaningless.', '忘记给 h[l − 1] 乘上 B 的幂，相减时各位没有对齐，结果毫无意义。'],
+      ['Equal hashes do not prove equal strings. A collision is very unlikely, not impossible — and special inputs can force one for this exact method.', '哈希值相等并不能证明字符串相等。冲突的可能性极小，但并非不可能——而且存在专门针对这种写法构造的数据。'],
+      ['Against such inputs use two different moduli (double hashing), for example two large primes, and compare both values.', '为了对付这种数据，可以用两个不同的模数（双哈希），例如两个大质数，同时比较两个值。'],
+      ['With a signed type, overflow is undefined behaviour. Use unsigned long long, or reduce modulo a prime explicitly.', '用有符号类型时，溢出是未定义行为。要用 unsigned long long，或者显式地对某个质数取模。'],
+    ],
+  },
 }
 
 /** Where each problem shows up outside contests, shown on the Problem tab. Same inline markup as the Ideas story. */
@@ -57,4 +67,5 @@ export const REAL: Record<string, L> = {
   'z-function': ['How much of a **file\'s beginning repeats later**? Compression tools exploit such repeats, and a spam filter can check at every position how long a known phrase matches.', '一个**文件的开头在后面重复出现**了多少？压缩工具利用的正是这种重复，垃圾邮件过滤器也可以在每个位置检查某个已知短语能匹配多长。'],
   'ac-automaton': ['An **antivirus scanner** checks a file against a million virus signatures in a single pass, and a chat filter looks for thousands of banned words at once — searching for each one separately would take forever.', '**杀毒软件**只扫一遍文件，就能和上百万条病毒特征码比对；聊天过滤器要同时查找几千个违禁词——如果一个词一个词地分别搜索，根本来不及。'],
   'suffix-array': ['Searching a **genome of three billion letters** for any fragment in a few milliseconds. Full-text search engines and the compression behind `bzip2` are built on sorted suffixes too.', '在**三十亿个字母的基因组**里，几毫秒内找到任意一个片段。全文搜索引擎和 `bzip2` 背后的压缩方法，也建立在排好序的后缀之上。'],
+  'string-hash': ['When you download a large file, the site also publishes its **checksum** — a short number computed from every byte. If your copy gives the same number, the copy is intact. Git names every version of every file by such a hash, and plagiarism checkers find copied passages by comparing the hashes of all short windows of two texts.', '下载大文件时，网站往往同时公布它的**校验和**——一个由文件的每个字节算出来的短短的数。如果你下载的文件算出的数相同，文件就是完好的。Git 用这样的哈希值给每个文件的每个版本命名；查重系统则通过比较两篇文章所有短片段的哈希值来发现抄袭的段落。'],
 }

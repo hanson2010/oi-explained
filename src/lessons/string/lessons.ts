@@ -404,4 +404,91 @@ int main() {
   },
 }
 
-export default [kmp, manacher, zfn, ac, sa]
+const hex6 = (x: bigint) => '…' + x.toString(16).padStart(16, '0').slice(-6)
+const stringHash: Lesson = {
+  id: 'string-hash', title: ['String hashing', '字符串哈希'], level: 'S', cat: 'string', diff: 6,
+  needs: ['prefix-sum', 'hash-table'],
+  blurb: ['Read a string as a number in base 131. Prefix hashes then give the hash of any substring with one subtraction — and comparing two substrings becomes comparing two numbers.', '把字符串看成一个 131 进制的数。有了前缀哈希，任意子串的哈希值只需一次减法——比较两个子串就变成了比较两个数。'],
+  ideas: [
+    ['Comparing two substrings character by character costs their length. Comparing two numbers costs one step.', '逐个字符比较两个子串，代价是它们的长度。比较两个数只要一步。'],
+    ['The hash of a string is its value as a number written in base B, with the characters as digits.', '字符串的哈希值就是把它看成 B 进制数时的数值，每个字符是一位数字。'],
+    ['h[i], the hash of the first i characters, satisfies h[i] = h[i − 1] · B + s[i].', 'h[i] 是前 i 个字符的哈希值，满足 h[i] = h[i − 1] · B + s[i]。'],
+    ['The hash of s[l..r] is h[r] − h[l − 1] · B^(r − l + 1): remove the prefix, shifted to line up.', 's[l..r] 的哈希值是 h[r] − h[l − 1] · B^(r − l + 1)：把前缀左移对齐后减掉。'],
+    ['All arithmetic is done in unsigned 64-bit integers, which silently keep only the remainder modulo 2⁶⁴.', '所有运算都用无符号 64 位整数，它会自动只保留模 2⁶⁴ 的余数。'],
+  ],
+  time: 'O(n + q)', space: 'O(n)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+typedef unsigned long long ull;
+const ull B = 131;
+char s[1000005];
+ull h[1000005], pw[1000005];
+int n, q;
+
+ull get(int l, int r) {  // hash of s[l..r]
+    return h[r] - h[l - 1] * pw[r - l + 1];  //@get
+}
+
+int main() {
+    scanf("%s%d", s + 1, &q);
+    n = strlen(s + 1);
+    pw[0] = 1;
+    for (int i = 1; i <= n; i++) {
+        h[i] = h[i - 1] * B + s[i];  //@build
+        pw[i] = pw[i - 1] * B;
+    }
+    while (q--) {
+        int a, b, c, d; scanf("%d%d%d%d", &a, &b, &c, &d);
+        puts(b - a == d - c && get(a, b) == get(c, d) ? "Y" : "N");  //@query
+    }
+}`,
+  notes: [
+    ['get', ['h[l − 1] is multiplied by B once for every character of the substring, so that its digits line up with the front of h[r].', 'h[l − 1] 要乘上与子串长度相同个数的 B，这样它的各位才能与 h[r] 的高位对齐。']],
+    ['build', ['Appending a character: shift everything one place to the left and add the new digit.', '在末尾添一个字符：原来的各位整体左移一位，再加上新的一位。']],
+    ['query', ['Different lengths can never be equal strings, so they are ruled out before the hashes are compared.', '长度不同的串不可能相等，所以在比较哈希值之前就先排除。']],
+  ],
+  input: ['A string of lowercase letters, then q, then q lines "l1 r1 l2 r2" (positions from 1). For each line prints Y if s[l1..r1] and s[l2..r2] are the same string, otherwise N.', '一个由小写字母组成的字符串，然后是 q，随后 q 行 “l1 r1 l2 r2”（位置从 1 开始）。对每一行，若 s[l1..r1] 与 s[l2..r2] 是相同的字符串则输出 Y，否则输出 N。'],
+  sizes: [8, 10, 12], lab: [10, 1000, 100000, 500000],
+  gen(n, r) {
+    // A short block repeated, with a few changed letters: equal and almost-equal substrings are both common.
+    const k = n <= 30 ? r.int(2, 3) : r.int(3, 40), block = rndStr(k, r, n <= 30 ? 'ab' : 'abc'), q = n <= 30 ? 3 : n
+    const s = Array.from({ length: n }, (_, i) => (r.int(0, 11) === 0 ? r.pick([...'abc']) : block[i % k])).join('')
+    let out = `${s}\n${q}\n`
+    for (let i = 0; i < q; i++) {
+      const len = r.int(1, Math.max(1, Math.min(n - k, n <= 30 ? 4 : 200))), l1 = r.int(1, n - len + 1)
+      const shift = r.int(0, 3) ? k * r.int(1, Math.max(1, Math.floor((n - len) / k))) : r.int(1, n)
+      const l2 = ((l1 - 1 + shift) % (n - len + 1)) + 1
+      out += `${l1} ${l1 + len - 1} ${l2} ${l2 + len - (r.int(0, 9) === 0 && l2 + len <= n ? 0 : 1)}\n`
+    }
+    return out
+  },
+  run(inp, t) {
+    const rd = reader(inp), s = rd.str(), q = rd.int(), n = s.length
+    lower(s)
+    const S = s.split(''), B = 131n, h = new BigUint64Array(n + 1), pw = new BigUint64Array(n + 1), out: string[] = []
+    pw[0] = 1n
+    for (let i = 1; i <= n; i++) {
+      h[i] = h[i - 1] * B + BigInt(s.charCodeAt(i - 1)); pw[i] = pw[i - 1] * B
+      t.s('build', () => [[`h[${i}] = h[${i - 1}] · 131 + '${s[i - 1]}' (${s.charCodeAt(i - 1)}): the hash of "${s.slice(0, i)}".`, `h[${i}] = h[${i - 1}] · 131 + '${s[i - 1]}'（${s.charCodeAt(i - 1)}）：这是 “${s.slice(0, i)}” 的哈希值。`], arr('s', S, tn({ ok: span(0, i - 2), act: i - 1 }), undefined, { base: 1 }), vars({ [`h[${i}]`]: hex6(h[i]) })])
+    }
+    const get = (l: number, r: number) => BigInt.asUintN(64, h[r] - h[l - 1] * pw[r - l + 1])
+    for (let k = 0; k < q; k++) {
+      const [a, b, c, d] = rd.ints(4)
+      need(1 <= a && a <= b && b <= n && 1 <= c && c <= d && d <= n, `Question ${k + 1} needs 1 ≤ l ≤ r ≤ ${n} for both substrings.`, `第 ${k + 1} 个询问的两个子串都须满足 1 ≤ l ≤ r ≤ ${n}。`)
+      const marks = () => tn({ cmp: span(a - 1, b - 1), alt: span(c - 1, d - 1) })
+      if (b - a !== d - c) {
+        out.push('N')
+        t.s('query', () => [[`"${s.slice(a - 1, b)}" and "${s.slice(c - 1, d)}" have different lengths: N.`, `“${s.slice(a - 1, b)}” 与 “${s.slice(c - 1, d)}” 长度不同：N。`], arr('s', S, marks(), undefined, { base: 1 }), arr('answers', out)])
+        continue
+      }
+      const x = get(a, b), y = get(c, d)
+      t.s('get', () => [[`Hash of s[${a}..${b}] = h[${b}] − h[${a - 1}] · 131^${b - a + 1}, and likewise for s[${c}..${d}].`, `s[${a}..${b}] 的哈希值 = h[${b}] − h[${a - 1}] · 131^${b - a + 1}，s[${c}..${d}] 同理。`], arr('s', S, marks(), undefined, { base: 1 }), vars({ [`"${s.slice(a - 1, b)}"`]: hex6(x), [`"${s.slice(c - 1, d)}" `]: hex6(y) })])
+      out.push(x === y ? 'Y' : 'N')
+      t.s('query', () => [x === y ? ['The two hashes are equal: the substrings are the same. Y.', '两个哈希值相等：这两个子串相同。Y。'] : ['The two hashes differ: the substrings differ. N.', '两个哈希值不同：这两个子串不同。N。'], arr('s', S, tn({ [x === y ? 'ok' : 'bad']: [...span(a - 1, b - 1), ...span(c - 1, d - 1)] }), undefined, { base: 1 }), arr('answers', out)])
+    }
+    t.out(out.join('\n'))
+  },
+}
+
+export default [kmp, manacher, zfn, ac, sa, stringHash]

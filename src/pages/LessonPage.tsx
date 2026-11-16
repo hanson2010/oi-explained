@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Diff, LevelBadge } from '../components/bits'
 import { Code, CopyButton, parseCode, withComments } from '../components/Code'
+import { Fix } from '../components/Fix'
 import { Flow } from '../components/Flow'
 import { Lab } from '../components/Lab'
 import { Player } from '../components/Player'
@@ -12,10 +13,10 @@ import type { Meta } from '../lessons/extras'
 import { leadsTo, META, META_BY_ID } from '../lessons/meta'
 import { href, isRevisit, useApp } from '../store'
 
-/** Learning order: what is asked, how to think about it, the program, watching it run, scaling it up. */
-const TABS = ['problem', 'idea', 'code', 'viz', 'lab'] as const
-type Tab = (typeof TABS)[number]
-const TAB_KEY = { problem: 'tabProblem', idea: 'tabIdea', code: 'tabCode', viz: 'tabViz', lab: 'tabLab' } as const
+/** Learning order: what is asked, how to think about it, the program, watching it run, scaling it up — and, where there is one, a broken version to repair. */
+const ALL_TABS = ['problem', 'idea', 'code', 'viz', 'lab', 'fix'] as const
+type Tab = (typeof ALL_TABS)[number]
+const TAB_KEY = { problem: 'tabProblem', idea: 'tabIdea', code: 'tabCode', viz: 'tabViz', lab: 'tabLab', fix: 'tabFix' } as const
 const KIND_KEY = { term: 'kindTerm', naive: 'kindNaive', insight: 'kindInsight', how: 'kindHow', result: 'kindResult' } as const
 
 function ProblemTab({ lesson }: { lesson: Lesson }) {
@@ -149,6 +150,7 @@ function CodeTab({ lesson, variant }: { lesson: Lesson; variant?: Variant }) {
 
 export function LessonPage({ lesson, tab, step }: { lesson: Lesson; tab?: string; step?: string }) {
   const { ui, tr, p, set, toggleDone, toggleFav } = useApp()
+  const TABS = ALL_TABS.filter(t => t !== 'fix' || lesson.broken)
   const cur: Tab = (TABS as readonly string[]).includes(tab ?? '') ? (tab as Tab) : 'problem'
   const idx = META.findIndex(m => m.id === lesson.id), prev = META[idx - 1], next = META[idx + 1]
   const after = TABS[TABS.indexOf(cur) + 1]
@@ -208,6 +210,7 @@ export function LessonPage({ lesson, tab, step }: { lesson: Lesson; tab?: string
       {cur === 'code' && <CodeTab key={first ? 'first' : 'main'} lesson={shown} variant={first ? lesson.first : undefined} />}
       {cur === 'viz' && <Player key={first ? 'first' : 'main'} lesson={shown} start={Number(step) || 0} />}
       {cur === 'lab' && <Lab lesson={lesson} />}
+      {cur === 'fix' && <Fix lesson={lesson} />}
 
       <p className="next-tab">
         {after ? <a className="btn primary" href={`#/learn/${lesson.id}/${after}`}>{ui('nextTab')}: {ui(TAB_KEY[after])} →</a>

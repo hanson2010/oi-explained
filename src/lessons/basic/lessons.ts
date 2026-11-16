@@ -41,7 +41,11 @@ int main() {
     const a = r.ints(n, 1, n * 3).sort((p, q) => p - q)
     return `${n} ${r.next() < 0.85 ? r.pick(a) + r.int(-1, 1) : n * 3 + 1}\n${a.join(' ')}\n`
   },
-  run(inp, t) {
+  broken: {
+    from: 'if (a[mid] >= x) r = mid;', to: 'if (a[mid] >= x) r = mid - 1;',
+    why: ['`a[mid] >= x` says that position mid __may itself be the answer__ — it is the first such element whenever everything to its left is smaller. `r = mid - 1` throws it away, so the search ends one position too far left. Only the other branch may skip mid: there a[mid] is too small and can never be the answer.', '`a[mid] >= x` 说明 mid 这个位置__本身就可能是答案__——只要它左边的元素都更小，它就是第一个满足条件的元素。`r = mid - 1` 把它丢掉了，于是查找的结果会偏左一位。只有另一个分支才可以跳过 mid：那里的 a[mid] 太小，不可能是答案。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), x = rd.int(), a = rd.ints(n)
     for (let i = 1; i < n; i++) need(a[i - 1] <= a[i], 'The array must be sorted.', '数组必须有序。')
     let l = 0, r = n
@@ -54,17 +58,17 @@ int main() {
     while (l < r) {
       const mid = (l + r) >> 1
       t.s('mid', () => [[`Probe the middle: a[${mid}] = ${a[mid]}.`, `查看中点：a[${mid}] = ${a[mid]}。`], view(mid), vars({ x })])
-      t.ask(() => [[`a[${mid}] = ${a[mid]} and x = ${x}. Where can the answer still be?`, `a[${mid}] = ${a[mid]}，x = ${x}。答案还可能在哪里？`], [['at mid or to its left', '在 mid 或它的左边'], ['to the right of mid', '在 mid 的右边']], a[mid] >= x ? 0 : 1])
+      if (!bug) t.ask(() => [[`a[${mid}] = ${a[mid]} and x = ${x}. Where can the answer still be?`, `a[${mid}] = ${a[mid]}，x = ${x}。答案还可能在哪里？`], [['at mid or to its left', '在 mid 或它的左边'], ['to the right of mid', '在 mid 的右边']], a[mid] >= x ? 0 : 1])
       if (a[mid] >= x) {
-        r = mid
-        t.s('left', () => [[`${a[mid]} ≥ ${x}: the answer is at ${mid} or further left, so r = ${mid}.`, `${a[mid]} ≥ ${x}：答案在 ${mid} 或更左，令 r = ${mid}。`], view(), vars({ x })])
+        r = bug ? mid - 1 : mid
+        t.s('left', () => [bug ? [`${a[mid]} ≥ ${x}: the program sets r = ${mid - 1}.`, `${a[mid]} ≥ ${x}：程序令 r = ${mid - 1}。`] : [`${a[mid]} ≥ ${x}: the answer is at ${mid} or further left, so r = ${mid}.`, `${a[mid]} ≥ ${x}：答案在 ${mid} 或更左，令 r = ${mid}。`], view(), vars({ x })])
       } else {
         l = mid + 1
         t.s('right', () => [[`${a[mid]} < ${x}: everything up to ${mid} is too small, so l = ${mid + 1}.`, `${a[mid]} < ${x}：${mid} 及左侧都太小，令 l = ${mid + 1}。`], view(), vars({ x })])
       }
     }
     t.s('done', () => [
-      l < n ? [`l = r = ${l}: a[${l}] = ${a[l]} is the first element ≥ ${x}.`, `l = r = ${l}：a[${l}] = ${a[l]} 是第一个 ≥ ${x} 的元素。`]
+      bug ? [`The loop ends with l = ${l}, r = ${r}: the program prints ${l + 1}.`, `循环结束时 l = ${l}，r = ${r}：程序输出 ${l + 1}。`] : l < n ? [`l = r = ${l}: a[${l}] = ${a[l]} is the first element ≥ ${x}.`, `l = r = ${l}：a[${l}] = ${a[l]} 是第一个 ≥ ${x} 的元素。`]
         : [`l = r = n: no element is ≥ ${x}.`, `l = r = n：不存在 ≥ ${x} 的元素。`],
       arr('a', a, l < n ? tn({ ok: l }) : tn({ dim: span(0, n - 1) })), vars({ x, answer: l + 1 })])
     t.out(l + 1)
@@ -109,7 +113,11 @@ int main() {
     for (let i = 0; i < q; i++) { const l = r.int(1, n), h = r.int(l, n); s += `${l} ${h}\n` }
     return s
   },
-  run(inp, t) {
+  broken: {
+    from: 's[r] - s[l - 1]', to: 's[r] - s[l]',
+    why: ['`s[l]` already contains `a[l]`, so subtracting it removes the first element of the range as well: the program prints the sum of a[l+1..r]. The sum of a[l..r] is everything up to r minus everything __before__ l, and that is `s[l - 1]`.', '`s[l]` 里已经包含了 `a[l]`，所以减去它会把区间的第一个元素也一并减掉：程序输出的是 a[l+1..r] 的和。a[l..r] 的和等于“到 r 为止的总和”减去“l __之前__的总和”，也就是 `s[l - 1]`。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), q = rd.int(), a = [0, ...rd.ints(n)], s = new Array<number>(n + 1).fill(0), out: number[] = []
     for (let i = 1; i <= n; i++) {
       s[i] = s[i - 1] + a[i]
@@ -119,13 +127,14 @@ int main() {
     for (let k = 0; k < q; k++) {
       const l = rd.int(), r = rd.int()
       need(1 <= l && l <= r && r <= n, 'Queries need 1 ≤ l ≤ r ≤ n.', '查询须满足 1 ≤ l ≤ r ≤ n。')
-      t.ask(() => {
+      if (!bug) t.ask(() => {
         const idx = [...new Set([l - 1, l, r - 1])].sort((p, q) => p - q)
         return [[`The sum of a[${l}..${r}] is s[${r}] minus which entry?`, `a[${l}..${r}] 的和等于 s[${r}] 减去哪一项？`], idx.map(k => [`s[${k}]`, `s[${k}]`] as const), idx.indexOf(l - 1)]
       })
-      out.push(s[r] - s[l - 1])
-      t.s('query', () => [[`sum(${l}..${r}) = s[${r}] − s[${l - 1}] = ${s[r]} − ${s[l - 1]} = ${s[r] - s[l - 1]}`, `sum(${l}..${r}) = s[${r}] − s[${l - 1}] = ${s[r]} − ${s[l - 1]} = ${s[r] - s[l - 1]}`],
-        arr('a', a, tn({ dim: 0, ok: span(l, r) })), arr('s', s, tn({ act: r, bad: l - 1 }), { r, 'l-1': l - 1 }), vars({ l, r, sum: s[r] - s[l - 1] })])
+      const lo = bug ? l : l - 1
+      out.push(s[r] - s[lo])
+      t.s('query', () => [[`sum(${l}..${r}) = s[${r}] − s[${lo}] = ${s[r]} − ${s[lo]} = ${s[r] - s[lo]}`, `sum(${l}..${r}) = s[${r}] − s[${lo}] = ${s[r]} − ${s[lo]} = ${s[r] - s[lo]}`],
+        arr('a', a, tn({ dim: 0, ok: span(l, r) })), arr('s', s, tn({ act: r, bad: lo }), bug ? { r, l } : { r, 'l-1': lo }), vars({ l, r, sum: s[r] - s[lo] })])
     }
     t.out(out.join('\n'))
   },

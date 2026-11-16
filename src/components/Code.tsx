@@ -43,6 +43,10 @@ interface Props {
   comments?: Record<number, string>
   /** Called with the line the pointer is on, or undefined when it leaves. */
   onHover?(line: number | undefined): void
+  /** Makes lines clickable (the "find the bug" exercise). */
+  onPick?(line: number): void
+  /** Line index → verdict on a line that was picked. */
+  picked?: Record<number, 'ok' | 'bad'>
 }
 
 /** The listing as plain text, with each explanation as a `//` comment above its line. */
@@ -58,7 +62,7 @@ export function CopyButton({ text, className }: { text(): string; className?: st
   return <button className={className} onClick={copy}>{copied ? '✓ ' + ui('copied') : ui('copy')}</button>
 }
 
-export function Code({ lines, active, marks, hover, comments, onHover }: Props) {
+export function Code({ lines, active, marks, hover, comments, onHover, onPick, picked }: Props) {
   const html = useMemo(() => lines.map(highlight), [lines])
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -70,7 +74,7 @@ export function Code({ lines, active, marks, hover, comments, onHover }: Props) 
     if (top < b.scrollTop + 20 || top > b.scrollTop + b.clientHeight - 40) b.scrollTo({ top: top - b.clientHeight / 2, behavior: 'smooth' })
   }, [active])
   return (
-    <div className="code" ref={box}>
+    <div className={'code' + (onPick ? ' pickable' : '')} ref={box}>
       {html.map((h, i) => (
         <div key={i} onMouseEnter={onHover && (() => onHover(i))} onMouseLeave={onHover && (() => onHover(undefined))}>
           {comments?.[i] && (
@@ -79,8 +83,9 @@ export function Code({ lines, active, marks, hover, comments, onHover }: Props) 
               <code className="c-com" style={{ paddingLeft: lines[i].match(/^\s*/)![0].length + 'ch' }}>// {comments[i]}</code>
             </div>
           )}
-          <div className={'ln' + (i === active ? ' on' : '') + (i === hover ? ' hov' : '')}>
-            <span className="no">{marks?.[i] ? <b>{marks[i]}</b> : i + 1}</span>
+          <div className={'ln' + (i === active ? ' on' : '') + (i === hover ? ' hov' : '') + (picked?.[i] ? ' pick-' + picked[i] : '')}
+            {...(onPick && lines[i].trim() ? { role: 'button', tabIndex: 0, onClick: () => onPick(i), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter') onPick(i) } } : {})}>
+            <span className="no">{picked?.[i] ? <b>{picked[i] === 'ok' ? '✓' : '✗'}</b> : marks?.[i] ? <b>{marks[i]}</b> : i + 1}</span>
             <code>{h.length ? h : ' '}</code>
           </div>
         </div>

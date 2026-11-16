@@ -194,4 +194,28 @@ int main() {
       },
     },
   },
+
+  'string-hash': {
+    story: [
+      { kind: 'naive', title: ['Start simple: compare letter by letter', '先从最简单的做起：逐个字母比较'],
+        body: ['To decide whether two substrings are equal, walk along both and compare. That costs their length — and with a hundred thousand questions about substrings a hundred thousand letters long, **10¹⁰ comparisons**.', '要判断两个子串是否相等，可以同时沿着两者往后走，逐个比较。代价是子串的长度——如果有十万个询问，每个子串又有十万个字母，就是 **10¹⁰ 次比较**。'] },
+      { kind: 'term', title: ['A hash function for strings', '字符串的哈希函数'],
+        body: ['A hash function sums an object up in one number. For a string, read it as a ==number in base B== whose digits are the characters: `hash("abc") = a · B² + b · B + c`, with each letter standing for its character code. Take B larger than any character code — 131 is a common choice — and keep only the remainder modulo some M, here 2⁶⁴. Equal strings always get equal hashes. Two different strings can collide, but for a good B and a large M that happens about once in M tries.', '哈希函数把一个对象概括成一个数。对于字符串，把它读成一个 ==B 进制的数==，各位数字就是各个字符：`hash("abc") = a · B² + b · B + c`，其中每个字母代表它的字符编码。B 要取得比任何字符编码都大——131 是常见的选择——并且只保留模某个 M 的余数，这里是 2⁶⁴。相同的字符串哈希值一定相同。两个不同的字符串可能冲突，但只要 B 选得好、M 足够大，这大约每 M 次才发生一次。'],
+        fig: () => [grid('in base 10, with digits as "letters": the string 4 7 2 is the number 472', [[4, 7, 2], ['4 · 10²', '7 · 10', '2']], gt({ cmp: row(0, 0, 2) }), { rows: ['string', 'worth'] })] },
+      { kind: 'insight', title: ['A substring is a difference of two prefixes', '子串是两个前缀之差'],
+        body: ['Think in base 10. From the prefixes of `3 1 4 7 2 9` — 3, 31, 314, 3147, 31472 — how do you get the piece `4 7 2`? Take 31472 and remove the 31 in front. But 31 stands three places to the left, so it is worth 31 000: ==31472 − 31 · 10³ = 472==. It is the prefix-sum idea, with a shift.', '用十进制想一想。已知 `3 1 4 7 2 9` 的各个前缀——3、31、314、3147、31472——怎样得到 `4 7 2` 这一段？取 31472，去掉前面的 31。但 31 在它左边三位的地方，实际代表 31 000：==31472 − 31 · 10³ = 472==。这就是前缀和的思想，只是多了一次移位。'],
+        fig: () => [grid('prefixes of 3 1 4 7 2 9', [[3, 1, 4, 7, 2, 9], [3, 31, 314, 3147, 31472, 314729]], gt({ ok: [[0, 2], [0, 3], [0, 4]], bad: [[1, 1]], act: [[1, 4]] }), { rows: ['s', 'h'], cols: [1, 2, 3, 4, 5, 6] })] },
+      { kind: 'how', title: ['Prefix hashes and powers of B', '前缀哈希与 B 的幂'],
+        body: ['Build `h[i] = h[i − 1] · B + s[i]` and `pw[i] = pw[i − 1] · B` in one pass. Then `hash(l, r) = h[r] − h[l − 1] · pw[r − l + 1]`. Use `unsigned long long` and let it overflow: the machine keeps exactly the remainder modulo 2⁶⁴, and a subtraction that goes "below zero" wraps round to the right value.', '一遍扫描算出 `h[i] = h[i − 1] · B + s[i]` 和 `pw[i] = pw[i − 1] · B`。于是 `hash(l, r) = h[r] − h[l − 1] · pw[r − l + 1]`。用 `unsigned long long` 并任其溢出：机器保留的正好是模 2⁶⁴ 的余数，减法“减成负数”时也会绕回到正确的值。'] },
+      { kind: 'result', title: ['Any two substrings compared in one step', '任意两个子串，一步比较'],
+        body: ['**O(n)** to prepare, **O(1)** per question. With this tool many string problems become simple: find a pattern (compare one hash per position), find the longest repeated substring (binary search on the length), test for palindromes (hash the reversed string too). The answer is ==correct with overwhelming probability==, not with certainty.', '预处理 **O(n)**，每个询问 **O(1)**。有了这个工具，许多字符串问题都变得简单：查找模式串（每个位置比较一个哈希值）、求最长重复子串（对长度二分）、判断回文（把反转后的串也做哈希）。它的答案是==以压倒性的概率正确==，而不是绝对正确。'] },
+    ],
+    flow: [
+      { id: 'init', kind: 'start', text: ['h[0] = 0;   pw[0] = 1', 'h[0] = 0；pw[0] = 1'], on: [] },
+      { id: 'build', text: ['for i = 1 … n:   h[i] = h[i−1] · B + s[i];   pw[i] = pw[i−1] · B', '对 i = 1 … n：h[i] = h[i−1] · B + s[i]；pw[i] = pw[i−1] · B'] },
+      { id: 'len', kind: 'test', text: ['next question:   equal lengths ?', '下一个询问：长度相等 ？'], no: 'query', on: [] },
+      { id: 'get', text: ['hash(l, r) = h[r] − h[l−1] · pw[r − l + 1]   for both substrings', '对两个子串分别计算 hash(l, r) = h[r] − h[l−1] · pw[r − l + 1]'] },
+      { id: 'query', kind: 'end', text: ['print Y if the lengths and the hashes agree, otherwise N', '长度和哈希值都相同则输出 Y，否则输出 N'] },
+    ],
+  },
 }

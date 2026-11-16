@@ -46,6 +46,10 @@ Every code tag needs a flowchart node, either through the node's `id` or its `on
 
 Only when the program is the same method before one optimisation. The rule and the list are in `earlier-versions.md`. Set `maxN` if it is too slow for the larger lab sizes.
 
+## A broken version
+
+Optional: `broken: { from, to, why }` in `lessons.ts`. `from` is a piece of the listing that occurs exactly once, `to` replaces it, and the change stays within one line. `run(inp, t, bug = false)` then implements both: with `bug` it does what the broken listing does, describes each step neutrally (it must not give the mistake away), and asks no questions. Choose a mistake that prints a wrong answer on small inputs, always terminates, and is defined behaviour in C++ — no out-of-range access, no overflow — because the tests compile the broken listing and compare it with the broken animation. A mistake that only makes the program slow does not qualify.
+
 ## The oracle
 
 Write it without looking at `run`: a brute force, or a check of the answer's properties (for example, that a printed matching is valid and of maximum size). Use `min` and `max` to limit the sizes it runs on.

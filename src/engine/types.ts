@@ -90,6 +90,23 @@ export interface Variant {
   run(inp: string, t: Tracer): void
 }
 
+/**
+ * The lesson's program with one common mistake put back in, for the learner to find.
+ * The mistake is a change within a single line, it always terminates, and its behaviour is defined in C++
+ * (no out-of-range access, no overflow), so the broken listing can be compiled and compared with the animation.
+ */
+export interface Broken {
+  /** Text of the lesson's listing that the broken version changes. It occurs exactly once, within one line. */
+  from: string
+  /** What the broken version has in its place. */
+  to: string
+  /** What goes wrong and why, shown once the line has been found. Same inline markup as the story. */
+  why: L
+}
+
+/** The listing of the broken version. */
+export const brokenCode = (l: Pick<Lesson, 'code' | 'broken'>) => l.code.replace(l.broken!.from, () => l.broken!.to)
+
 export interface Lesson {
   id: string
   title: L
@@ -112,6 +129,8 @@ export interface Lesson {
   story?: Card[]
   flow?: FlowNode[]
   first?: Variant
+  /** A version with one mistake to find. `run` then accepts `bug = true`. */
+  broken?: Broken
   /** Name of the lesson's own version when there is a `first` one, e.g. "Binary search". */
   label?: L
   time: string
@@ -128,8 +147,8 @@ export interface Lesson {
   sizes: [number, number, number]
   /** Magnitudes for the data lab. */
   lab: number[]
-  /** Runs the algorithm on the input text, emitting steps. */
-  run(inp: string, t: Tracer): void
+  /** Runs the algorithm on the input text, emitting steps. With `bug`, runs the broken version instead (lessons with `broken` only). */
+  run(inp: string, t: Tracer, bug?: boolean): void
 }
 
 export class TooLong extends Error {}

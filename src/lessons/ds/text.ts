@@ -140,6 +140,16 @@ export const TEXT: Record<string, Prose> = {
       ['Recomputing the covered height in a loop costs O(n) per event. For n = 10⁵ rectangles, keep the counts in a segment tree that stores the covered length of each node.', '每个事件都用循环重新计算被覆盖的高度，代价是 O(n)。n = 10⁵ 个矩形时，要用线段树维护覆盖次数，并在每个结点保存被覆盖的长度。'],
     ],
   },
+  'hash-table': {
+    problem: ['Numbers as large as a billion arrive one at a time. In between come questions: has this number been seen before? Answer each at once.', '一个个最大可达十亿的数陆续到来。其间穿插着询问：这个数之前出现过吗？每个询问都要立刻回答。'],
+    why: ['An array indexed by the number itself would answer in one step, but it would need a billion cells. A sorted structure answers in log n steps. A hash table gets close to the one-step answer with memory proportional to the number of keys. The trick is to compress the key into a small index with a simple function — here the remainder x mod M — and to store the key in the bucket with that index. To look a key up, compute the same remainder and look only in that bucket. Two different keys can have the same remainder; that is a collision, and by the pigeonhole principle it must happen as soon as there are more keys than buckets (and in practice much earlier). Chaining deals with it plainly: every bucket holds a short linked list of all the keys that landed there, and a search walks that list comparing the real keys. If M is about as large as the number of keys, and the function spreads them evenly, the lists have about one element each.', '以数本身为下标的数组一步就能回答，但需要十亿个格子。有序的数据结构需要 log n 步。哈希表用与关键字个数成正比的内存，做到了接近一步回答。诀窍是用一个简单的函数把关键字压缩成一个小的下标——这里是余数 x mod M——再把关键字存进这个下标对应的桶里。查找时把同样的余数再算一遍，只看那一个桶。两个不同的关键字可能有相同的余数，这叫冲突；由抽屉原理，只要关键字比桶多就必然发生（实际上会发生得更早）。拉链法的处理很直接：每个桶里是一条短短的链表，保存所有落到这里的关键字，查找时沿着这条链逐个比较真正的关键字。如果 M 与关键字的个数差不多大，并且哈希函数把它们散布得足够均匀，每条链平均只有一个元素。'],
+    pitfalls: [
+      ['Comparing only the bucket numbers reports a key as present when a different key collided with it. Always compare the keys.', '只比较桶的编号，会把与之冲突的另一个关键字误判为它本身。一定要比较关键字。'],
+      ['A negative x gives a negative remainder in C++. Use (x % M + M) % M when keys can be negative.', '在 C++ 中，负数 x 的余数是负的。关键字可能为负时要写 (x % M + M) % M。'],
+      ['M = 1000 or a power of two keeps only the last digits or bits of the key; patterned data then piles up in a few buckets. Choose a prime.', 'M 取 1000 或 2 的幂时，只用到了关键字的末几位数字或二进制位；有规律的数据会挤在少数几个桶里。应当取质数。'],
+      ['In the worst case every key lands in one bucket and each operation costs O(n). Contest data is sometimes built to do exactly that to a known hash function.', '最坏情况下所有关键字都落在同一个桶里，每次操作要 O(n)。竞赛数据有时会专门针对某个已知的哈希函数构造这种情况。'],
+    ],
+  },
 }
 
 /** Where each problem shows up outside contests, shown on the Problem tab. Same inline markup as the Ideas story. */
@@ -159,4 +169,5 @@ export const REAL: Record<string, L> = {
   'leftist-heap': ['Two hospitals **merge their waiting lists**, or two task queues are combined when a server goes offline. An ordinary binary heap would have to be rebuilt; a leftist heap merges in logarithmic time.', '两家医院**合并候诊名单**，或者一台服务器下线时把它的任务队列并入另一台。普通的二叉堆只能重建，左偏树可以在对数时间内合并。'],
   'linked-list': ['The **undo history** of an editor and the list of open tabs in a browser are linked lists: items are inserted and removed in the middle all the time, and nobody asks for "item number 3 172". A music player\'s "play next" is one insertion after the current song.', '编辑器的**撤销记录**和浏览器的标签页列表都是链表：元素随时在中间插入和删除，没有人会去问“第 3 172 项”是什么。音乐播放器的“下一首播放”就是在当前歌曲后面做一次插入。'],
   'sweep-line': ['A **chip designer** must know how much of the silicon is covered by metal, and a mapping service how much land a set of overlapping satellite photos shows. Both are unions of millions of rectangles, and both are computed by sweeping a line across them. A flatbed scanner works the same way: one line at a time.', '**芯片设计者**要知道硅片上有多大面积被金属覆盖，地图服务要知道一批互相重叠的卫星照片一共拍到了多大的地面。这两者都是上百万个矩形的并集，都是让一条线扫过它们来计算的。平板扫描仪的工作方式也一样：一次只看一条线。'],
+  'hash-table': ['A **cloakroom** hangs your coat on the hook whose number is printed on your ticket: nobody searches all the coats. Python\'s `dict`, JavaScript\'s objects and C++\'s `unordered_map` are hash tables, and so is the index a database uses to find one account among a hundred million.', '**衣帽间**把你的外套挂在号码牌对应的挂钩上：取衣服时没有人会把所有外套翻一遍。Python 的 `dict`、JavaScript 的对象、C++ 的 `unordered_map` 都是哈希表；数据库从一亿个账户里找出某一个所用的索引也是。'],
 }

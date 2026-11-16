@@ -19,12 +19,23 @@ export function trace(lesson: Lesson, input: string, tooLong: string): Result {
 
 const SPEEDS = [0.5, 1, 2, 4]
 
-/** `start` is the 1-based step to open on (from the URL: #/learn/<id>/viz/<step>). */
-export function Player({ lesson, start = 0 }: { lesson: Lesson; start?: number }) {
+interface PlayerProps {
+  lesson: Lesson
+  /** The 1-based step to open on (from the URL: #/learn/<id>/viz/<step>). */
+  start?: number
+  /** The input to open on, instead of the first generated one. */
+  initial?: string
+  /** The correct output for an input, shown beside the program's own (the "find the bug" exercise). */
+  expect?(input: string): string
+  /** Makes the code lines clickable, with a verdict on those already picked. */
+  pick?: { on(line: number): void; picked: Record<number, 'ok' | 'bad'> }
+}
+
+export function Player({ lesson, start = 0, initial, expect, pick }: PlayerProps) {
   const { ui, tr, p, answerQuiz } = useApp()
   const [size, setSize] = useState(0)
   const [seed, setSeed] = useState(1)
-  const [draft, setDraft] = useState(() => lesson.gen(lesson.sizes[0], new Rng(1)))
+  const [draft, setDraft] = useState(() => initial ?? lesson.gen(lesson.sizes[0], new Rng(1)))
   const [input, setInput] = useState(draft)
   const [i, setI] = useState(Math.max(0, start - 1))
   const [playing, setPlaying] = useState(false)
@@ -38,6 +49,9 @@ export function Player({ lesson, start = 0 }: { lesson: Lesson; start?: number }
   const { lines, tags } = useMemo(() => parseCode(lesson.code), [lesson])
   const res = useMemo(() => trace(lesson, input, ui('tooLong')), [lesson, input, p.lang])
   const n = res.steps.length
+  const want = useMemo(() => (expect && !res.error ? expect(input) : undefined), [expect, input, res.error])
+  const clip = (s: string) => (s.length > 600 ? s.slice(0, 600) + '\n…' : s)
+  const sameOut = (a: string, b: string) => a.split(/\s+/).filter(Boolean).join(' ') === b.split(/\s+/).filter(Boolean).join(' ')
   const cur = res.steps[Math.min(i, n - 1)]
   const questions = useMemo(() => res.steps.filter(s => s.ask).length, [res])
   useEffect(() => { setAnswered({}); setAsking(null) }, [res])
@@ -126,7 +140,7 @@ export function Player({ lesson, start = 0 }: { lesson: Lesson; start?: number }
           <h3>{ui('input')}</h3>
           <div className="seg">
             {(['small', 'medium', 'large'] as const).map((k, j) => (
-              <button key={k} className={size === j && draft === input ? 'on' : ''} onClick={() => regen(j, seed)}>{ui(k)} · n={lesson.sizes[j]}</button>
+              <button key={k} className={size === j && draft === input && draft !== initial ? 'on' : ''} onClick={() => regen(j, seed)}>{ui(k)} · n={lesson.sizes[j]}</button>
             ))}
           </div>
           <button onClick={() => regen(size, seed + 1)}>🎲 {ui('shuffle')}</button>
@@ -141,8 +155,9 @@ export function Player({ lesson, start = 0 }: { lesson: Lesson; start?: number }
             </div>
           </div>
           <div>
-            <div className="out-label">{ui('output')}</div>
-            <pre className="out">{res.output.length > 600 ? res.output.slice(0, 600) + '\n…' : res.output}</pre>
+            <div className="out-label">{ui('output')}{want !== undefined && <b className={sameOut(want, res.output) ? 'verdict ok' : 'verdict bad'}>{sameOut(want, res.output) ? ui('outRight') : ui('outWrong')}</b>}</div>
+            <pre className="out">{clip(res.output)}</pre>
+            {want !== undefined && <><div className="out-label">{ui('expected')}</div><pre className="out">{clip(want)}</pre></>}
           </div>
         </div>
       </section>
@@ -157,7 +172,7 @@ export function Player({ lesson, start = 0 }: { lesson: Lesson; start?: number }
         )}
         {lesson.flow && panel === 'flow'
           ? <section className="card flow-card"><Flow nodes={lesson.flow} active={cur?.tag} /></section>
-          : <section className="card code-card"><CopyButton className="copy" text={() => lines.join('\n') + '\n'} /><Code lines={lines} active={cur ? tags[cur.tag] : undefined} /></section>}
+          : <section className="card code-card">{!pick && <CopyButton className="copy" text={() => lines.join('\n') + '\n'} />}<Code lines={lines} active={cur ? tags[cur.tag] : undefined} onPick={pick?.on} picked={pick?.picked} /></section>}
       </div>
     </div>
   )

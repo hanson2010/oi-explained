@@ -488,7 +488,11 @@ int main() {
     for (let i = 0; i < m; i++) s += `${r.next() < 0.65 ? 1 : 2} ${r.int(1, n)} ${r.int(1, n)}\n`
     return s
   },
-  run(inp, t) {
+  broken: {
+    from: 'fa[find(x)] = find(y)', to: 'fa[x] = find(y)',
+    why: ['This moves only the element x. If x was not the root of its set, it is torn out and attached to the other set, while __the rest of its old set stays behind__ — and the two sets are still separate. A union must join the sets, so it has to link the two __roots__: `fa[find(x)] = find(y)`.', '这样只移动了元素 x 一个。如果 x 不是它所在集合的根，它就被单独拆出来挂到另一个集合上，而__原集合里的其他元素还留在原处__——两个集合实际上并没有合并。合并操作要合并的是整个集合，所以必须把两个__根__连起来：`fa[find(x)] = find(y)`。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), m = rd.int(), fa = span(0, n), out: string[] = []
     const view = (tone: Tones) => {
       const par = fa.map((p, i) => (i === 0 ? -2 : p === i ? -1 : p)), es: GEdge[] = []
@@ -507,11 +511,11 @@ int main() {
     for (let i = 0; i < m; i++) {
       const op = rd.int(), x = rd.int(), y = rd.int()
       need((op === 1 || op === 2) && x >= 1 && x <= n && y >= 1 && y <= n, `Operation ${i + 1} is invalid.`, `第 ${i + 1} 个操作不合法。`)
-      if (op === 2) t.ask(() => { const root = (v: number) => { while (fa[v] !== v) v = fa[v]; return v }; return [[`Query: are ${x} and ${y} in the same set?`, `询问：${x} 和 ${y} 在同一个集合里吗？`], [['Y', 'Y'], ['N', 'N']], root(x) === root(y) ? 0 : 1] })
-      const a = find(x), b = find(y)
+      if (op === 2 && !bug) t.ask(() => { const root = (v: number) => { while (fa[v] !== v) v = fa[v]; return v }; return [[`Query: are ${x} and ${y} in the same set?`, `询问：${x} 和 ${y} 在同一个集合里吗？`], [['Y', 'Y'], ['N', 'N']], root(x) === root(y) ? 0 : 1] })
+      const a = bug && op === 1 ? x : find(x), b = find(y)
       if (op === 1) {
         fa[a] = b
-        t.s('union', () => [a === b ? [`union(${x}, ${y}): both already have root ${a}.`, `union(${x}, ${y})：两者的根都是 ${a}，已在同一集合。`] : [`union(${x}, ${y}): hang root ${a} under root ${b}.`, `union(${x}, ${y})：把根 ${a} 挂到根 ${b} 下面。`], ...view(tn({ act: a, ok: b }))])
+        t.s('union', () => [bug ? [`union(${x}, ${y}): the program sets fa[${x}] = ${b}.`, `union(${x}, ${y})：程序令 fa[${x}] = ${b}。`] : a === b ? [`union(${x}, ${y}): both already have root ${a}.`, `union(${x}, ${y})：两者的根都是 ${a}，已在同一集合。`] : [`union(${x}, ${y}): hang root ${a} under root ${b}.`, `union(${x}, ${y})：把根 ${a} 挂到根 ${b} 下面。`], ...view(tn({ act: a, ok: b }))])
       } else {
         out.push(a === b ? 'Y' : 'N')
         t.s('query', () => [[`Same set? Roots ${a} and ${b}: ${a === b ? 'Y' : 'N'}.`, `是否同一集合？根分别是 ${a} 和 ${b}：${a === b ? 'Y' : 'N'}。`], ...view(tn({ cmp: [x, y], [a === b ? 'ok' : 'bad']: [a, b] }))])
@@ -1284,4 +1288,91 @@ int main() {
   },
 }
 
-export default [stack, traversal, huffman, bst, monoQueue, sparse, dsu, fenwick, segtree, trie, treap, sqrtDec, leftist, linkedList, sweepLine]
+const nextPrime = (x: number) => { for (let p = Math.max(2, x); ; p++) { let ok = true; for (let d = 2; d * d <= p; d++) if (p % d === 0) { ok = false; break } if (ok) return p } }
+const hashTable: Lesson = {
+  id: 'hash-table', title: ['Hash table', '哈希表'], level: 'S', cat: 'ds', diff: 6,
+  needs: ['linked-list'],
+  blurb: ['Compute from the key itself where it should be stored. Looking it up later means computing the same place again.', '由关键字本身算出它应该存放的位置。以后要查找它，只需把这个位置再算一遍。'],
+  ideas: [
+    ['A hash function turns a key into a small index: here x mod M, a bucket number from 0 to M − 1.', '哈希函数把关键字变成一个小的下标：这里是 x mod M，即 0 到 M − 1 之间的桶编号。'],
+    ['Different keys can land in the same bucket: a collision. It cannot be avoided, only handled.', '不同的关键字可能落到同一个桶里：这叫冲突。冲突无法避免，只能处理。'],
+    ['Chaining: each bucket holds a linked list of all keys that hash to it.', '拉链法：每个桶里是一条链表，保存所有哈希到这个桶的关键字。'],
+    ['To find a key, hash it and walk only that one chain.', '查找一个关键字时，先算出它的哈希值，然后只需沿着那一条链走。'],
+    ['With M about as large as the number of keys and a prime, the chains stay short: O(1) per operation on average.', '当 M 与关键字的个数差不多大并且是质数时，链都很短：每次操作平均 O(1)。'],
+  ],
+  time: 'O(1) per operation on average', space: 'O(M + n)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int M, q, tot, head[1000005], nxt[1000005], val[1000005];
+
+int slot(int x) { return x % M; }  //@hash
+
+bool find(int x) {
+    for (int i = head[slot(x)]; i; i = nxt[i])
+        if (val[i] == x) return true;  //@hit
+    return false;  //@miss
+}
+
+void insert(int x) {
+    if (find(x)) return;
+    int h = slot(x);
+    val[++tot] = x; nxt[tot] = head[h]; head[h] = tot;  //@add
+}
+
+int main() {
+    scanf("%d%d", &M, &q);
+    while (q--) {
+        int op, x; scanf("%d%d", &op, &x);
+        if (op == 1) insert(x);
+        else puts(find(x) ? "Y" : "N");  //@query
+    }
+}`,
+  notes: [
+    ['hash', ['The remainder is always in 0 … M − 1, however large x is.', '无论 x 多大，余数总在 0 … M − 1 之间。']],
+    ['hit', ['Compare the keys themselves: sharing a bucket does not make two keys equal.', '要比较关键字本身：落在同一个桶里并不意味着两个关键字相等。']],
+    ['add', ['The new key goes to the front of its chain: three assignments, as in a linked list.', '新关键字插到链的最前面：三次赋值，与链表相同。']],
+  ],
+  input: ['M q — the number of buckets and of operations. Then q lines: "1 x" inserts x (0 ≤ x ≤ 10⁹), "2 x" asks whether x has been inserted. Prints Y or N for each question.', 'M q —— 桶的个数和操作的个数。随后 q 行：“1 x” 插入 x（0 ≤ x ≤ 10⁹），“2 x” 询问 x 是否已经插入。对每个询问输出 Y 或 N。'],
+  sizes: [6, 9, 12], lab: [10, 1000, 100000, 500000],
+  gen(n, r) {
+    const M = n <= 6 ? 5 : n <= 30 ? 7 : nextPrime(n), top = n <= 30 ? 60 : 1000000000, seen: number[] = []
+    let s = `${M} ${n}\n`
+    for (let k = 0; k < n; k++) {
+      if (k >= 2 && r.int(0, 9) < 4) { s += `2 ${r.int(0, 1) ? r.pick(seen) : r.int(1, top)}\n`; continue }
+      const x = r.int(1, top)
+      seen.push(x); s += `1 ${x}\n`
+    }
+    return s
+  },
+  run(inp, t) {
+    const rd = reader(inp), M = rd.int(), q = rd.int()
+    need(Number.isInteger(M) && M >= 1 && M <= 1e6, 'M must be between 1 and 1,000,000.', 'M 须在 1 到 1,000,000 之间。')
+    const head = new Int32Array(M), nxt = [0], val = [0], out: string[] = []
+    const table = (h: number, hi: number, tone: Tone) => {
+      const chains = span(0, M - 1).map(b => { const c: number[] = []; for (let i = head[b]; i; i = nxt[i]) c.push(i); return c })
+      const width = Math.max(1, ...chains.map(c => c.length)), tones: Record<string, Tone> = {}
+      chains.forEach((c, b) => c.forEach((i, k) => { if (b === h) tones[b + ',' + k] = i === hi ? tone : 'cmp' }))
+      return grid('buckets: every row is the chain of one bucket, newest key first', chains.map(c => [...c.map(i => val[i]), ...new Array<string>(width - c.length).fill('')]), tones, { rows: span(0, M - 1).map(b => (b === h ? '→ ' : '') + b) })
+    }
+    for (let k = 0; k < q; k++) {
+      const op = rd.int(), x = rd.int()
+      need((op === 1 || op === 2) && Number.isInteger(x) && x >= 0, `Operation ${k + 1} is invalid.`, `第 ${k + 1} 个操作不合法。`)
+      const h = x % M
+      t.s('hash', () => [[`${op === 1 ? 'Insert' : 'Look for'} ${x}: ${x} mod ${M} = ${h}, so it belongs to bucket ${h}.`, `${op === 1 ? '插入' : '查找'} ${x}：${x} mod ${M} = ${h}，它属于 ${h} 号桶。`], table(h, 0, 'act'), vars({ x, bucket: h })])
+      let at = 0, len = 0
+      for (let i = head[h]; i; i = nxt[i]) { t.tick(); len++; if (val[i] === x) { at = i; break } }
+      const steps = len
+      if (at) t.s('hit', () => [[`Walk the chain of bucket ${h}: ${x} is there, after ${steps} comparison${steps === 1 ? '' : 's'}.`, `沿着 ${h} 号桶的链走：比较 ${steps} 次后找到了 ${x}。`], table(h, at, 'ok'), vars({ x, bucket: h })])
+      else t.s('miss', () => [[steps ? `Walk the chain of bucket ${h}: ${steps} key${steps === 1 ? '' : 's'}, none is ${x}.` : `Bucket ${h} is empty.`, steps ? `沿着 ${h} 号桶的链走：共 ${steps} 个关键字，都不是 ${x}。` : `${h} 号桶是空的。`], table(h, 0, 'act'), vars({ x, bucket: h })])
+      if (op === 2) { out.push(at ? 'Y' : 'N'); t.s('query', () => [[`Answer: ${at ? 'Y' : 'N'}.`, `回答：${at ? 'Y' : 'N'}。`], table(h, at, 'ok'), arr('answers', out)]); continue }
+      if (at) continue
+      val.push(x); nxt.push(head[h]); head[h] = val.length - 1
+      const id = val.length - 1
+      t.s('add', () => [[`Put ${x} at the front of the chain of bucket ${h}.`, `把 ${x} 放到 ${h} 号桶的链的最前面。`], table(h, id, 'ok'), vars({ x, bucket: h, keys: id })])
+    }
+    t.out(out.join('\n'))
+  },
+}
+
+export default [stack, traversal, huffman, bst, monoQueue, sparse, dsu, fenwick, segtree, trie, treap, sqrtDec, leftist, linkedList, sweepLine, hashTable]
