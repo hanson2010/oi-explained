@@ -1,0 +1,9 @@
+// Cloudflare Workers Builds serves the static site in dist/ (built by `npm run build`).
+// The app routes with the URL hash, so no single-page-application fallback is needed.
+{
+  "name": "oi-explained",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "./dist" },
+  // Branch previews use the same settings; Wrangler requires the block even when empty.
+  "previews": {}
+}

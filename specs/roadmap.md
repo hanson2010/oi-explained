@@ -29,7 +29,7 @@ There is no CI. Add a GitHub Actions workflow that runs, on every push and pull 
 
 The suite takes about a minute without `GXX`, so no sharding is needed yet.
 
-The site is built and hosted by Cloudflare Pages, so CI only checks; it does not deploy. Cloudflare's build should keep running `npm run build`, which type-checks before bundling. Cloudflare Pages also builds a preview for each branch, which is a good place to review a new lesson before merging.
+The site is built and hosted by Cloudflare (Workers Builds serving `dist/` as static assets, configured in `wrangler.jsonc`), so CI only checks; it does not deploy. Cloudflare's build should keep running `npm run build`, which type-checks before bundling. Cloudflare also builds a preview for each branch, which is a good place to review a new lesson before merging.
 
 ### 0.2 Split the bundle
 
@@ -45,7 +45,7 @@ This turns the coverage number into a real progress measure for Phase 1.
 
 ### 0.4 Lesson authoring guide
 
-Adding lessons is the main way the project grows, and the conventions live only in the code today. Write `specs/lesson-authoring.md`:
+Adding lessons is the main way the project grows, and the conventions live only in the code today. Outside contributions are not accepted for now, so this is a short checklist for the maintainer (and for Claude sessions) rather than a contributor guide. Write `specs/lesson-authoring.md`:
 
 - the `Lesson` fields and which are required (the tests already enforce most of them)
 - `//@tag` lines, how steps, notes and flowchart nodes refer to them
@@ -56,7 +56,7 @@ Adding lessons is the main way the project grows, and the conventions live only 
 
 ### 0.5 Licence
 
-The repository has no LICENSE file, so by default nobody may reuse or contribute to it. Choose one for the code and, separately, for the lesson text (for example MIT for code and CC BY-SA 4.0 for text). The CCF syllabus transcription keeps its existing notice.
+The repository has no LICENSE file, so by default nobody may reuse it. Contributions are not accepted for now, so this is low priority; when it matters, choose one for the code and, separately, for the lesson text (for example MIT for code and CC BY-SA 4.0 for text). The CCF syllabus transcription keeps its existing notice.
 
 ---
 
@@ -155,8 +155,7 @@ Use the "learned" date in the Profile to suggest lessons to revisit after 1, 7 a
 
 Lower priority; pick up between lessons.
 
-- **Offline**: a service worker so the site works without a network (useful in classrooms and contest training camps).
-- **Deep links**: put the tab and the animation step in the URL, so a teacher can share "step 37 of Dijkstra".
+- **Offline**: a service worker so the site works without a network.
 - **Accessibility**: announce each step's message to screen readers (`aria-live`), respect `prefers-reduced-motion`, check colour contrast of the tones in both themes.
 - **Phone layout**: the code-plus-flowchart view and the lab chart at 375 px wide.
 - **Browser smoke test**: a Playwright test that opens every lesson, plays the animation to the end and runs the lab, catching rendering errors the logic tests cannot.
@@ -165,12 +164,10 @@ Lower priority; pick up between lessons.
 
 ## Order of work
 
-1. Phase 0 (CI, bundle split, out-of-scope marking, authoring guide, licence): about one week.
+The audience is self-learners and outside contributions are not accepted for now. So the features that help someone learning alone (predicting the next step, broken versions to fix, practice links and review) rank above classroom features, and the licence and contributor process can wait.
+
+1. Phase 0: CI, bundle split, out-of-scope marking, the authoring checklist. About one week.
 2. 2.1 lesson links, since every new lesson should set them.
-3. Phase 1 lessons, CSP-J and CSP-S first. In parallel, 2.2 and 2.3 on a handful of existing lessons, to validate the designs before rolling them out.
-4. NOI lessons, 2.4, 2.5 and Phase 3 as time allows.
-
-## Open questions
-
-- Who is the main audience: self-learners or teachers using it in class? Teachers raise the priority of deep links, offline use and practice lists.
-- Will outside contributions be accepted? If so, the licence and authoring guide move to the very top.
+3. Phase 1 lessons, CSP-J and CSP-S first. In parallel, 2.2 (predict the next step) and 2.3 (broken versions) on a handful of existing lessons, to try the designs before rolling them out.
+4. 2.4 practice links and 2.5 review, which together make the Profile a study plan.
+5. NOI lessons and Phase 3 as time allows.

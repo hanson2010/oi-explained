@@ -140,3 +140,4 @@ dist
 
 # Syllabus PDF (copyright CCF; only the transcription is kept in the repository)
 specs/*.pdf
+.wrangler
