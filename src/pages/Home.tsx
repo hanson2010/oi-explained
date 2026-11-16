@@ -3,16 +3,19 @@ import { LessonCard } from '../components/bits'
 import { trace } from '../components/Player'
 import { Stage } from '../components/Stage'
 import { SECTION_COUNT } from '../data/syllabus'
-import { Rng, type Cat, type Level } from '../engine/types'
+import type { Cat, Level } from '../engine/types'
 import { CATS, LEVELS } from '../i18n'
-import { BY_ID, LESSONS } from '../lessons'
+import { useLesson } from '../lessons/load'
+import { META, META_BY_ID } from '../lessons/meta'
 import { setQuery, useApp } from '../store'
 
-/** A looping preview of a real lesson trace. */
+const DEMO = 'quick-sort'
+
+/** A looping preview of a real lesson trace. The lesson is downloaded after the page has rendered; until then the card shows its title. */
 function HeroDemo() {
   const { tr } = useApp()
-  const lesson = BY_ID.get('quick-sort') ?? LESSONS[0]
-  const steps = useMemo(() => trace(lesson, lesson.id === 'quick-sort' ? '9\n5 2 8 1 9 4 7 3 6\n' : lesson.gen(lesson.sizes[0], new Rng(7)), '').steps, [lesson])
+  const meta = META_BY_ID.get(DEMO)!, { lesson } = useLesson(DEMO)
+  const steps = useMemo(() => (lesson ? trace(lesson, '9\n5 2 8 1 9 4 7 3 6\n', '').steps : []), [lesson])
   const [i, setI] = useState(0)
   useEffect(() => {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches || steps.length < 2) return
@@ -26,12 +29,13 @@ function HeroDemo() {
     views: steps.map((st, k) => <div key={k} className="ghost" aria-hidden="true"><Stage views={pick(st)} /></div>),
     msgs: steps.map((st, k) => <div key={k} className="ghost" aria-hidden="true">{tr(st.msg)}</div>),
   }), [steps, tr])
-  if (!s) return null
   return (
-    <a className="hero-demo card" href={'#/learn/' + lesson.id}>
-      <div className="hero-demo-title">{tr(lesson.title)} <span>→</span></div>
-      <div className="hero-fit">{ghosts.views}<div><Stage views={pick(s)} /></div></div>
-      <div className="hero-fit hero-demo-msg">{ghosts.msgs}<div>{tr(s.msg)}</div></div>
+    <a className={'hero-demo card' + (s ? '' : ' loading')} href={'#/learn/' + DEMO}>
+      <div className="hero-demo-title">{tr(meta.title)} <span>→</span></div>
+      {s && <>
+        <div className="hero-fit">{ghosts.views}<div><Stage views={pick(s)} /></div></div>
+        <div className="hero-fit hero-demo-msg">{ghosts.msgs}<div>{tr(s.msg)}</div></div>
+      </>}
     </a>
   )
 }
@@ -52,13 +56,13 @@ export function Home({ query }: { query: URLSearchParams }) {
   const filtered = !!(q.trim() || level || cat || fav)
   const clear = () => { setQ(''); setQuery({ q: '', level: '', cat: '', fav: '' }) }
 
-  const doneCount = LESSONS.filter(l => p.done[l.id]).length
-  const nextUp = (p.last && !p.done[p.last] && BY_ID.get(p.last)) || LESSONS.find(l => !p.done[l.id]) || LESSONS[0]
+  const doneCount = META.filter(l => p.done[l.id]).length
+  const nextUp = (p.last && !p.done[p.last] && META_BY_ID.get(p.last)) || META.find(l => !p.done[l.id]) || META[0]
   const needle = q.trim().toLowerCase()
-  const list = LESSONS.filter(l =>
+  const list = META.filter(l =>
     (!level || l.level === level) && (!cat || l.cat === cat) && (!fav || p.fav[l.id]) &&
     (!needle || (l.title[0] + ' ' + l.title[1] + ' ' + l.blurb[0] + ' ' + l.blurb[1] + ' ' + l.id).toLowerCase().includes(needle)))
-  const cats = (Object.keys(CATS) as Cat[]).filter(c => LESSONS.some(l => l.cat === c))
+  const cats = (Object.keys(CATS) as Cat[]).filter(c => META.some(l => l.cat === c))
 
   return (
     <>
@@ -71,7 +75,7 @@ export function Home({ query }: { query: URLSearchParams }) {
             <a className="btn big" href="#/syllabus">{ui('browse')}</a>
           </div>
           <div className="stats">
-            <span><b>{LESSONS.length}</b> {ui('lessons')}</span>
+            <span><b>{META.length}</b> {ui('lessons')}</span>
             <span><b>{SECTION_COUNT}</b> {ui('points')}</span>
             <span><b>{doneCount}</b> {ui('learned')}</span>
           </div>
@@ -81,7 +85,7 @@ export function Home({ query }: { query: URLSearchParams }) {
 
       <section className="levels">
         {(Object.keys(LEVELS) as Level[]).map(lv => {
-          const all = LESSONS.filter(l => l.level === lv), d = all.filter(l => p.done[l.id]).length
+          const all = META.filter(l => l.level === lv), d = all.filter(l => p.done[l.id]).length
           return (
             <button key={lv} className={'level-card lv-' + lv + (level === lv ? ' on' : '')} onClick={() => setLevel(level === lv ? '' : lv)} aria-pressed={level === lv}>
               <span className="level-name">{tr(LEVELS[lv].name)}</span>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CATS } from '../i18n'
-import { LESSONS } from '../lessons'
+import { META } from '../lessons/meta'
 import { useApp } from '../store'
 import { LevelBadge } from './bits'
 
@@ -28,15 +28,15 @@ export function Jump({ current }: { current?: string }) {
 
   const needle = q.trim().toLowerCase()
   const hits = useMemo(() => {
-    if (!needle) return LESSONS
+    if (!needle) return META
     const words = needle.split(/\s+/)
-    const score = (l: (typeof LESSONS)[number]) => {
+    const score = (l: (typeof META)[number]) => {
       const titles = (l.title[0] + ' ' + l.title[1] + ' ' + l.id).toLowerCase(), rest = (CATS[l.cat].join(' ') + ' ' + l.blurb.join(' ')).toLowerCase()
       let s = 0
       for (const w of words) { if (titles.includes(w)) s += titles.startsWith(w) ? 3 : 2; else if (rest.includes(w)) s += 1; else return 0 }
       return s
     }
-    return LESSONS.map((l, i) => ({ l, i, s: score(l) })).filter(x => x.s).sort((a, b) => b.s - a.s || a.i - b.i).map(x => x.l)
+    return META.map((l, i) => ({ l, i, s: score(l) })).filter(x => x.s).sort((a, b) => b.s - a.s || a.i - b.i).map(x => x.l)
   }, [needle])
   const at = Math.min(sel, hits.length - 1)
   useEffect(() => { list.current?.querySelector('.on')?.scrollIntoView({ block: 'nearest' }) }, [at, open])

@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# A push to a branch with an open pull request would otherwise run twice.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Type-checks, then bundles.
+      - run: npm run build
+      # Also compiles every C++ listing and compares its output with the animation.
+      # The deeply recursive listings need more than the default stack.
+      - run: ulimit -s unlimited && GXX="$(command -v g++)" npm test

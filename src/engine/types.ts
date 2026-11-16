@@ -97,13 +97,13 @@ export interface Lesson {
   blurb: L
   /** Key ideas, shown as a numbered list. */
   ideas: L[]
-  /** Prose from lessons/text.ts, attached in lessons/index.ts. */
+  /** Prose from text.ts of the lesson's category, attached by lessons/assemble.ts. */
   problem?: L
   why?: L
   pitfalls?: L[]
   /** Where the problem shows up outside contests, from lessons/real.ts. */
   real?: L
-  /** Hand-written extras from lessons/rich.ts: an illustrated story, a flowchart, a version to learn first. */
+  /** Hand-written extras from stories.ts and first.ts of the lesson's category: an illustrated story, a flowchart, a version to learn first. */
   story?: Card[]
   flow?: FlowNode[]
   first?: Variant

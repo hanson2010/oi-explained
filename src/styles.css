@@ -300,6 +300,9 @@ svg.chart { width: 100%; height: auto; background: var(--surface); border: 1px s
 .syl-links { display: flex; gap: 6px; flex-wrap: wrap; }
 .syl-links a { font-size: .8rem; text-decoration: none; background: var(--accent-soft); border-radius: 99px; padding: 1px 10px; white-space: nowrap; font-weight: 600; }
 .syl-links a.done { background: var(--ok-bg); color: var(--ink); }
+.syl-tag { font-size: .74rem; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 0 8px; white-space: nowrap; }
+.syl-tag.off { border-style: dashed; }
+.syl-group li.skip .syl-name, .syl-group li.skip .diff { opacity: .6; }
 
 /* profile */
 .profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: start; }

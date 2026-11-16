@@ -2,17 +2,17 @@ import { useRef, useState } from 'react'
 import { LessonCard } from '../components/bits'
 import type { Cat, Level } from '../engine/types'
 import { CATS, LEVELS } from '../i18n'
-import { LESSONS } from '../lessons'
+import { META } from '../lessons/meta'
 import { sanitize, useApp } from '../store'
 
 export function ProfilePage() {
   const { ui, tr, p, set } = useApp()
   const file = useRef<HTMLInputElement>(null)
   const [err, setErr] = useState('')
-  const done = LESSONS.filter(l => p.done[l.id])
+  const done = META.filter(l => p.done[l.id])
   const recent = done.slice().sort((a, b) => p.done[b.id] - p.done[a.id]).slice(0, 6)
-  const starred = LESSONS.filter(l => p.fav[l.id])
-  const pct = LESSONS.length ? Math.round((100 * done.length) / LESSONS.length) : 0
+  const starred = META.filter(l => p.fav[l.id])
+  const pct = META.length ? Math.round((100 * done.length) / META.length) : 0
 
   const exportP = () => {
     const a = document.createElement('a')
@@ -32,7 +32,7 @@ export function ProfilePage() {
     if (file.current) file.current.value = ''
   }
 
-  const bars = <K extends string>(keys: K[], of: (k: K) => typeof LESSONS, label: (k: K) => string, cls: (k: K) => string) =>
+  const bars = <K extends string>(keys: K[], of: (k: K) => typeof META, label: (k: K) => string, cls: (k: K) => string) =>
     keys.map(k => {
       const all = of(k), d = all.filter(l => p.done[l.id]).length
       if (!all.length) return null
@@ -45,11 +45,11 @@ export function ProfilePage() {
       <p className="muted">{ui('profNote')}</p>
       <div className="profile-grid">
         <section className="card">
-          <div className="ring" style={{ ['--pct' as string]: pct }}><b>{pct}%</b><span>{done.length} / {LESSONS.length}</span></div>
-          {bars(Object.keys(LEVELS) as Level[], k => LESSONS.filter(l => l.level === k), k => tr(LEVELS[k].name), k => 'lv-' + k)}
+          <div className="ring" style={{ ['--pct' as string]: pct }}><b>{pct}%</b><span>{done.length} / {META.length}</span></div>
+          {bars(Object.keys(LEVELS) as Level[], k => META.filter(l => l.level === k), k => tr(LEVELS[k].name), k => 'lv-' + k)}
         </section>
         <section className="card">
-          {bars(Object.keys(CATS) as Cat[], k => LESSONS.filter(l => l.cat === k), k => tr(CATS[k]), () => '')}
+          {bars(Object.keys(CATS) as Cat[], k => META.filter(l => l.cat === k), k => tr(CATS[k]), () => '')}
         </section>
         <section className="card settings">
           <label>{ui('nickname')}<input value={p.name} maxLength={40} placeholder={ui('nicknamePh')} onChange={e => set({ name: e.target.value })} /></label>

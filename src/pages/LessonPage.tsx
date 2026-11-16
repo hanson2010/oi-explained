@@ -8,7 +8,8 @@ import { Rich } from '../components/Rich'
 import { Stage } from '../components/Stage'
 import { Rng, Tracer, type Card, type Lesson, type Variant } from '../engine/types'
 import { CATS } from '../i18n'
-import { LESSONS } from '../lessons'
+import type { Meta } from '../lessons/extras'
+import { META } from '../lessons/meta'
 import { href, isRevisit, useApp } from '../store'
 
 /** Learning order: what is asked, how to think about it, the program, watching it run, scaling it up. */
@@ -149,7 +150,7 @@ function CodeTab({ lesson, variant }: { lesson: Lesson; variant?: Variant }) {
 export function LessonPage({ lesson, tab, step }: { lesson: Lesson; tab?: string; step?: string }) {
   const { ui, tr, p, set, toggleDone, toggleFav } = useApp()
   const cur: Tab = (TABS as readonly string[]).includes(tab ?? '') ? (tab as Tab) : 'problem'
-  const idx = LESSONS.indexOf(lesson), prev = LESSONS[idx - 1], next = LESSONS[idx + 1]
+  const idx = META.findIndex(m => m.id === lesson.id), prev = META[idx - 1], next = META[idx + 1]
   const after = TABS[TABS.indexOf(cur) + 1]
   // Lessons with two versions open on the first one: that is the order to learn them in.
   const [first, setFirst] = useState(!!lesson.first)
@@ -167,7 +168,7 @@ export function LessonPage({ lesson, tab, step }: { lesson: Lesson; tab?: string
     const start = mark.current.getBoundingClientRect().top + scrollY - (document.querySelector<HTMLElement>('.top')?.offsetHeight ?? 0)
     if (scrollY > start) scrollTo(0, start)
   }, [cur])
-  const hop = (l: Lesson | undefined, label: string, sign: string) => l
+  const hop = (l: Meta | undefined, label: string, sign: string) => l
     ? <a href={'#/learn/' + l.id} title={`${label}: ${tr(l.title)}`} aria-label={`${label}: ${tr(l.title)}`}>{sign}</a>
     : <span aria-hidden="true">{sign}</span>
 
@@ -177,7 +178,7 @@ export function LessonPage({ lesson, tab, step }: { lesson: Lesson; tab?: string
         <div>
           <div className="crumbs">
             <span><a href="#/">{ui('navLearn')}</a> / <a href={href('', { cat: lesson.cat })}>{tr(CATS[lesson.cat])}</a> <a className="plain" href={href('', { level: lesson.level })}><LevelBadge level={lesson.level} /></a> <Diff d={lesson.diff} /></span>
-            <span className="mini-pager">{hop(prev, ui("prev"), "‹")}<span>{idx + 1} / {LESSONS.length}</span>{hop(next, ui("next"), "›")}</span>
+            <span className="mini-pager">{hop(prev, ui("prev"), "‹")}<span>{idx + 1} / {META.length}</span>{hop(next, ui("next"), "›")}</span>
           </div>
           <h1>{tr(lesson.title)}</h1>
           <p className="lede">{tr(lesson.blurb)}</p>

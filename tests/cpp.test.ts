@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parseCode } from '../src/components/Code'
 import { Rng, Tracer } from '../src/engine/types'
-import { LESSONS } from '../src/lessons'
+import { LESSONS } from '../src/lessons/all'
 
 const GXX = process.env.GXX
 const dir = GXX ? mkdtempSync(join(tmpdir(), 'oi-cpp-')) : ''
