@@ -10,7 +10,16 @@ export interface Profile {
   done: Record<string, number>
   fav: Record<string, true>
   last?: string
+  /** lesson id → answers to "predict the next step" questions: how many were right, how many in all, and when the last one was given */
+  quiz: Record<string, { right: number; total: number; at: number }>
+  /** practice problem ("judge:id") → timestamp when ticked as solved */
+  solved: Record<string, number>
+  /** lesson id → timestamps of reviews */
+  review: Record<string, number[]>
 }
+
+/** The part of a profile that export, import and reset deal with. */
+export const PROGRESS = ['done', 'fav', 'quiz', 'solved', 'review'] as const
 
 const KEY = 'oi-explained:v1'
 
@@ -18,7 +27,7 @@ function load(): Profile {
   const base: Profile = {
     lang: typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en',
     theme: typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
-    name: '', done: {}, fav: {},
+    name: '', done: {}, fav: {}, quiz: {}, solved: {}, review: {},
   }
   try {
     const raw = localStorage.getItem(KEY)
@@ -36,6 +45,12 @@ export function sanitize(x: unknown): Partial<Profile> {
   if (typeof o.last === 'string') p.last = o.last
   if (o.done && typeof o.done === 'object') p.done = Object.fromEntries(Object.entries(o.done).filter(([, v]) => typeof v === 'number')) as Record<string, number>
   if (o.fav && typeof o.fav === 'object') p.fav = Object.fromEntries(Object.keys(o.fav).map(k => [k, true as const]))
+  const count = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0
+  if (o.quiz && typeof o.quiz === 'object' && !Array.isArray(o.quiz)) p.quiz = Object.fromEntries(Object.entries(o.quiz as Record<string, Record<string, unknown>>)
+    .filter(([, v]) => v && typeof v === 'object' && count(v.right) && count(v.total) && count(v.at) && (v.right as number) <= (v.total as number))
+    .map(([k, v]) => [k, { right: v.right as number, total: v.total as number, at: v.at as number }]))
+  if (o.solved && typeof o.solved === 'object' && !Array.isArray(o.solved)) p.solved = Object.fromEntries(Object.entries(o.solved).filter(([, v]) => count(v))) as Record<string, number>
+  if (o.review && typeof o.review === 'object' && !Array.isArray(o.review)) p.review = Object.fromEntries(Object.entries(o.review).filter(([, v]) => Array.isArray(v) && v.every(count))) as Record<string, number[]>
   return p
 }
 
@@ -47,6 +62,8 @@ interface Ctx {
   ui(k: UIKey): string
   toggleDone(id: string): void
   toggleFav(id: string): void
+  /** Records one answer to a "predict the next step" question. */
+  answerQuiz(id: string, right: boolean): void
 }
 
 const C = createContext<Ctx>(null!)
@@ -68,6 +85,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ui: k => UI[k][i],
       toggleDone: id => setP(o => { const done = { ...o.done }; if (done[id]) delete done[id]; else done[id] = Date.now(); return { ...o, done } }),
       toggleFav: id => setP(o => { const fav = { ...o.fav }; if (fav[id]) delete fav[id]; else fav[id] = true; return { ...o, fav } }),
+      answerQuiz: (id, right) => setP(o => { const q = o.quiz[id] ?? { right: 0, total: 0, at: 0 }; return { ...o, quiz: { ...o.quiz, [id]: { right: q.right + (right ? 1 : 0), total: q.total + 1, at: Date.now() } } } }),
     }
   }, [p, set])
   return <C.Provider value={value}>{children}</C.Provider>

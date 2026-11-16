@@ -1,6 +1,6 @@
 import type { L, Tone, Variant } from '../../engine/types'
 import { grid, Heap, need, vars } from '../../engine/h'
-import { readGrid } from './lessons'
+import { readGrid, skiRun } from './lessons'
 
 const cpp = String.raw
 
@@ -94,6 +94,44 @@ int main() {
         })
         t.out(ans)
       },
+    },
+  },
+  'memo-search': {
+    label: ['With a memo', '带记忆'],
+    first: {
+      label: ['Plain search', '朴素搜索'],
+      blurb: ['The same recursion without the table: `dfs(x, y)` works out its answer from scratch every time it is called. A cell that many paths pass through is solved again for each of them, so the work grows with the **number of downhill paths** — exponentially on a long slope.', '同样的递归，但没有那张表：`dfs(x, y)` 每次被调用都从头算一遍。一个被很多条路径经过的格子，会为每条路径重新求解一次，所以工作量随**下坡路径的条数**增长——在长长的斜坡上是指数级的。'],
+      time: 'exponential', space: 'O(n · m)', maxN: 12,
+      code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int n, m, h[505][505];
+int dx[] = {-1, 0, 1, 0}, dy[] = {0, 1, 0, -1};
+
+int dfs(int x, int y) {  // longest downhill run starting at (x, y)
+    int best = 1;  //@enter
+    for (int k = 0; k < 4; k++) {
+        int nx = x + dx[k], ny = y + dy[k];
+        if (nx < 0 || ny < 0 || nx >= n || ny >= m || h[nx][ny] >= h[x][y]) continue;
+        best = max(best, dfs(nx, ny) + 1);
+    }
+    return best;  //@ret
+}
+
+int main() {
+    scanf("%d%d", &n, &m);
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < m; j++) scanf("%d", &h[i][j]);
+    int ans = 0;
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < m; j++) ans = max(ans, dfs(i, j));
+    printf("%d\n", ans);  //@done
+}`,
+      notes: [
+        ['enter', ['Nothing is looked up: every call starts from nothing.', '什么都不查：每次调用都从零开始。']],
+        ['ret', ['The answer is returned to the caller and then lost.', '答案返回给调用者之后就丢掉了。']],
+      ],
+      run: skiRun(false),
     },
   },
 }

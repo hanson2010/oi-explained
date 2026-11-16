@@ -1,7 +1,7 @@
 import type { GEdge } from '../../engine/types'
 import { arr, graph, grid, gt, layoutBin, layoutForest, span, tn } from '../../engine/h'
 import type { Extras } from '../extras'
-import { at, ed, heapTree, row } from '../story-util'
+import { at, col, ed, heapTree, row } from '../story-util'
 
 /** A binary tree from child maps (node → child), laid out by in-order rank. */
 const bin = (n: number, lc: Record<number, number>, rc: Record<number, number>, root = 0) => {
@@ -378,6 +378,29 @@ export const DS: Record<string, Extras> = {
       { id: 'own', text: ['nxt[x] = nxt[y];   pre[x] = y', 'nxt[x] = nxt[y]；pre[x] = y'] },
       { id: 'in', text: ['pre[nxt[y]] = x;   nxt[y] = x', 'pre[nxt[y]] = x；nxt[y] = x'], next: 'more' },
       { id: 'done', kind: 'end', text: ['print by following nxt from 0 back to 0', '从 0 出发沿 nxt 走回 0，依次输出'] },
+    ],
+  },
+
+  'sweep-line': {
+    story: [
+      { kind: 'naive', title: ['Start simple: add up the areas', '先从最简单的做起：把面积加起来'],
+        body: ['Two rectangles of area 12 and 9 that overlap in a 2 × 2 square cover 12 + 9 − 4 = 17, not 21. With many rectangles you would have to correct for every pair, then every triple, … Or paint every unit square of the plane — but coordinates go up to a million.', '面积为 12 和 9 的两个矩形如果有一块 2 × 2 的重叠，它们覆盖的是 12 + 9 − 4 = 17，而不是 21。矩形多了以后，要修正每两个的重叠，再修正每三个的……或者把平面上的每个单位方格都涂一遍——可坐标最大有一百万。'],
+        fig: () => [grid('two rectangles: the number in each square says how many cover it', [['', '', 1, 1, 1], [1, 1, 2, 2, 1], [1, 1, 2, 2, 1], [1, 1, 1, 1, '']], gt({ vis: [[0, 2], [0, 3], [0, 4], [1, 0], [1, 1], [1, 4], [2, 0], [2, 1], [2, 4], [3, 0], [3, 1], [3, 2], [3, 3]], bad: [[1, 2], [1, 3], [2, 2], [2, 3]] }), { sq: true })] },
+      { kind: 'insight', title: ['Between two edges, nothing changes', '在两条边之间，什么都不变'],
+        body: ['Slide a vertical line from left to right. What it crosses changes ==only at a left or a right edge== of some rectangle. So cut the plane into vertical strips at those x-coordinates: inside a strip the covered height is constant, and the strip contributes `height × width`.', '让一条竖直线从左向右滑动。它穿过的东西==只在某个矩形的左边或右边处==发生变化。所以按这些 x 坐标把平面切成一条条竖直的带：在一条带内部，被覆盖的高度是不变的，这条带贡献的面积就是 `高度 × 宽度`。'],
+        fig: () => [grid('strips between the edges at x = 0, 2, 4, 5', [['', '', 1, 1, 1], [1, 1, 2, 2, 1], [1, 1, 2, 2, 1], [1, 1, 1, 1, '']], gt({ cmp: col(0, 1, 3).concat(col(1, 1, 3)), act: col(2, 0, 3).concat(col(3, 0, 3)), alt: col(4, 0, 2) }), { sq: true, cols: [0, 1, 2, 3, 4] })] },
+      { kind: 'how', title: ['Edges are events: +1 on the left, −1 on the right', '边就是事件：左边 +1，右边 −1'],
+        body: ['Compress the y-coordinates and keep a ==cover count for each y-interval==. Sort all edges by x. For each one, first add `covered height × (x − previous x)` to the area — the strip just crossed — then apply the edge: a left edge adds 1 to the intervals of its rectangle, a right edge subtracts 1. An interval is covered while its count is positive.', '把 y 坐标离散化，为==每个 y 小区间保存一个覆盖次数==。把所有的边按 x 排序。对每条边，先把 `被覆盖的高度 × (x − 上一个 x)` 加到面积里——这是刚扫过的那条带——再处理这条边：左边让它的矩形所占的小区间加 1，右边让它们减 1。计数为正的小区间就是被覆盖的。'] },
+      { kind: 'result', title: ['A 2-D problem becomes a row of 1-D problems', '二维问题变成一排一维问题'],
+        body: ['2n events, each scanning at most 2n intervals: **O(n²)** — fine for a few thousand rectangles and independent of how large the coordinates are. Replace the scan by a ==segment tree== over the y-intervals and each event costs O(log n): **O(n log n)**, the standard contest solution. The sweeping idea itself reappears everywhere: closest pair of points, segment intersections, skyline problems.', '共 2n 个事件，每个事件最多扫描 2n 个小区间：**O(n²)**——几千个矩形没有问题，而且与坐标的大小无关。把这次扫描换成 y 小区间上的==线段树==，每个事件只需 O(log n)：**O(n log n)**，这是竞赛中的标准解法。扫描线的思想本身随处可见：最近点对、线段求交、天际线问题。'] },
+    ],
+    flow: [
+      { id: 'ys', kind: 'start', text: ['sort and deduplicate the y-coordinates', '把 y 坐标排序并去重'] },
+      { id: 'sort', text: ['make two events per rectangle;   sort them by x', '每个矩形生成两个事件；按 x 排序'] },
+      { id: 'loop', kind: 'test', text: ['events left ?', '还有事件 ？'], no: 'done', on: [] },
+      { id: 'strip', text: ['area += (covered height) × (x − last);   last = x', 'area += 被覆盖的高度 × (x − last)；last = x'] },
+      { id: 'apply', text: ['add +1 or −1 to the y-intervals of the edge', '给这条边对应的 y 小区间加上 +1 或 −1'], next: 'loop' },
+      { id: 'done', kind: 'end', text: ['print area', '输出 area'] },
     ],
   },
 }

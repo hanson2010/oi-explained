@@ -44,6 +44,8 @@ As built: every row except fast exponentiation and Floyd is raced in the data la
 
 Added later: **Enumeration** — three nested loops, then the third unknown computed from the other two. O(n³) → O(n²), raced in the lab.
 
+**Memoised search** — the same recursion without the table. Exponential → O(n · m), raced in the lab on small grids.
+
 ### Second tier
 
 Valid under the rule, lower value. Implement only if the first group reads well.

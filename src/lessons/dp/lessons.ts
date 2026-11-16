@@ -105,6 +105,7 @@ int main() {
       t.s('item', () => [[`Item ${i}: weight ${w}, value ${v}.`, `第 ${i} 件物品：重量 ${w}，价值 ${v}。`], arr('f[j] (j = capacity)', f), vars({ item: i, w, v })])
       for (let j = W; j >= w; j--) {
         const take = f[j - w] + v, old = f[j], better = take > old
+        if (j === W && take !== old) t.ask(() => [[`Item ${i} at capacity ${j}: f[${j}] = ${old}, f[${j - w}] = ${f[j - w]}, value ${v}. What is f[${j}] afterwards?`, `第 ${i} 件物品，容量 ${j}：f[${j}] = ${old}，f[${j - w}] = ${f[j - w]}，价值 ${v}。之后 f[${j}] 是多少？`], [[String(Math.min(old, take)), String(Math.min(old, take))], [String(Math.max(old, take)), String(Math.max(old, take))]], 1])
         if (better) f[j] = take
         t.s('try', () => [[`j = ${j}: skip → ${old}; take → f[${j - w}] + ${v} = ${take}. ${better ? 'Take it.' : 'Keep ' + old + '.'}`, `j = ${j}：不选 → ${old}；选 → f[${j - w}] + ${v} = ${take}。${better ? '选它。' : '保持 ' + old + '。'}`],
           arr('f[j] (j = capacity)', f, tn({ ok: span(j + 1, W), cmp: j - w, [better ? 'act' : 'vis']: j }), { j, 'j-w': j - w }), vars({ item: i, w, v })])

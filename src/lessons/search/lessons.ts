@@ -157,6 +157,11 @@ int main() {
     t.s('start', () => [['Push the start cell with distance 0.', '起点入队，距离为 0。'], ...view(-1)])
     for (let h = 0; h < q.length; h++) {
       const cur = q[h], x = Math.floor(cur / m), y = cur % m
+      if (h % 3 === 1) t.ask(() => {
+        let c = 0
+        for (let k = 0; k < 4; k++) { const nx = x + DX[k], ny = y + DY[k]; if (nx >= 0 && ny >= 0 && nx < n && ny < m && g[nx][ny] !== '#' && d[nx * m + ny] === -1) c++ }
+        return c > 3 ? undefined : [[`(${x}, ${y}) is at the front of the queue. How many new cells will it push?`, `队首是 (${x}, ${y})。它会让几个新格子入队？`], [0, 1, 2, 3].map(v => [String(v), String(v)] as const), c]
+      })
       t.s('pop', () => [[`Pop (${x}, ${y}) at distance ${d[cur]}.`, `取出 (${x}, ${y})，距离 ${d[cur]}。`], ...view(cur, -1, h + 1)])
       for (let k = 0; k < 4; k++) {
         const nx = x + DX[k], ny = y + DY[k], id = nx * m + ny
@@ -419,4 +424,260 @@ int main() {
   },
 }
 
-export default [queens, bfs, flood, astar, permutations]
+/** Longest downhill run on a grid of heights, with or without remembering the answers of cells already solved. */
+export const skiRun = (memo: boolean): Lesson['run'] => (inp, t) => {
+  const rd = reader(inp), n = rd.int(), m = rd.int()
+  need(Number.isInteger(n) && Number.isInteger(m) && n >= 1 && m >= 1 && n * m <= 250000, 'The grid needs between 1 and 250,000 cells.', '网格的格子数须在 1 到 250,000 之间。')
+  const h = Array.from({ length: n }, () => rd.ints(m)), f = Array.from({ length: n }, () => new Int32Array(m)), path: number[] = []
+  let calls = 0
+  const view = (x: number, y: number, tone: Tone) => {
+    const tones: Record<string, Tone> = {}
+    if (memo) for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) if (f[i][j]) tones[i + ',' + j] = 'ok'
+    for (const id of path) tones[Math.floor(id / m) + ',' + (id % m)] = 'cmp'
+    tones[x + ',' + y] = tone
+    return [grid('height', h, tones, { sq: true }), memo ? grid('f: longest run starting here', f.map(row => Array.from(row, v => v || '')), { [x + ',' + y]: tone }, { sq: true }) : vars({ calls })] as const
+  }
+  const dfs = (x: number, y: number, top: boolean): number => {
+    if (memo && f[x][y]) {
+      if (top) t.tick(); else t.s('hit', () => [[`(${x}, ${y}) was solved before: f = ${f[x][y]}, no need to search again.`, `(${x}, ${y}) 之前已经算过：f = ${f[x][y]}，不必再搜。`], ...view(x, y, 'alt')])
+      return f[x][y]
+    }
+    calls++
+    t.s('enter', () => [[`Search from (${x}, ${y}), height ${h[x][y]}.`, `从 (${x}, ${y}) 开始搜索，高度 ${h[x][y]}。`], ...view(x, y, 'act')])
+    path.push(x * m + y)
+    let best = 1
+    for (let k = 0; k < 4; k++) {
+      const nx = x + DX[k], ny = y + DY[k]
+      if (nx < 0 || ny < 0 || nx >= n || ny >= m || h[nx][ny] >= h[x][y]) continue
+      best = Math.max(best, dfs(nx, ny, false) + 1)
+    }
+    path.pop()
+    if (memo) f[x][y] = best
+    t.s(memo ? 'set' : 'ret', () => [memo ? [`All lower neighbours of (${x}, ${y}) are done: f = ${best}. Remember it.`, `(${x}, ${y}) 的所有更低的邻居都处理完了：f = ${best}。把它记下来。`] : [`(${x}, ${y}) returns ${best} — and forgets it.`, `(${x}, ${y}) 返回 ${best}——然后就忘了。`], ...view(x, y, 'ok')])
+    return best
+  }
+  let ans = 0
+  for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) ans = Math.max(ans, dfs(i, j, true))
+  t.s('done', () => [[`The longest downhill run has ${ans} cells.`, `最长的下坡路线经过 ${ans} 个格子。`], grid('height', h, undefined, { sq: true }), memo ? grid('f: longest run starting here', f.map(row => Array.from(row)), Object.fromEntries(f.flatMap((row, i) => Array.from(row, (v, j) => [i + ',' + j, v === ans ? 'ok' : undefined] as const)).filter(e => e[1])) as Record<string, Tone>, { sq: true }) : vars({ calls, answer: ans })])
+  t.out(ans)
+}
+
+const memoSearch: Lesson = {
+  id: 'memo-search', title: ['Memoised search', '记忆化搜索'], level: 'S', cat: 'search', diff: 6,
+  needs: ['flood-fill'],
+  blurb: ['A recursive search that writes down every answer it computes, so no question is ever worked out twice.', '在递归搜索时把每个算出的答案记下来，同一个问题绝不算第二遍。'],
+  ideas: [
+    ['dfs(x, y) answers one question: how long is the best downhill run that starts here?', 'dfs(x, y) 回答一个问题：从这里出发，最长能滑多远？'],
+    ['The answer depends only on (x, y) — not on how the search got there. So it can be stored and reused.', '答案只取决于 (x, y)——与搜索是怎么走到这里的无关。所以可以把它存起来反复使用。'],
+    ['f[x][y] = 0 means "not computed yet". The first line of dfs returns a stored answer at once.', 'f[x][y] = 0 表示“还没算过”。dfs 的第一行就是直接返回已经存好的答案。'],
+    ['Every cell is solved once and looks at four neighbours: the exponential search becomes O(n · m).', '每个格子只求解一次，每次看四个邻居：指数级的搜索变成了 O(n · m)。'],
+    ['This is dynamic programming written as a recursion: the recursion finds the right order of evaluation by itself.', '这就是写成递归形式的动态规划：计算顺序由递归自己安排。'],
+  ],
+  time: 'O(n · m)', space: 'O(n · m)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int n, m, h[505][505], f[505][505];
+int dx[] = {-1, 0, 1, 0}, dy[] = {0, 1, 0, -1};
+
+int dfs(int x, int y) {  // longest downhill run starting at (x, y)
+    if (f[x][y]) return f[x][y];  //@hit
+    int best = 1;  //@enter
+    for (int k = 0; k < 4; k++) {
+        int nx = x + dx[k], ny = y + dy[k];
+        if (nx < 0 || ny < 0 || nx >= n || ny >= m || h[nx][ny] >= h[x][y]) continue;
+        best = max(best, dfs(nx, ny) + 1);
+    }
+    return f[x][y] = best;  //@set
+}
+
+int main() {
+    scanf("%d%d", &n, &m);
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < m; j++) scanf("%d", &h[i][j]);
+    int ans = 0;
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < m; j++) ans = max(ans, dfs(i, j));
+    printf("%d\n", ans);  //@done
+}`,
+  notes: [
+    ['hit', ['Every answer is at least 1, so 0 can stand for "unknown".', '每个答案至少是 1，所以可以用 0 表示“未知”。']],
+    ['enter', ['The cell on its own is a run of length 1.', '只有这一个格子时，路线长度为 1。']],
+    ['set', ['Store the answer and return it in one statement.', '在一条语句里既保存答案又返回它。']],
+    ['done', ['The run may start anywhere, so every cell is tried as a start. Solved cells answer immediately.', '路线可以从任何格子出发，所以每个格子都要作为起点试一次。已经求解过的格子会立刻给出答案。']],
+  ],
+  input: ['n m, then n rows of m heights. A run moves to a neighbouring cell (up, down, left, right) that is strictly lower. Prints the number of cells on the longest run.', 'n m，随后 n 行，每行 m 个高度。每一步只能滑到上下左右相邻且严格更低的格子。输出最长路线经过的格子数。'],
+  sizes: [3, 4, 5], lab: [4, 8, 12, 100, 300],
+  gen: (n, r) => `${n} ${n}\n` + span(0, n - 1).map(i => span(0, n - 1).map(j => 2 * (2 * n - 2 - i - j) + r.int(0, 3) + 1).join(' ')).join('\n') + '\n',
+  run: skiRun(true),
+}
+
+const bidirBfs: Lesson = {
+  id: 'bidir-bfs', title: ['Bidirectional BFS', '双向广搜'], level: 'S', cat: 'search', diff: 7,
+  needs: ['bfs-maze'],
+  blurb: ['Search from the start and from the target at once, and stop when the two searches meet in the middle.', '从起点和终点同时开始搜索，两边在中间相遇时就停下。'],
+  ideas: [
+    ['A breadth-first search visits everything within distance d before it reaches distance d. That set grows fast with d.', '广搜在到达距离 d 之前，要先访问距离小于 d 的所有状态。这个集合随 d 增长得很快。'],
+    ['Two searches of depth d / 2 visit far fewer states than one search of depth d.', '两次深度为 d / 2 的搜索访问的状态，比一次深度为 d 的搜索少得多。'],
+    ['Keep a distance array and a frontier for each side. Always expand the smaller frontier, one whole layer at a time.', '两边各有一个距离数组和一个当前层。每次扩展较小的那一层，并且一次扩展完整的一层。'],
+    ['When a new cell of one side has already been reached by the other, a path through it has length d₀ + d₁.', '当一边新到达的格子已经被另一边到达过，经过这个格子的路径长度就是 d₀ + d₁。'],
+    ['Finish the layer before stopping, and keep the smallest sum found in it.', '要把这一层扩展完再停，并取这一层中找到的最小的和。'],
+  ],
+  time: 'O(n · m)', space: 'O(n · m)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int n, m, d[2][1000005];
+char g[1005][1005];
+int dx[] = {-1, 0, 1, 0}, dy[] = {0, 1, 0, -1};
+
+int main() {
+    scanf("%d%d", &n, &m);
+    for (int i = 0; i < n; i++) scanf("%s", g[i]);
+    memset(d, -1, sizeof d);
+    vector<int> f[2] = {{0}, {n * m - 1}};
+    d[0][0] = d[1][n * m - 1] = 0;  //@start
+    int best = n * m == 1 ? 0 : -1;
+    while (best < 0 && !f[0].empty() && !f[1].empty()) {
+        int s = f[0].size() <= f[1].size() ? 0 : 1;  //@side
+        vector<int> nf;
+        for (int cur : f[s]) {
+            for (int k = 0; k < 4; k++) {
+                int x = cur / m + dx[k], y = cur % m + dy[k], id = x * m + y;
+                if (x < 0 || y < 0 || x >= n || y >= m || g[x][y] == '#' || d[s][id] != -1) continue;
+                d[s][id] = d[s][cur] + 1;  //@grow
+                nf.push_back(id);
+                if (d[s ^ 1][id] != -1 && (best < 0 || d[0][id] + d[1][id] < best))
+                    best = d[0][id] + d[1][id];  //@meet
+            }
+        }
+        f[s] = nf;
+    }
+    printf("%d\n", best);  //@done
+}`,
+  notes: [
+    ['start', ['d[0] holds distances from the start, d[1] distances from the target.', 'd[0] 保存到起点的距离，d[1] 保存到终点的距离。']],
+    ['side', ['Expanding the smaller frontier keeps the two searches balanced.', '扩展较小的那一层，可以让两边的搜索保持均衡。']],
+    ['meet', ['The other side has been here: start → this cell → target is a complete path.', '另一边已经到过这里：起点 → 这个格子 → 终点 构成一条完整的路径。']],
+    ['done', ['If one frontier empties first, that side is walled in and there is no path.', '如果某一边的当前层先变空，说明它被墙围住了，路径不存在。']],
+  ],
+  input: ["n m, then n rows of '.' (free) and '#' (wall). Prints the fewest moves from the top-left to the bottom-right cell, or −1.", "n m，随后 n 行由 '.'（空地）和 '#'（墙）组成。输出从左上角到右下角的最少步数，无法到达输出 −1。"],
+  sizes: [5, 7, 9], lab: [10, 100, 300, 1000],
+  gen: (n, r) => genMaze(n, r),
+  run(inp, t) {
+    const { n, m, g } = readGrid(inp)
+    need(g[0][0] === '.' && g[n - 1][m - 1] === '.', 'Start and target cells must be free.', '起点和终点必须是空地。')
+    const d = [new Int32Array(n * m).fill(-1), new Int32Array(n * m).fill(-1)]
+    let f: number[][] = [[0], [n * m - 1]]
+    d[0][0] = 0; d[1][n * m - 1] = 0
+    const view = (hi: Record<number, Tone> = {}) => {
+      const tones: Record<string, Tone> = {}
+      const cells = g.map((row, i) => row.split('').map((ch, j) => {
+        const id = i * m + j, key = i + ',' + j
+        if (ch === '#') { tones[key] = 'dim'; return '▓' }
+        if (d[0][id] >= 0) tones[key] = 'cmp'
+        if (d[1][id] >= 0) tones[key] = 'alt'
+        if (hi[id]) tones[key] = hi[id]
+        return d[0][id] >= 0 && d[1][id] >= 0 ? `${d[0][id]}+${d[1][id]}` : d[0][id] >= 0 ? d[0][id] : d[1][id] >= 0 ? d[1][id] : ''
+      }))
+      return grid('distance from the start (blue) or from the target (purple)', cells, tones, { sq: true })
+    }
+    const sizes = () => vars({ 'start frontier': f[0].length, 'target frontier': f[1].length })
+    t.s('start', () => [['Two searches: one from the start, one from the target, each at distance 0.', '两个搜索：一个从起点出发，一个从终点出发，距离都是 0。'], view({ 0: 'act', [n * m - 1]: 'act' }), sizes()])
+    let best = n * m === 1 ? 0 : -1
+    while (best < 0 && f[0].length && f[1].length) {
+      const s = f[0].length <= f[1].length ? 0 : 1, nf: number[] = [], layer = f[s]
+      t.s('side', () => [[`The ${s ? 'target' : 'start'} side has the smaller frontier (${f[s].length} against ${f[s ^ 1].length}): expand its whole layer.`, `${s ? '终点' : '起点'}一侧的当前层更小（${f[s].length} 对 ${f[s ^ 1].length}）：把它整层扩展一步。`], view(Object.fromEntries(layer.map(id => [id, 'act' as Tone]))), sizes()])
+      for (const cur of layer) for (let k = 0; k < 4; k++) {
+        const x = Math.floor(cur / m) + DX[k], y = (cur % m) + DY[k], id = x * m + y
+        if (x < 0 || y < 0 || x >= n || y >= m || g[x][y] === '#' || d[s][id] !== -1) { t.tick(); continue }
+        d[s][id] = d[s][cur] + 1
+        nf.push(id)
+        const other = d[s ^ 1][id], sum = d[0][id] + d[1][id]
+        if (other !== -1 && (best < 0 || sum < best)) {
+          best = sum
+          t.s('meet', () => [[`(${x}, ${y}) was already reached from the other side: ${d[0][id]} + ${d[1][id]} = ${sum} moves.`, `(${x}, ${y}) 已经被另一边到达过：${d[0][id]} + ${d[1][id]} = ${sum} 步。`], view({ [id]: 'ok' }), vars({ best: sum })])
+        } else t.s('grow', () => [[`(${x}, ${y}) is new for the ${s ? 'target' : 'start'} side: distance ${d[s][id]}.`, `(${x}, ${y}) 是${s ? '终点' : '起点'}一侧的新格子：距离 ${d[s][id]}。`], view({ [id]: 'act' })])
+      }
+      f = s ? [f[0], nf] : [nf, f[1]]
+    }
+    const res = best
+    t.s('done', () => [res >= 0 ? [`The searches met: the shortest path has ${res} moves.`, `两边相遇了：最短路为 ${res} 步。`] : ['One side ran out of cells before the two met: −1.', '两边还没相遇，其中一边就无路可走了：−1。'], view(), vars({ answer: res })])
+    t.out(res)
+  },
+}
+
+const iddfs: Lesson = {
+  id: 'iddfs', title: ['Iterative deepening: addition chains', '迭代加深搜索：加法链'], level: 'S', cat: 'search', diff: 7,
+  needs: ['permutations'],
+  blurb: ['Depth-first search with a depth limit, repeated with limit 0, 1, 2, … — the first limit that succeeds is the shortest answer.', '带深度限制的深搜，限制依次取 0、1、2……第一个能搜到解的限制就是最短的答案。'],
+  ideas: [
+    ['Depth-first search uses little memory but may dive far past the shortest solution. Breadth-first search finds the shortest but must store whole layers.', '深搜占用内存少，但可能一头扎得很深，错过最短的解。广搜能找到最短解，却要保存整层的状态。'],
+    ['Iterative deepening runs a depth-first search that refuses to go deeper than a limit, and raises the limit by one each time it fails.', '迭代加深让深搜拒绝超过某个深度限制，每失败一次就把限制加一。'],
+    ['The first limit that succeeds is the smallest possible depth — the guarantee of BFS with the memory of DFS.', '第一个成功的限制就是可能的最小深度——既有广搜的保证，又只用深搜的内存。'],
+    ['Repeating the shallow levels is cheap: the last level dominates, because the tree grows geometrically.', '重复搜索较浅的层代价很小：因为搜索树按几何级数增长，最后一层占了绝大部分。'],
+    ['The limit also gives a strong pruning test: if even doubling every remaining step cannot reach n, give up.', '深度限制还带来一个有力的剪枝：如果剩下的每一步都翻倍也到不了 n，就立刻放弃。'],
+  ],
+  time: 'exponential in the answer', space: 'O(answer)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int n, limit, a[64];
+
+bool dfs(int k) {  // a[0..k] is chosen and increasing
+    if (a[k] == n) return true;  //@goal
+    if (k == limit) return false;  //@deep
+    if (((long long)a[k] << (limit - k)) < n) return false;  //@prune
+    for (int i = k; i >= 0; i--) {
+        a[k + 1] = a[k] + a[i];  //@try
+        if (a[k + 1] <= n && dfs(k + 1)) return true;
+    }
+    return false;  //@back
+}
+
+int main() {
+    scanf("%d", &n);
+    a[0] = 1;
+    while (!dfs(0)) limit++;  //@deeper
+    printf("%d\n", limit);
+    for (int i = 0; i <= limit; i++) printf("%d ", a[i]);  //@done
+}`,
+  notes: [
+    ['deep', ['The limit is reached without finding n: this branch is abandoned.', '已经到达深度限制却还没得到 n：放弃这个分支。']],
+    ['prune', ['The largest number can at most double with each step. If that is not enough, no choice below can succeed.', '最大的数每一步最多翻倍。如果这样都不够，下面无论怎么选都不可能成功。']],
+    ['try', ['The new number is the largest so far plus an earlier one; larger partners are tried first.', '新的数等于当前最大的数加上前面的某个数；先试较大的加数。']],
+    ['deeper', ['No chain with this many additions exists. Allow one more.', '不存在只用这么多次加法的加法链。再多允许一次。']],
+  ],
+  input: ['n (1 ≤ n ≤ 5000). An addition chain starts with 1, and every later number is the sum of the previous number and one of the numbers before or equal to it. Prints the fewest additions that reach n, then one such chain.', 'n（1 ≤ n ≤ 5000）。加法链从 1 开始，后面的每个数都等于前一个数加上它之前（含它自己）的某个数。输出得到 n 所需的最少加法次数，以及一条这样的加法链。'],
+  sizes: [7, 11, 15], lab: [10, 30, 100, 300, 1000, 3000],
+  gen: n => `${n}\n`,
+  run(inp, t) {
+    const n = reader(inp).int()
+    need(Number.isInteger(n) && n >= 1 && n <= 5000, 'n must be between 1 and 5,000.', 'n 须在 1 到 5,000 之间。')
+    const a = [1]
+    let limit = 0
+    const chain = (k: number, tone: Tone) => arr(`chain (limit: ${limit} addition${limit === 1 ? '' : 's'})`, [...a.slice(0, k + 1), ...new Array<string>(Math.max(0, limit - k)).fill('')], tn({ [tone]: k }), undefined, { base: 0 })
+    const dfs = (k: number): boolean => {
+      if (a[k] === n) { t.s('goal', () => [[`${a[k]} = n: a chain with ${k} addition${k === 1 ? '' : 's'}.`, `${a[k]} = n：得到一条用了 ${k} 次加法的加法链。`], chain(k, 'ok'), vars({ n, limit })]); return true }
+      if (k === limit) { t.s('deep', () => [[`Limit reached at ${a[k]} ≠ ${n}: back.`, `到达深度限制，${a[k]} ≠ ${n}：返回。`], chain(k, 'bad'), vars({ n, limit })]); return false }
+      if (a[k] * 2 ** (limit - k) < n) { t.s('prune', () => [[`${a[k]} doubled ${limit - k} more time${limit - k === 1 ? '' : 's'} gives ${a[k] * 2 ** (limit - k)} < ${n}: hopeless, prune.`, `${a[k]} 再翻倍 ${limit - k} 次也只有 ${a[k] * 2 ** (limit - k)} < ${n}：不可能成功，剪枝。`], chain(k, 'bad'), vars({ n, limit })]); return false }
+      for (let i = k; i >= 0; i--) {
+        a[k + 1] = a[k] + a[i]
+        if (a[k + 1] > n) { t.tick(); continue }
+        t.s('try', () => [[`Step ${k + 1}: ${a[k]} + ${a[i]} = ${a[k + 1]}.`, `第 ${k + 1} 步：${a[k]} + ${a[i]} = ${a[k + 1]}。`], chain(k + 1, 'act'), vars({ n, limit })])
+        if (dfs(k + 1)) return true
+      }
+      return false
+    }
+    for (;;) {
+      t.s('deeper', () => [[`Search with at most ${limit} addition${limit === 1 ? '' : 's'}.`, `搜索最多用 ${limit} 次加法的方案。`], chain(0, 'cmp'), vars({ n, limit })])
+      if (dfs(0)) break
+      limit++
+    }
+    const res = a.slice(0, limit + 1)
+    t.s('done', () => [[`Shortest chain: ${limit} addition${limit === 1 ? '' : 's'}.`, `最短的加法链用了 ${limit} 次加法。`], arr('chain', res, tn({ ok: span(0, limit) }), undefined, { base: 0 }), vars({ answer: limit })])
+    t.out(limit + '\n' + res.join(' '))
+  },
+}
+
+export default [queens, bfs, flood, astar, permutations, memoSearch, bidirBfs, iddfs]

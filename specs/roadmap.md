@@ -4,8 +4,8 @@ Revised 2026-11-16 after a review against the code. The audience is self-learner
 
 ## Where the project stands
 
-- 76 lessons: 35 CSP-J, 30 CSP-S, 11 NOI. 15 have an earlier version.
-- Milestones 0.2 and 0.3 are done.
+- 83 lessons: 35 CSP-J, 37 CSP-S, 11 NOI. 16 have an earlier version.
+- Milestones 0.2, 0.3 and 0.4 are done.
 - A lesson costs about 150 lines on average, counting its program, story, text and oracle.
 
 Syllabus points with a lesson, out of the points that should have one:
@@ -13,7 +13,7 @@ Syllabus points with a lesson, out of the points that should have one:
 | Level | With lessons | Wanted | Out of scope |
 |---|---|---|---|
 | CSP-J | 54 | 54 | 62 |
-| CSP-S | 47 | 78 | 16 |
+| CSP-S | 56 | 78 | 16 |
 | NOI | 14 | 59 | 8 |
 
 Out of scope are computer basics, the C++ language itself, school mathematics, and concepts with no program to animate. The Syllabus page shows them greyed with the reason.
@@ -54,46 +54,13 @@ Changed from the plan: the linked list has no singly linked earlier version (the
 
 ---
 
-## Milestone 0.4: predict the next step, and CSP-S search and graphs
+## Milestone 0.4: predict the next step, and CSP-S search and graphs (done)
 
-### Profile version 2 (needed first)
+- **Profile version 2.** The saved profile also holds quiz answers, solved practice problems and review dates. Old profiles are read as they are. Export, import and reset cover the new fields, and `sanitize` has tests.
+- **Predict the next step.** A lesson's `run` calls `t.ask(...)` just before the step that reveals the answer; it costs nothing when steps are not recorded. With "Ask me first" switched on, the player stops before such a step and shows two to four options. Ten lessons ask questions: binary search, prefix sums, 0/1 knapsack, merge sort, monotonic queue, union-find, BFS on a maze, Dijkstra, Kruskal and KMP. A question is skipped when the answer would be a tie.
+- **Seven CSP-S lessons**: memoised search (with the plain recursion as an earlier version), coordinate compression, Euler path, second-shortest path, bidirectional BFS, iterative deepening, sweep line.
 
-The profile stores only `done` and `fav`. `sanitize` drops every other field, and export writes only those two. The features below all store something, so extend the profile once:
-
-- `quiz: Record<lessonId, { right: number; total: number; at: number }>`
-- `solved: Record<problemKey, number>` (for practice links, milestone 0.6)
-- `review: Record<lessonId, number[]>` (review timestamps, milestone 0.6)
-
-Read the old `oi-explained:v1` data as it is; the new fields default to empty. Export, import and reset cover the new fields. Add a unit test for `sanitize`, which has none today.
-
-### Predict the next step
-
-The first draft had static options and an answer computed from the next step's views. That does not work: for "which vertex is settled next?" the options depend on the data, and reading the answer back out of drawing data is fragile.
-
-Revised design: the lesson's `run` asks the question itself, where the algorithm's state is at hand.
-
-```ts
-t.ask(() => ({ q: L, options: L[], answer: number }))   // just before the step that reveals it
-```
-
-- `Tracer.ask` attaches the question to the next recorded step (`Step.ask`). With `on = false` it does nothing, so the lab is unaffected.
-- The player gets a "Quiz" switch. When on, it stops before a step that has a question, shows the options, then plays the step as the explanation.
-- Results go to `quiz` in the profile.
-- Tests: two to four options, answer in range, both languages present, and the output and step tags are identical with questions on or off.
-
-First ten lessons, chosen for a crisp decision: binary search (left or right half), Dijkstra (next vertex), KMP (where `j` falls back), union-find (new root), quicksort (pivot's final place), BFS on a maze (next cell), 0/1 knapsack (take or skip), topological sort (next vertex), monotonic queue (what is popped), Kruskal (accept or reject the edge).
-
-### CSP-S lessons: search and graphs (7)
-
-| Lesson | Syllabus point | Notes |
-|---|---|---|
-| Memoised search | 2.2.4 [6] | Earlier version: the same recursion without the memo. |
-| Coordinate compression | 2.2.4 [6] | Sort, unique, `lower_bound`. Needed by sweep line. |
-| Euler path and circuit | 2.2.3 [6], 2.2.4 [6] | Hierholzer. |
-| Second-shortest path | 2.2.4 [7] | Dijkstra with two distances per vertex. |
-| Bidirectional BFS | 2.2.4 [7] | Two frontiers on a `grid`. Earlier version: one-ended BFS. |
-| Iterative deepening | 2.2.4 [7] | Its own lesson; the depth limit is the thing to animate. |
-| Sweep line | 2.2.4 [7] | Area of a union of rectangles. Needs coordinate compression and the segment tree. |
+Changed from the plan: prefix sums and merge sort ask questions in place of quicksort and topological sort, whose decisions were not crisp enough. The sweep line keeps its cover counts in a plain array, O(n²); the story says where a segment tree makes it O(n log n). Bidirectional BFS has no earlier version; it names the one-ended BFS lesson as a prerequisite.
 
 ---
 
@@ -202,7 +169,7 @@ Already in place, so removed from the plan: links to a tab and an animation step
 |---|---|---|---|
 | 0.2 (done) | CI, syllabus states, authoring checklist, bundle split | – | 69 |
 | 0.3 (done) | Lesson links, three definition cards | 7 CSP-J | 76 |
-| 0.4 | Profile v2, predict the next step | 7 CSP-S | 83 |
+| 0.4 (done) | Profile v2, predict the next step | 7 CSP-S | 83 |
 | 0.5 | Broken versions | 7 CSP-S | 90 |
 | 0.6 | Practice links, review | – | 90 |
 | 0.7+ | – | 11 NOI | 101 |

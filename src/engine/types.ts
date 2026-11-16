@@ -36,7 +36,10 @@ export interface GridV {
 export interface VarsV { k: 'vars'; items: [string, string | number][] }
 export type View = ArrV | GraphV | GridV | VarsV
 
-export interface Step { tag: string; msg: L; views: View[] }
+/** A question about what the next step will do, asked before that step is shown. `answer` is the index of the right option. */
+export interface Ask { q: L; options: L[]; answer: number }
+
+export interface Step { tag: string; msg: L; views: View[]; ask?: Ask }
 
 export type Level = 'J' | 'S' | 'N'
 export type Cat = 'basic' | 'sort' | 'search' | 'ds' | 'graph' | 'dp' | 'string' | 'math'
@@ -136,13 +139,25 @@ export class Tracer {
   steps: Step[] = []
   count = 0
   output = ''
+  private pending?: Ask
   constructor(public on: boolean, private limit = 3000) {}
   s(tag: string, f: () => [L, ...(View | false | null | undefined)[]]) {
     this.count++
     if (!this.on) return
     if (this.steps.length >= this.limit) throw new TooLong()
     const [msg, ...views] = f()
-    this.steps.push({ tag, msg, views: views.filter(Boolean) as View[] })
+    this.steps.push({ tag, msg, views: views.filter(Boolean) as View[], ask: this.pending })
+    this.pending = undefined
+  }
+  /**
+   * Asks the learner to predict the step that is recorded next, which then serves as the explanation.
+   * Call it just before that step, where the algorithm's state is at hand. Return undefined to ask nothing
+   * (a tie, an obvious case). It costs nothing when steps are not recorded.
+   */
+  ask(f: () => [q: L, options: L[], answer: number] | undefined) {
+    if (!this.on) return
+    const a = f()
+    this.pending = a && { q: a[0], options: a[1], answer: a[2] }
   }
   /** Counts work that is too fine-grained to show as a step (e.g. comparisons inside a sort). */
   tick(k = 1) { this.count += k }

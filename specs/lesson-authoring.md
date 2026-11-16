@@ -28,6 +28,7 @@ A new category also needs an entry in `load.ts`, `all.ts` and `order.ts`, in `Ca
 - A trailing `//@tag` on a line names it. Steps, notes and flowchart nodes refer to lines by tag.
 - `run(inp, t)` is the same algorithm in TypeScript. It calls `t.s(tag, () => [message, ...views])` at each step worth showing and `t.out(answer)` once at the end. The output must match the C++ program's token for token.
 - Build views only inside the function passed to `t.s`. The data lab runs `run` with recording off on large data, and anything built outside that function costs time there.
+- `t.ask(() => [question, options, answer])`, called just before a `t.s`, makes the player quiz the learner about that step. Give two to four options that differ, computed from the data; return `undefined` when the answer would be a tie or obvious.
 - Use `t.tick()` for work too fine to show as a step, so the lab's operation count stays honest.
 - Check the input with `need(condition, english, chinese)`. Learners edit the input by hand.
 - `gen(n, r)` produces a valid input of magnitude `n` from the seeded generator `r` only; never use `Math.random`.

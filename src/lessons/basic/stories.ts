@@ -297,4 +297,27 @@ export const BASIC: Record<string, Extras> = {
       { id: 'done', kind: 'end', text: ['print the quotient and r', '输出商和 r'] },
     ],
   },
+
+  'coord-compress': {
+    story: [
+      { kind: 'naive', title: ['Start simple: use the value as an index', '先从最简单的做起：把数值当作下标'],
+        body: ['To count how often each value occurs, write `cnt[a[i]]++`. With values up to 100 that is perfect. With values up to **10⁹** the array would need four gigabytes — to hold a few thousand numbers that are actually used.', '要统计每个值出现了多少次，写 `cnt[a[i]]++` 就行。数值不超过 100 时这很完美。但数值高达 **10⁹** 时，这个数组需要 4 GB——而真正用到的只有几千个数。'],
+        fig: () => [grid('five values, a billion cells', [[7, 1000000000, 52, 7, 400000]], gt({ bad: [[0, 1]] }), { rows: ['a'] })] },
+      { kind: 'insight', title: ['Only the order matters', '有用的只是大小关系'],
+        body: ['Most algorithms never ask "how big is this value?", only "==which of these two is smaller?==". Replace every value by its **rank** and all those answers stay the same — while the ranks are small enough to be array indices.', '大多数算法从不关心“这个数有多大”，只关心“==这两个数哪个更小==”。把每个数换成它的**排名**，所有这些问题的答案都不变——而排名小到可以直接作为数组下标。'],
+        fig: () => [grid('values and their ranks', [[7, 1000000000, 52, 7, 400000], [1, 4, 2, 1, 3]], gt({ ok: row(1, 0, 4) }), { rows: ['a', 'rank'] })] },
+      { kind: 'how', title: ['Sort, remove duplicates, binary search', '排序，去重，二分'],
+        body: ['Copy the values and `sort` the copy. `unique` removes repeated values, so that ==cell k holds the k-th smallest distinct value==. For each original value, `lower_bound` finds its cell; the position is the rank. Three library calls.', '把数值复制一份并用 `sort` 排序。`unique` 去掉重复的值，于是==第 k 个格子里就是第 k 小的不同的值==。对每个原来的数，用 `lower_bound` 找到它所在的格子，位置就是排名。一共三次库函数调用。'],
+        fig: () => [arr('b after sort and unique', [7, 52, 400000, 1000000000], tn({ ok: 2 }), undefined, { base: 1 })] },
+      { kind: 'result', title: ['A billion becomes n', '十亿变成了 n'],
+        body: ['**O(n log n)**, and the range of the data shrinks from 10⁹ to at most n. Keep the sorted array: `b[k]` turns rank k back into the real value. Compression is the routine first step before a Fenwick tree, a segment tree or a sweep line on large coordinates.', '时间 **O(n log n)**，数据的范围从 10⁹ 缩小到至多 n。那个有序数组要留着：`b[k]` 能把排名 k 变回真实的值。在大坐标上使用树状数组、线段树或扫描线之前，离散化是例行的第一步。'] },
+    ],
+    flow: [
+      { id: 'copy', kind: 'start', text: ['b = a copy of a', 'b = a 的副本'], on: [] },
+      { id: 'sort', text: ['sort b', '对 b 排序'] },
+      { id: 'uniq', text: ['remove duplicates from b', '去掉 b 中的重复值'] },
+      { id: 'map', text: ['for each a[i]:   rank = position of a[i] in b  (binary search)', '对每个 a[i]：排名 = a[i] 在 b 中的位置（二分查找）'] },
+      { id: 'done', kind: 'end', text: ['print the ranks', '输出所有排名'] },
+    ],
+  },
 }

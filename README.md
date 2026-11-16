@@ -1,6 +1,6 @@
 # OI Explained
 
-A web app for learners of competitive programming (OI). It covers 76 algorithms and data structures from the CCF NOI syllabus (2025 edition), from CSP-J to NOI level. The interface is available in English and Simplified Chinese.
+A web app for learners of competitive programming (OI). It covers 83 algorithms and data structures from the CCF NOI syllabus (2025 edition), from CSP-J to NOI level. The interface is available in English and Simplified Chinese.
 
 Each lesson has five tabs:
 
@@ -12,11 +12,11 @@ Each lesson has five tabs:
 
 The flowchart is also shown beside the code and is followed by the animation.
 
-Fifteen lessons additionally have an earlier version of the program to learn first: the same method before one optimisation, such as the knapsack's 2-D table before it is reduced to one row, Dijkstra with an array scan before the heap, or a segment tree before lazy tags. Both versions can be read and animated, and most pairs are raced in the data lab. `specs/earlier-versions.md` lists them and the rule for choosing them.
+Sixteen lessons additionally have an earlier version of the program to learn first: the same method before one optimisation, such as the knapsack's 2-D table before it is reduced to one row, Dijkstra with an array scan before the heap, or a segment tree before lazy tags. Both versions can be read and animated, and most pairs are raced in the data lab. `specs/earlier-versions.md` lists them and the rule for choosing them.
 
 A lesson names the lessons to learn first and shows the ones it leads to; the learning path on the home page never puts a lesson before its prerequisites.
 
-The Syllabus page lists every syllabus point with its difficulty coefficient and links the points that have a lesson. Points with a lesson to come are marked as planned; points outside what the site teaches (such as the C++ language itself) are greyed. The Profile page tracks learned and starred lessons; it is stored in the browser's local storage only and can be exported and imported as JSON.
+The Syllabus page lists every syllabus point with its difficulty coefficient and links the points that have a lesson. Points with a lesson to come are marked as planned; points outside what the site teaches (such as the C++ language itself) are greyed. The Profile page tracks learned and starred lessons and quiz answers; it is stored in the browser's local storage only and can be exported and imported as JSON.
 
 ## Run
 
@@ -36,6 +36,8 @@ Open the address that is printed (http://localhost:5173 by default).
 On any page: `/` or `Ctrl`+`K` opens the lesson search.
 
 In the Animation tab: `Space` plays or pauses, `←` / `→` step backward or forward.
+
+Ten lessons can also quiz you: switch on "Ask me first" in the Animation tab and the player stops before a decision, asks what will happen, and then plays the step as the explanation. The Profile page counts the right answers.
 
 ## Tests
 
@@ -58,7 +60,6 @@ GitHub Actions runs the build and all tests, including the C++ checks, on every 
 `specs/roadmap.md` has the full plan, in order. In short:
 
 - Lessons for the syllabus points that have none yet.
-- Predict the next step: the animation pauses at a decision and asks what happens next.
 - A broken version to fix: a common pitfall as real code, to find by animating it on an input where it fails.
 - Practice problems for each lesson.
 
