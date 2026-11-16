@@ -1,6 +1,6 @@
 # OI Explained
 
-A web app for learners of competitive programming (OI). It covers 83 algorithms and data structures from the CCF NOI syllabus (2025 edition), from CSP-J to NOI level. The interface is available in English and Simplified Chinese.
+A web app for learners of competitive programming (OI). It covers 90 algorithms and data structures from the CCF NOI syllabus (2025 edition), from CSP-J to NOI level. The interface is available in English and Simplified Chinese.
 
 Each lesson has five tabs:
 
@@ -37,13 +37,15 @@ On any page: `/` or `Ctrl`+`K` opens the lesson search.
 
 In the Animation tab: `Space` plays or pauses, `←` / `→` step backward or forward.
 
+Five lessons have a sixth tab, **Find the bug**: the lesson's program with one common mistake put back in, shown on an input where it prints the wrong answer. Step through it and click the line you think is wrong.
+
 Ten lessons can also quiz you: switch on "Ask me first" in the Animation tab and the player stops before a decision, asks what will happen, and then plays the step as the explanation. The Profile page counts the right answers.
 
 ## Tests
 
 `npm test` runs every lesson on generated data and compares its output with an independent brute-force solution.
 
-To also compile every C++ listing and compare its output with the animation, set `GXX` to a g++ executable (on Linux raise the stack limit first, `ulimit -s unlimited`, for the deeply recursive listings):
+To also compile every C++ listing (including the broken versions) and compare its output with the animation, set `GXX` to a g++ executable (on Linux raise the stack limit first, `ulimit -s unlimited`, for the deeply recursive listings):
 
 ```
 GXX=/usr/bin/g++ npm test
@@ -60,7 +62,6 @@ GitHub Actions runs the build and all tests, including the C++ checks, on every 
 `specs/roadmap.md` has the full plan, in order. In short:
 
 - Lessons for the syllabus points that have none yet.
-- A broken version to fix: a common pitfall as real code, to find by animating it on an input where it fails.
 - Practice problems for each lesson.
 
 ## Syllabus

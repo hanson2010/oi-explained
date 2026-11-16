@@ -648,4 +648,387 @@ int main() {
   },
 }
 
-export default [gcd, exgcd, sieve, linearSieve, pascal, gauss, nimSg, hull, prufer, primeFactor]
+const isPrimeN = (x: number) => { if (x < 2) return false; for (let d = 2; d * d <= x; d++) if (x % d === 0) return false; return true }
+const PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71]
+
+const modInverse: Lesson = {
+  id: 'mod-inverse', title: ['Modular inverse (Fermat)', '乘法逆元（费马小定理）'], level: 'S', cat: 'math', diff: 7,
+  needs: ['fast-pow'],
+  blurb: ['Under a prime modulus, dividing by b is multiplying by b^(p − 2). Fast exponentiation does the rest.', '在质数模下，除以 b 就是乘以 b^(p − 2)。剩下的交给快速幂。'],
+  ideas: [
+    ['Remainders can be added, subtracted and multiplied freely — but not divided: 6 / 2 = 3, yet (6 mod 5) / 2 is not an integer.', '余数可以随意相加、相减、相乘——但不能直接相除：6 / 2 = 3，而 (6 mod 5) / 2 不是整数。'],
+    ['The inverse of b modulo p is the number b⁻¹ with b · b⁻¹ ≡ 1. Dividing by b means multiplying by it.', 'b 模 p 的逆元是满足 b · b⁻¹ ≡ 1 的数 b⁻¹。除以 b 就是乘以它。'],
+    ['Fermat\'s little theorem: for a prime p and b not divisible by p, b^(p − 1) ≡ 1 (mod p).', '费马小定理：p 是质数且 b 不是 p 的倍数时，b^(p − 1) ≡ 1 (mod p)。'],
+    ['Split off one factor: b · b^(p − 2) ≡ 1. So b^(p − 2) is the inverse.', '拆出一个因子：b · b^(p − 2) ≡ 1。所以 b^(p − 2) 就是逆元。'],
+    ['Fast exponentiation computes it in about log₂ p multiplications.', '用快速幂大约 log₂ p 次乘法就能算出来。'],
+  ],
+  time: 'O(log p)', space: 'O(1)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+long long power(long long a, long long b, long long p) {
+    long long res = 1;
+    for (a %= p; b > 0; b >>= 1) {
+        if (b & 1) res = res * a % p;  //@mul
+        a = a * a % p;  //@sq
+    }
+    return res;
+}
+
+int main() {
+    long long a, b, p;
+    scanf("%lld%lld%lld", &a, &b, &p);
+    long long inv = power(b, p - 2, p);  //@fermat
+    printf("%lld\n", a % p * inv % p);  //@done
+}`,
+  notes: [
+    ['mul', ['This bit of the exponent is 1: the current square belongs in the product.', '指数的这一位是 1：当前的平方项要乘进结果。']],
+    ['sq', ['With p below 2³¹ every product stays below 2⁶², inside long long.', 'p 小于 2³¹ 时，每个乘积都小于 2⁶²，不会超出 long long。']],
+    ['fermat', ['b^(p − 2), because b · b^(p − 2) = b^(p − 1) ≡ 1.', '取 b^(p − 2)，因为 b · b^(p − 2) = b^(p − 1) ≡ 1。']],
+    ['done', ['a / b becomes a · b⁻¹, reduced modulo p after each multiplication.', 'a / b 变成 a · b⁻¹，每乘一次都对 p 取模。']],
+  ],
+  input: ['a b p — p is a prime below 2³¹ and b is not a multiple of p. Prints a / b modulo p: the number x with b · x ≡ a (mod p). (In the generator, n is the number of bits of p.)', 'a b p —— p 是小于 2³¹ 的质数，b 不是 p 的倍数。输出 a / b 模 p 的值：即满足 b · x ≡ a (mod p) 的数 x。（生成器中 n 表示 p 的二进制位数。）'],
+  sizes: [4, 5, 6], lab: [4, 8, 16, 24, 30],
+  gen(n, r) {
+    const lo = Math.max(2, 2 ** (n - 1)), hi = Math.max(3, 2 ** n - 1)
+    let p = r.int(lo, hi)
+    while (!isPrimeN(p)) p = p >= hi ? lo : p + 1
+    return `${r.int(1, Math.max(1, p - 1))} ${r.int(1, Math.max(1, p - 1))} ${p}\n`
+  },
+  run(inp, t) {
+    const rd = reader(inp), a = rd.int(), b = rd.int(), p = rd.int()
+    need(Number.isInteger(p) && p >= 2 && p < 2 ** 31 && isPrimeN(p), 'p must be a prime below 2³¹.', 'p 必须是小于 2³¹ 的质数。')
+    need(Number.isInteger(a) && a >= 0 && Number.isInteger(b) && b > 0 && b % p !== 0, 'Need a ≥ 0, b > 0 and b not divisible by p.', '需要 a ≥ 0、b > 0，且 b 不是 p 的倍数。')
+    const P = BigInt(p), e = p - 2, bits = e.toString(2).split('').map(Number), n = bits.length
+    // For a small p, the whole multiplication table row of b: every remainder appears once.
+    const row = (hit?: number) => p <= 23 && grid(`${b} · x mod ${p}: every remainder 1 … ${p - 1} appears exactly once`, [span(1, p - 1), span(1, p - 1).map(x => (b % p) * x % p)], gt({ ok: hit === undefined ? [] : [[0, hit - 1], [1, hit - 1]] }), { rows: ['x', `${b} · x`] })
+    let base = BigInt(b % p), res = 1n, k = 0
+    const view = (tone: 'act' | 'cmp') => arr(`exponent p − 2 = ${e} in binary (bit k is at the right end)`, bits, tn({ dim: span(n - k, n - 1), [tone]: n - 1 - k }), undefined, { base: 0 })
+    t.s('fermat', () => [[`Dividing by ${b} modulo ${p} means multiplying by its inverse, and by Fermat the inverse is ${b}^(${p} − 2) = ${b}^${e} mod ${p}.`, `模 ${p} 意义下除以 ${b}，就是乘以它的逆元；由费马小定理，逆元是 ${b}^(${p} − 2) = ${b}^${e} mod ${p}。`], row(), vars({ a, b, p })])
+    for (let x = e; x > 0; x = Math.floor(x / 2)) {
+      if (x % 2 === 1) {
+        const old = res
+        res = res * base % P
+        t.s('mul', () => [[`Bit ${k} is 1: res = ${old} × ${base} mod ${p} = ${res}.`, `第 ${k} 位是 1：res = ${old} × ${base} mod ${p} = ${res}。`], view('act'), vars({ 'b^(2^k)': String(base), res: String(res), k })])
+      }
+      const old = base
+      base = base * base % P
+      t.s('sq', () => [[`Square: ${old}² mod ${p} = ${base}, ready for bit ${k + 1}.`, `平方：${old}² mod ${p} = ${base}，为第 ${k + 1} 位做准备。`], view('cmp'), vars({ 'b^(2^k)': String(base), res: String(res), k: k + 1 })])
+      k++
+    }
+    const inv = Number(res), ans = Number(BigInt(a % p) * res % P)
+    t.s('done', () => [[`The inverse of ${b} is ${inv}: ${b} × ${inv} mod ${p} = 1. So a / b = ${a} × ${inv} mod ${p} = ${ans}.`, `${b} 的逆元是 ${inv}：${b} × ${inv} mod ${p} = 1。所以 a / b = ${a} × ${inv} mod ${p} = ${ans}。`], row(inv), vars({ inverse: inv, answer: ans })])
+    t.out(ans)
+  },
+}
+
+const egcd = (a: number, b: number): [number, number, number] => { if (!b) return [a, 1, 0]; const [g, x, y] = egcd(b, a % b); return [g, y, x - Math.floor(a / b) * y] }
+const crt: Lesson = {
+  id: 'crt', title: ['Chinese remainder theorem', '中国剩余定理'], level: 'S', cat: 'math', diff: 7,
+  needs: ['exgcd'],
+  blurb: ['Several remainders, one number: satisfy the conditions one at a time, each time stepping by the product of the moduli already dealt with.', '已知一个数除以几个数的余数，求这个数：一次满足一个条件，每次的步长是已处理过的各个模数的乘积。'],
+  ideas: [
+    ['If the moduli are pairwise coprime, the remainders determine exactly one number below the product of the moduli.', '如果各个模数两两互质，这些余数在小于模数之积的范围内恰好确定一个数。'],
+    ['Keep a solution x of the conditions seen so far, and M, the product of their moduli. Every x + M · t is a solution too.', '维护一个满足已处理条件的解 x，以及这些条件的模数之积 M。所有的 x + M · t 也都是解。'],
+    ['For the next condition x ≡ r (mod m), choose t so that x + M · t ≡ r (mod m).', '对下一个条件 x ≡ r (mod m)，选择 t 使得 x + M · t ≡ r (mod m)。'],
+    ['That is M · t ≡ r − x (mod m), so t = (r − x) · M⁻¹ mod m. The inverse exists because M and m are coprime.', '也就是 M · t ≡ r − x (mod m)，所以 t = (r − x) · M⁻¹ mod m。因为 M 与 m 互质，这个逆元一定存在。'],
+    ['m need not be prime, so the inverse comes from the extended Euclidean algorithm, not from Fermat.', 'm 不一定是质数，所以逆元要用扩展欧几里得算法来求，而不能用费马小定理。'],
+  ],
+  time: 'O(k log m)', space: 'O(1)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+long long exgcd(long long a, long long b, long long &x, long long &y) {
+    if (!b) { x = 1; y = 0; return a; }
+    long long g = exgcd(b, a % b, y, x);
+    y -= a / b * x;
+    return g;
+}
+
+int main() {
+    int k;
+    scanf("%d", &k);
+    long long M = 1, x = 0;  // x satisfies every condition read so far, modulo M
+    while (k--) {
+        long long m, r, inv, tmp;
+        scanf("%lld%lld", &m, &r);
+        exgcd(M % m, m, inv, tmp);  //@inv
+        long long t = ((r - x) % m * (inv % m) % m + m) % m;  //@step
+        x += M * t;  //@merge
+        M *= m;
+    }
+    printf("%lld\n", x);  //@done
+}`,
+  notes: [
+    ['inv', ['inv satisfies M · inv ≡ 1 (mod m). It may come out negative.', 'inv 满足 M · inv ≡ 1 (mod m)。它可能是负数。']],
+    ['step', ['Both factors are reduced modulo m first, and the final "+ m) % m" turns a negative remainder into a proper one.', '两个因子都先对 m 取模，最后的 “+ m) % m” 把负的余数变成正常的余数。']],
+    ['merge', ['Adding a multiple of M keeps all earlier conditions true; t was chosen to make the new one true as well.', '加上 M 的倍数不会破坏之前的任何条件；而 t 的取值正好让新的条件也成立。']],
+  ],
+  input: ['k, then k lines "m r" meaning x ≡ r (mod m), with 0 ≤ r < m. The moduli are pairwise coprime and their product is at most 10¹⁵. Prints the smallest such x ≥ 0. (n is the number of conditions.)', 'k，随后 k 行 “m r”，表示 x ≡ r (mod m)，其中 0 ≤ r < m。各模数两两互质，乘积不超过 10¹⁵。输出满足所有条件的最小非负整数 x。（n 为条件的个数。）'],
+  sizes: [2, 3, 4], lab: [2, 5, 9, 13],
+  gen(n, r) {
+    const ms = r.shuffle(n <= 4 ? [2, 3, 5, 7, 11] : PRIMES.slice(0, 13)).slice(0, n)
+    return `${ms.length}\n` + ms.map(m => `${m} ${r.int(0, m - 1)}`).join('\n') + '\n'
+  },
+  run(inp, t) {
+    const rd = reader(inp), k = rd.int(), cs = span(1, k).map(() => rd.ints(2))
+    let prod = 1
+    for (const [m, r] of cs) {
+      need(Number.isInteger(m) && m >= 1 && Number.isInteger(r) && r >= 0 && r < m, 'Each line needs m ≥ 1 and 0 ≤ r < m.', '每一行须满足 m ≥ 1 且 0 ≤ r < m。')
+      need(egcd(prod, m)[0] === 1, 'The moduli must be pairwise coprime.', '各个模数必须两两互质。')
+      prod *= m
+      need(prod <= 1e15, 'The product of the moduli must not exceed 10¹⁵.', '模数的乘积不能超过 10¹⁵。')
+    }
+    let M = 1, x = 0
+    const table = (i: number, tone: Tone) => grid('conditions', cs.map(([m, r], j) => [`x ≡ ${r} (mod ${m})`, j < i || (j === i && tone === 'ok') ? x % m : '']), Object.fromEntries(cs.flatMap((c, j) => (j < i || (j === i && tone === 'ok') ? [[`${j},0`, 'ok' as Tone], [`${j},1`, 'ok' as Tone]] : j === i ? [[`${j},0`, tone]] : []))), { cols: ['condition', 'current x mod m'] })
+    for (let i = 0; i < k; i++) {
+      const [m, r] = cs[i], inv = ((egcd(M % m, m)[1] % m) + m) % m, x0 = x, M0 = M
+      t.s('inv', () => [[`Next: x ≡ ${r} (mod ${m}). So far x = ${x0}, and x + ${M0} · t fits all earlier conditions. The inverse of ${M0} modulo ${m} is ${inv}.`, `下一个条件：x ≡ ${r} (mod ${m})。目前 x = ${x0}，而 x + ${M0} · t 满足之前的所有条件。${M0} 模 ${m} 的逆元是 ${inv}。`], table(i, 'act'), vars({ x: x0, M: M0 })])
+      const tt = ((((r - x) % m) * inv) % m + m) % m
+      t.s('step', () => [[`Need ${x0} + ${M0} · t ≡ ${r} (mod ${m}): t = (${r} − ${x0}) · ${inv} mod ${m} = ${tt}.`, `需要 ${x0} + ${M0} · t ≡ ${r} (mod ${m})：t = (${r} − ${x0}) · ${inv} mod ${m} = ${tt}。`], table(i, 'act'), vars({ x: x0, M: M0, t: tt })])
+      x += M * tt; M *= m
+      const x1 = x, M1 = M
+      t.s('merge', () => [[`x = ${x0} + ${M0} · ${tt} = ${x1}. It now fits ${i + 1} condition${i ? 's' : ''}, and so does every x + ${M1} · t.`, `x = ${x0} + ${M0} · ${tt} = ${x1}。它现在满足前 ${i + 1} 个条件，所有的 x + ${M1} · t 也是如此。`], table(i, 'ok'), vars({ x: x1, M: M1 })])
+    }
+    const res = x
+    t.s('done', () => [[`The smallest solution is ${res}; all solutions are ${res} + ${M} · t.`, `最小的解是 ${res}；全部的解是 ${res} + ${M} · t。`], table(k, 'ok'), vars({ answer: res })])
+    t.out(res)
+  },
+}
+
+const binomialMod: Lesson = {
+  id: 'binomial-mod', title: ['Binomial coefficients mod p', '组合数取模'], level: 'S', cat: 'math', diff: 6,
+  needs: ['pascal', 'mod-inverse'],
+  blurb: ['Precompute factorials and inverse factorials once; then every C(n, k) is two multiplications.', '把阶乘和阶乘的逆元预处理一次，之后每个 C(n, k) 只需两次乘法。'],
+  ideas: [
+    ['C(n, k) = n! / (k! · (n − k)!). Modulo a prime, the two divisions become multiplications by inverses.', 'C(n, k) = n! / (k! · (n − k)!)。在质数模下，两次除法变成乘以逆元。'],
+    ['fact[i] = fact[i − 1] · i mod p, built upward in one loop.', 'fact[i] = fact[i − 1] · i mod p，一个循环从小到大算出。'],
+    ['One fast exponentiation gives the inverse of the largest factorial.', '用一次快速幂求出最大的那个阶乘的逆元。'],
+    ['Then walk downward: 1 / (i − 1)! = (1 / i!) · i. So all inverse factorials cost one inverse in total.', '然后从大到小推：1 / (i − 1)! = (1 / i!) · i。所以所有阶乘的逆元总共只需要求一次逆。'],
+    ['The same two tables answer every counting formula made of factorials.', '凡是由阶乘组成的计数公式，都可以用这两张表来计算。'],
+  ],
+  time: 'O(n + log p + q)', space: 'O(n)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+const int N = 1000005;
+long long p, fact[N], inv[N];
+
+long long power(long long a, long long b) {
+    long long res = 1;
+    for (a %= p; b > 0; b >>= 1) {
+        if (b & 1) res = res * a % p;
+        a = a * a % p;
+    }
+    return res;
+}
+
+int main() {
+    int q, top = 0;
+    scanf("%d%lld", &q, &p);
+    vector<pair<int, int>> ask(q);
+    for (auto &[n, k] : ask) { scanf("%d%d", &n, &k); top = max(top, n); }
+    fact[0] = 1;
+    for (int i = 1; i <= top; i++) fact[i] = fact[i - 1] * i % p;  //@fact
+    inv[top] = power(fact[top], p - 2);  //@last
+    for (int i = top; i >= 1; i--) inv[i - 1] = inv[i] * i % p;  //@down
+    for (auto [n, k] : ask)
+        printf("%lld\n", k < 0 || k > n ? 0 : fact[n] * inv[k] % p * inv[n - k] % p);  //@query
+}`,
+  notes: [
+    ['fact', ['i! = (i − 1)! · i, reduced modulo p at every step.', 'i! = (i − 1)! · i，每一步都对 p 取模。']],
+    ['last', ['The only exponentiation in the program.', '整个程序里唯一的一次快速幂。']],
+    ['down', ['Multiplying 1 / i! by i cancels the factor i: the result is 1 / (i − 1)!.', '1 / i! 乘以 i，约掉了因子 i：结果就是 1 / (i − 1)!。']],
+    ['query', ['Choosing more than n out of n is impossible: 0 ways.', '从 n 个中选出多于 n 个是不可能的：方案数为 0。']],
+  ],
+  input: ['q p, then q lines "n k". p is a prime below 2³¹ and larger than every n (n ≤ 10⁶). Prints C(n, k) mod p for each line. (In the generator, n is the largest n asked.)', 'q p，随后 q 行 “n k”。p 是小于 2³¹ 的质数，并且比所有的 n 都大（n ≤ 10⁶）。对每一行输出 C(n, k) mod p。（生成器中 n 表示询问中最大的 n。）'],
+  sizes: [6, 9, 12], lab: [10, 1000, 100000, 1000000],
+  gen(n, r) {
+    const p = n < 13 ? 13 : n < 31 ? 31 : 1000000007, q = n <= 30 ? 3 : 1000
+    return `${q} ${p}\n${n} ${r.int(1, n - 1)}\n` + span(2, q).map(() => { const m = r.int(1, n); return `${m} ${r.int(0, 19) === 0 ? m + 1 : r.int(0, m)}` }).join('\n') + '\n'
+  },
+  run(inp, t) {
+    const rd = reader(inp), q = rd.int(), p = rd.int()
+    need(Number.isInteger(p) && p >= 2 && p < 2 ** 31 && isPrimeN(p), 'p must be a prime below 2³¹.', 'p 必须是小于 2³¹ 的质数。')
+    const ask = span(1, q).map(() => rd.ints(2)), top = Math.max(0, ...ask.map(x => x[0]))
+    need(ask.every(([n]) => Number.isInteger(n) && n >= 0) && top <= 1e6 && top < p, 'Need 0 ≤ n ≤ 10⁶ and n < p.', '需要 0 ≤ n ≤ 10⁶ 且 n < p。')
+    const P = BigInt(p), mul = p < 9e7 ? (a: number, b: number) => a * b % p : (a: number, b: number) => Number(BigInt(a) * BigInt(b) % P)
+    const fact = new Array<number>(top + 1).fill(0), inv = new Array<number>(top + 1).fill(0), out: number[] = []
+    const cells = (a: number[], from: number, to: number) => a.map((v, i) => (i >= from && i <= to ? v : ''))
+    const view = (fTo: number, iFrom: number, hiF: Tones = {}, hiI: Tones = {}) => [arr(`fact[i] = i! mod ${p}`, cells(fact, 0, fTo), hiF, undefined, { base: 0 }), arr(`inv[i] = 1 / i! mod ${p}`, cells(inv, iFrom, top), hiI, undefined, { base: 0 })] as const
+    fact[0] = 1
+    for (let i = 1; i <= top; i++) {
+      fact[i] = mul(fact[i - 1], i)
+      t.s('fact', () => [[`fact[${i}] = fact[${i - 1}] · ${i} = ${fact[i - 1]} · ${i} mod ${p} = ${fact[i]}.`, `fact[${i}] = fact[${i - 1}] · ${i} = ${fact[i - 1]} · ${i} mod ${p} = ${fact[i]}。`], ...view(i, top + 1, tn({ cmp: i - 1, act: i }))])
+    }
+    let res = 1, base = fact[top]
+    for (let e = p - 2; e > 0; e = Math.floor(e / 2)) { t.tick(); if (e % 2) res = mul(res, base); base = mul(base, base) }
+    inv[top] = res
+    t.s('last', () => [[`inv[${top}] = fact[${top}]^(p − 2) = ${fact[top]}^${p - 2} mod ${p} = ${inv[top]}. Check: ${fact[top]} · ${inv[top]} mod ${p} = 1.`, `inv[${top}] = fact[${top}]^(p − 2) = ${fact[top]}^${p - 2} mod ${p} = ${inv[top]}。检验：${fact[top]} · ${inv[top]} mod ${p} = 1。`], ...view(top, top, tn({ cmp: top }), tn({ act: top }))])
+    for (let i = top; i >= 1; i--) {
+      inv[i - 1] = mul(inv[i], i)
+      t.s('down', () => [[`inv[${i - 1}] = inv[${i}] · ${i} = ${inv[i]} · ${i} mod ${p} = ${inv[i - 1]}.`, `inv[${i - 1}] = inv[${i}] · ${i} = ${inv[i]} · ${i} mod ${p} = ${inv[i - 1]}。`], ...view(top, i - 1, {}, tn({ cmp: i, act: i - 1 }))])
+    }
+    for (const [n, k] of ask) {
+      const c = k < 0 || k > n ? 0 : mul(mul(fact[n], inv[k]), inv[n - k])
+      out.push(c)
+      t.s('query', () => [k < 0 || k > n ? [`C(${n}, ${k}) = 0: you cannot choose ${k} out of ${n}.`, `C(${n}, ${k}) = 0：从 ${n} 个中不可能选出 ${k} 个。`] : [`C(${n}, ${k}) = fact[${n}] · inv[${k}] · inv[${n - k}] = ${fact[n]} · ${inv[k]} · ${inv[n - k]} mod ${p} = ${c}.`, `C(${n}, ${k}) = fact[${n}] · inv[${k}] · inv[${n - k}] = ${fact[n]} · ${inv[k]} · ${inv[n - k]} mod ${p} = ${c}。`],
+        ...view(top, 0, k < 0 || k > n ? {} : tn({ act: n }), k < 0 || k > n ? {} : tn({ act: [k, n - k] })), arr('answers', out.slice(0, 16))])
+    }
+    t.out(out.join('\n'))
+  },
+}
+
+const inclExcl: Lesson = {
+  id: 'incl-excl', title: ['Inclusion–exclusion', '容斥原理'], level: 'S', cat: 'math', diff: 7,
+  needs: ['bitmask-dp'],
+  blurb: ['To count the union of overlapping sets: add the single sets, subtract the pairs, add the triples, … One term for every subset.', '求若干个互相重叠的集合的并集大小：加上单个集合，减去两两的交，加上三个的交……每个子集对应一项。'],
+  ideas: [
+    ['Numbers divisible by 2 or by 3: adding the two counts takes the multiples of 6 twice, so subtract them once.', '能被 2 或 3 整除的数：把两个个数相加，6 的倍数被算了两次，所以要减掉一次。'],
+    ['In general, the size of a union is the sum over all non-empty groups of sets of ± the size of their intersection: + for an odd group, − for an even one.', '一般地，并集的大小等于对所有非空的集合组合求和：± 它们交集的大小，奇数个集合取 +，偶数个取 −。'],
+    ['Here the intersection is easy: the numbers up to n divisible by all primes of a group number ⌊n / product⌋.', '这里交集很好算：不超过 n 且能被一组质数全部整除的数，共有 ⌊n / 乘积⌋ 个。'],
+    ['The groups are the non-empty subsets of the k primes: enumerate them as bitmasks 1 … 2ᵏ − 1.', '这些组合就是 k 个质数的所有非空子集：用二进制掩码 1 … 2ᵏ − 1 来枚举。'],
+    ['The cost is 2ᵏ terms, so the principle is practical only for a small number of conditions.', '代价是 2ᵏ 项，所以只有条件个数较少时容斥才实用。'],
+  ],
+  time: 'O(2ᵏ · k)', space: 'O(k)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    long long n, p[20];
+    int k;
+    scanf("%lld%d", &n, &k);
+    for (int i = 0; i < k; i++) scanf("%lld", &p[i]);
+    long long ans = 0;
+    for (int mask = 1; mask < (1 << k); mask++) {  //@mask
+        long long prod = 1;
+        int bits = 0;
+        for (int i = 0; i < k; i++)
+            if (mask >> i & 1) {
+                bits++;
+                if (prod > n / p[i]) { prod = n + 1; break; }  //@big
+                prod *= p[i];
+            }
+        if (bits & 1) ans += n / prod;  //@add
+        else ans -= n / prod;  //@sub
+    }
+    printf("%lld\n", ans);  //@done
+}`,
+  notes: [
+    ['mask', ['Bit i of mask says whether prime i is in the group. 0 is skipped: the empty group is not a term.', 'mask 的第 i 位表示第 i 个质数是否在这一组里。跳过 0：空的组合不是一项。']],
+    ['big', ['The product would exceed n, so no number up to n is divisible by it. Stop before it overflows.', '乘积将会超过 n，所以不超过 n 的数里没有它的倍数。要在溢出之前就停下。']],
+    ['add', ['An odd number of primes: these numbers are added.', '奇数个质数：这些数要加上。']],
+    ['sub', ['An even number of primes: these numbers were counted too often and are subtracted.', '偶数个质数：这些数被多算了，要减掉。']],
+  ],
+  input: ['n k, then k different primes (k ≤ 20, n ≤ 10¹⁵). Prints how many of the integers 1 … n are divisible by at least one of the primes. (In the generator, n is the number of primes.)', 'n k，随后是 k 个不同的质数（k ≤ 20，n ≤ 10¹⁵）。输出 1 … n 中至少能被其中一个质数整除的整数的个数。（生成器中 n 表示质数的个数。）'],
+  sizes: [2, 3, 4], lab: [4, 8, 12, 16, 20],
+  gen(n, r) {
+    const ps = r.shuffle(PRIMES.slice(0, n <= 6 ? 6 : 20)).slice(0, Math.min(n, 20)).sort((a, b) => a - b)
+    return `${n <= 6 ? r.int(30, 200) : r.int(1000000000, 1000000000000)} ${ps.length}\n${ps.join(' ')}\n`
+  },
+  run(inp, t) {
+    const rd = reader(inp), n = rd.int(), k = rd.int()
+    need(Number.isInteger(n) && n >= 1 && n <= 1e15 && Number.isInteger(k) && k >= 1 && k <= 20, 'Need 1 ≤ n ≤ 10¹⁵ and 1 ≤ k ≤ 20.', '需要 1 ≤ n ≤ 10¹⁵ 且 1 ≤ k ≤ 20。')
+    const p = rd.ints(k), rows: (string | number)[][] = []
+    need(new Set(p).size === k && p.every(isPrimeN), 'The k numbers must be different primes.', '这 k 个数必须是互不相同的质数。')
+    let ans = 0
+    const table = (tone: Tone) => grid('one term per group of primes', rows.slice(-12), gt({ [tone]: span(0, 4).map(c => [Math.min(rows.length, 12) - 1, c] as [number, number]) }), { cols: ['group', 'product', 'sign', '⌊n / product⌋', 'total'] })
+    for (let mask = 1; mask < 1 << k; mask++) {
+      let prod = 1, bits = 0
+      const group: number[] = []
+      for (let i = 0; i < k; i++) if (mask >> i & 1) {
+        bits++; group.push(p[i]); t.tick()
+        if (prod > Math.floor(n / p[i])) { prod = n + 1; break }
+        prod *= p[i]
+      }
+      const cnt = Math.floor(n / prod), odd = bits % 2 === 1
+      ans += odd ? cnt : -cnt
+      if (t.on) rows.push([`{${group.join(', ')}}`, prod > n ? `> ${n}` : prod, odd ? '+' : '−', cnt, ans])
+      const total = ans
+      t.s(odd ? 'add' : 'sub', () => [[`${group.length === 1 ? `Multiples of ${group[0]}` : `Multiples of all of ${group.join(', ')}`} up to ${n}: ${cnt}. ${bits} prime${bits === 1 ? '' : 's'} — ${odd ? 'odd, add' : 'even, subtract'}. Total ${total}.`, `不超过 ${n} 的数中，${group.length === 1 ? `${group[0]} 的倍数` : `同时是 ${group.join('、')} 的倍数的数`}有 ${cnt} 个。共 ${bits} 个质数——${odd ? '奇数个，加上' : '偶数个，减去'}。合计 ${total}。`], table(odd ? 'ok' : 'bad'), vars({ n, mask: mask.toString(2).padStart(k, '0'), total })])
+    }
+    const res = ans
+    t.s('done', () => [[`${res} of the numbers 1 … ${n} are divisible by at least one of ${p.join(', ')}.`, `1 … ${n} 中有 ${res} 个数至少能被 ${p.join('、')} 中的一个整除。`], vars({ answer: res })])
+    t.out(res)
+  },
+}
+
+type M2 = [bigint, bigint, bigint, bigint]
+const MOD9 = 1000000007n
+const mul2 = (x: M2, y: M2): M2 => [(x[0] * y[0] + x[1] * y[2]) % MOD9, (x[0] * y[1] + x[1] * y[3]) % MOD9, (x[2] * y[0] + x[3] * y[2]) % MOD9, (x[2] * y[1] + x[3] * y[3]) % MOD9]
+const show2 = (name: string, m: M2, tone?: Tone) => grid(name, [[String(m[0]), String(m[1])], [String(m[2]), String(m[3])]], tone ? gt({ [tone]: [[0, 0], [0, 1], [1, 0], [1, 1]] }) : undefined)
+const matrixPower: Lesson = {
+  id: 'matrix-power', title: ['Fast matrix power: Fibonacci', '矩阵快速幂：斐波那契数'], level: 'S', cat: 'math', diff: 6,
+  needs: ['fast-pow'],
+  blurb: ['One step of a linear recurrence is a multiplication by a fixed matrix, so n steps are that matrix to the power n — and powers can be computed by squaring.', '线性递推的一步相当于乘上一个固定的矩阵，所以 n 步就是这个矩阵的 n 次幂——而幂可以用反复平方来算。'],
+  ideas: [
+    ['The pair (F(n + 1), F(n)) turns into (F(n + 2), F(n + 1)) by a fixed rule that only adds and copies.', '数对 (F(n + 1), F(n)) 按一条固定的规则变成 (F(n + 2), F(n + 1))，这条规则只有相加和照抄。'],
+    ['Such a rule is a matrix: [[1, 1], [1, 0]] times the column (F(n + 1), F(n)) gives the next column.', '这样的规则就是一个矩阵：[[1, 1], [1, 0]] 乘以列向量 (F(n + 1), F(n))，得到下一个列向量。'],
+    ['Applying it n times is multiplying by the matrix n times: by its n-th power.', '把它作用 n 次，就是乘上这个矩阵 n 次：也就是乘上它的 n 次幂。'],
+    ['Matrix multiplication is associative, so fast exponentiation works unchanged — with the identity matrix in place of 1.', '矩阵乘法满足结合律，所以快速幂可以原封不动地使用——只是把 1 换成单位矩阵。'],
+    ['About log₂ n matrix products of constant size, instead of n additions.', '大约 log₂ n 次固定大小的矩阵乘法，取代了 n 次加法。'],
+  ],
+  time: 'O(log n)', space: 'O(1)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+typedef long long ll;
+const ll MOD = 1e9 + 7;
+struct Mat { ll a[2][2]; };
+
+Mat mul(const Mat& x, const Mat& y) {
+    Mat z;
+    for (int i = 0; i < 2; i++)
+        for (int j = 0; j < 2; j++)
+            z.a[i][j] = (x.a[i][0] * y.a[0][j] + x.a[i][1] * y.a[1][j]) % MOD;  //@cell
+    return z;
+}
+
+int main() {
+    ll n;
+    scanf("%lld", &n);
+    Mat res = {{{1, 0}, {0, 1}}}, m = {{{1, 1}, {1, 0}}};  //@init
+    for (; n > 0; n >>= 1) {
+        if (n & 1) res = mul(res, m);  //@mul
+        m = mul(m, m);  //@sq
+    }
+    printf("%lld\n", res.a[0][1]);  //@done
+}`,
+  notes: [
+    ['cell', ['Row i of x times column j of y. Two products below 10¹⁸ each still fit in long long together.', 'x 的第 i 行乘以 y 的第 j 列。两个都小于 10¹⁸ 的乘积相加，仍在 long long 范围内。']],
+    ['init', ['res starts as the identity matrix, which changes nothing when multiplied — the matrix "1".', 'res 的初值是单位矩阵，乘上它什么都不变——它就是矩阵里的 “1”。']],
+    ['mul', ['The lowest bit of n is 1: this power of m belongs in the answer.', 'n 的最低位是 1：m 的这一个幂要乘进答案。']],
+    ['done', ['The n-th power is [[F(n + 1), F(n)], [F(n), F(n − 1)]].', 'n 次幂等于 [[F(n + 1), F(n)], [F(n), F(n − 1)]]。']],
+  ],
+  input: ['n (0 ≤ n ≤ 10¹⁵). Prints the Fibonacci number F(n) modulo 1 000 000 007, where F(0) = 0 and F(1) = 1. (In the generator, n is the number of bits of n.)', 'n（0 ≤ n ≤ 10¹⁵）。输出斐波那契数 F(n) 对 1 000 000 007 取模的值，其中 F(0) = 0，F(1) = 1。（生成器中 n 表示 n 的二进制位数。）'],
+  sizes: [3, 4, 5], lab: [4, 8, 16, 32, 50],
+  gen(n, r) {
+    let b = 1
+    for (let i = 1; i < n; i++) b = b * 2 + r.int(0, 1)
+    return `${b}\n`
+  },
+  run(inp, t) {
+    const N = reader(inp).int()
+    need(Number.isInteger(N) && N >= 0 && N <= 1e15, 'n must be between 0 and 10¹⁵.', 'n 须在 0 到 10¹⁵ 之间。')
+    const bits = N.toString(2).split('').map(Number), len = bits.length
+    let res: M2 = [1n, 0n, 0n, 1n], m: M2 = [1n, 1n, 1n, 0n], k = 0
+    const bar = (tone: 'act' | 'cmp') => arr('n in binary (bit k is at the right end)', bits, tn({ dim: span(len - k, len - 1), [tone]: len - 1 - k }), undefined, { base: 0 })
+    t.s('init', () => [['res = the identity matrix; m = [[1, 1], [1, 0]], the matrix of one Fibonacci step.', 'res = 单位矩阵；m = [[1, 1], [1, 0]]，即斐波那契递推一步所对应的矩阵。'], bar('cmp'), show2('res', res), show2('m', m)])
+    for (let x = N; x > 0; x = Math.floor(x / 2)) {
+      if (x % 2 === 1) {
+        res = mul2(res, m)
+        const r0 = res
+        t.s('mul', () => [[`Bit ${k} is 1: res = res · m.`, `第 ${k} 位是 1：res = res · m。`], bar('act'), show2('res', r0, 'act'), show2(`m = M^${2 ** k}`, m)])
+      }
+      m = mul2(m, m)
+      const m0 = m
+      t.s('sq', () => [[`Square m: it is now M^${2 ** (k + 1)}, ready for bit ${k + 1}.`, `把 m 平方：它现在是 M^${2 ** (k + 1)}，为第 ${k + 1} 位做准备。`], bar('cmp'), show2('res', res), show2(`m = M^${2 ** (k + 1)}`, m0, 'cmp')])
+      k++
+    }
+    const ans = res[1]
+    t.s('done', () => [[`res = M^${N} = [[F(n+1), F(n)], [F(n), F(n−1)]], so F(${N}) = ${ans}.`, `res = M^${N} = [[F(n+1), F(n)], [F(n), F(n−1)]]，所以 F(${N}) = ${ans}。`], grid('res', [[String(res[0]), String(res[1])], [String(res[2]), String(res[3])]], gt({ ok: [[0, 1]] })), vars({ answer: String(ans) })])
+    t.out(ans)
+  },
+}
+
+export default [gcd, exgcd, sieve, linearSieve, pascal, gauss, nimSg, hull, prufer, primeFactor, modInverse, crt, binomialMod, inclExcl, matrixPower]

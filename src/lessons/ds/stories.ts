@@ -403,4 +403,29 @@ export const DS: Record<string, Extras> = {
       { id: 'done', kind: 'end', text: ['print area', '输出 area'] },
     ],
   },
+
+  'hash-table': {
+    story: [
+      { kind: 'naive', title: ['Start simple: one cell per possible key', '先从最简单的做起：每个可能的关键字一个格子'],
+        body: ['`seen[x] = true` answers "was x inserted?" in a single step. But the keys go up to 10⁹, so the array needs **a billion cells** — for perhaps a hundred thousand keys that actually occur. A plain list of the keys needs little memory but must be searched from end to end.', '`seen[x] = true` 一步就能回答“x 插入过吗？”。但关键字最大到 10⁹，这个数组需要**十亿个格子**——而实际出现的关键字也许只有十万个。把关键字存成一个普通的列表倒是省内存，可是查找要从头翻到尾。'] },
+      { kind: 'insight', title: ['Let the key say where it lives', '让关键字自己说出它住在哪里'],
+        body: ['Squeeze every key into a small range with a **hash function**: `h(x) = x mod M`. Store x in ==bucket h(x)==. To look for x later, compute h(x) again and look there — and nowhere else. The key is its own address.', '用一个**哈希函数**把每个关键字压进一个小的范围：`h(x) = x mod M`。把 x 存在 ==h(x) 号桶==里。以后查找 x 时，再算一次 h(x)，只看那个桶——别处都不用看。关键字本身就是它的地址。'],
+        fig: () => [grid('M = 7', [[15, 23, 40, 8, 70], [1, 2, 5, 1, 0]], gt({ bad: [[1, 0], [1, 3]] }), { rows: ['x', 'x mod 7'] })] },
+      { kind: 'term', title: ['Collisions and the pigeonhole principle', '冲突与抽屉原理'],
+        body: ['Above, 15 and 8 both land in bucket 1: a **collision**. It cannot be designed away. The **pigeonhole principle** says: if more than M things are put into M boxes, ==some box holds at least two==. There are a billion possible keys and only M buckets, so whatever the function, many keys share each bucket. (The same principle proves that among 13 people two have a birthday in the same month.) A good hash function only makes collisions __rare for the keys that actually occur__: `x mod M` with M prime depends on the whole of x, not just its last digits.', '上面 15 和 8 都落在 1 号桶：这就是**冲突**。它不可能靠设计消除。**抽屉原理**说：把多于 M 个东西放进 M 个抽屉，==至少有一个抽屉里有两个或更多==。可能的关键字有十亿个，而桶只有 M 个，所以无论用什么函数，每个桶都对应着很多关键字。（同一个原理还说明：13 个人里必有两人的生日在同一个月。）好的哈希函数只是让__实际出现的关键字__之间很少冲突：M 取质数时，`x mod M` 取决于整个 x，而不只是它的末几位。'] },
+      { kind: 'how', title: ['Chaining: every bucket is a small linked list', '拉链法：每个桶是一条小链表'],
+        body: ['Keep `head[b]`, the first node of bucket b, and for every node its key `val[i]` and its successor `nxt[i]`. **Insert**: hash, walk the chain to make sure x is not there, then link a new node in at the front. **Find**: hash, walk the chain, ==compare the keys themselves==. The other standard remedy, __open addressing__, keeps one key per cell and, when a cell is taken, tries the next cells in turn.', '保存 `head[b]`，即 b 号桶的第一个结点；每个结点保存它的关键字 `val[i]` 和后继 `nxt[i]`。**插入**：先算哈希值，沿着链走一遍确认 x 不在其中，再把新结点接到链的最前面。**查找**：算哈希值，沿着链走，==比较关键字本身==。处理冲突的另一种常用方法是__开放寻址法__：每个格子只放一个关键字，格子被占用时就依次试后面的格子。'],
+        fig: () => [grid('after inserting 15, 23, 40, 8, 70', [[70, ''], [8, 15], [23, ''], ['', ''], ['', ''], [40, ''], ['', '']], gt({ cmp: [[1, 0], [1, 1]] }), { rows: [0, 1, 2, 3, 4, 5, 6] })] },
+      { kind: 'result', title: ['Constant time on average', '平均常数时间'],
+        body: ['With n keys spread over M ≈ n buckets, a chain holds about one key: **O(1) per operation on average**, with memory O(M + n). The guarantee is only an average — in the worst case every key shares one bucket. And a hash table keeps no order: it cannot give you the smallest key or the next larger one. For that you need a sorted structure.', 'n 个关键字散布在 M ≈ n 个桶里，每条链平均只有一个关键字：**每次操作平均 O(1)**，空间 O(M + n)。这只是平均意义上的保证——最坏情况下所有关键字都挤在一个桶里。另外，哈希表不保持顺序：它没法告诉你最小的关键字，或者比某个数大的下一个关键字。那需要有序的数据结构。'] },
+    ],
+    flow: [
+      { id: 'hash', kind: 'start', text: ['h = x mod M', 'h = x mod M'] },
+      { id: 'walk', kind: 'test', text: ['walk the chain of bucket h:   is x in it ?', '沿着 h 号桶的链走：x 在其中 ？'], yes: 'hit', no: 'miss', on: [] },
+      { id: 'hit', text: ['found', '找到了'], next: 'query' },
+      { id: 'miss', text: ['not there', '不在其中'] },
+      { id: 'add', text: ['inserting ?   link x in at the front of the chain', '是插入操作 ？把 x 接到链的最前面'] },
+      { id: 'query', kind: 'end', text: ['asking ?   print Y or N', '是询问 ？输出 Y 或 N'] },
+    ],
+  },
 }

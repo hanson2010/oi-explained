@@ -4,8 +4,8 @@ Revised 2026-11-16 after a review against the code. The audience is self-learner
 
 ## Where the project stands
 
-- 83 lessons: 35 CSP-J, 37 CSP-S, 11 NOI. 16 have an earlier version.
-- Milestones 0.2, 0.3 and 0.4 are done.
+- 90 lessons: 35 CSP-J, 44 CSP-S, 11 NOI. 16 have an earlier version, 10 ask questions, 5 have a broken version to fix.
+- Milestones 0.2 to 0.5 are done. Next is 0.6.
 - A lesson costs about 150 lines on average, counting its program, story, text and oracle.
 
 Syllabus points with a lesson, out of the points that should have one:
@@ -13,7 +13,7 @@ Syllabus points with a lesson, out of the points that should have one:
 | Level | With lessons | Wanted | Out of scope |
 |---|---|---|---|
 | CSP-J | 54 | 54 | 62 |
-| CSP-S | 56 | 78 | 16 |
+| CSP-S | 75 | 78 | 16 |
 | NOI | 14 | 59 | 8 |
 
 Out of scope are computer basics, the C++ language itself, school mathematics, and concepts with no program to animate. The Syllabus page shows them greyed with the reason.
@@ -64,40 +64,15 @@ Changed from the plan: prefix sums and merge sort ask questions in place of quic
 
 ---
 
-## Milestone 0.5: a broken version to fix, and CSP-S hashing and mathematics
+## Milestone 0.5: a broken version to fix, and CSP-S hashing and mathematics (done)
 
-### A broken version to fix
+- **Find the bug.** A lesson can carry `broken`: one change within one line of its listing, and a `run` that accepts `bug = true`. The lesson page then has a sixth tab. It finds a small input on which the broken program prints the wrong answer, shows the correct output beside the program's own, and lets the learner step through and click the line they think is wrong. Tests check that exactly one line differs, that some small input gives a wrong answer, that it always stops, and that the compiled broken listing behaves exactly like the broken animation.
+- **Five broken versions**: binary search (`r = mid - 1`), prefix sums (`s[l]` for `s[l - 1]`), 0/1 knapsack (inner loop upward), longest increasing subsequence (`<=` for `<`), union-find (`fa[x] = find(y)`).
+- **Seven CSP-S lessons**: hash table, string hashing, modular inverse, Chinese remainder theorem, binomial coefficients mod p, inclusion–exclusion, fast matrix power. Between them they carry background cards for 16 more syllabus points, from congruences to special matrices.
 
-The first draft said the animation would run "until the output differs". A lesson prints its output once, at the end, so there is no such moment. Revised design:
+Changed from the plan: longest increasing subsequence replaced BFS among the broken versions, because marking a cell late makes BFS slow, not wrong. The union-find mistake links x itself instead of dropping path compression, for the same reason. The pigeonhole principle is taught in the hash table lesson, where it explains why collisions are unavoidable. String hashing and matrix power have no earlier version: nothing fits the rule.
 
-- `broken?: { code: string; bugTag: string; why: L; run(inp, t): void }`: the lesson's listing with one pitfall put back in.
-- The page finds a small input on which the broken version prints the wrong answer, and shows input, expected output and actual output.
-- The learner animates the broken version on that input and clicks the line they think is wrong. `bugTag` and `why` are the answer.
-
-Rules, enforced by tests:
-
-- The listing differs from the correct one in a single region.
-- It prints a wrong answer for at least one of the first 50 seeds at the smallest size.
-- It always terminates, within a step cap. A bug that loops forever is not allowed.
-- Its behaviour is defined in C++: no out-of-range reads and no overflow. The C++ test can then compile it and compare it with the broken animation.
-
-Start with: knapsack inner loop running upward, prefix sum subtracting `s[l]` instead of `s[l − 1]`, union-find without `fa[x] =`, binary search returning the wrong boundary, BFS marking a cell visited when it is popped.
-
-Pitfalls about input the method cannot handle (Dijkstra with negative edges) are a different feature. Leave them as text.
-
-### CSP-S lessons: hashing and mathematics (7)
-
-| Lesson | Syllabus point | Cards it carries |
-|---|---|---|
-| Hash table | 2.2.3 [5–6] | Hash functions for numbers, collision handling |
-| String hashing | 2.2.3 [6] | Raced against direct comparison in the lab |
-| Modular inverse | 2.2.5 [5–7] | Congruences, Fermat's little theorem, Euler's theorem and totient, Wilson's theorem |
-| Chinese remainder theorem | 2.2.5 [7] | Needs `exgcd` |
-| Binomial coefficients mod p | 2.2.5 [6] | Binomial theorem, multiset permutations and combinations, Catalan numbers |
-| Inclusion–exclusion | 2.2.5 [7] | Derangements, pigeonhole principle. Needs `bitmask-dp` |
-| Fast matrix power | 2.2.5 [5–6] | Vectors, matrix operations, special matrices. Earlier version: the linear loop |
-
-Done when: CSP-S has no planned points left, apart from the three deferred below.
+CSP-S now has a lesson for 75 of its 78 points in scope; the other three are deferred below.
 
 ---
 
@@ -105,7 +80,7 @@ Done when: CSP-S has no planned points left, apart from the three deferred below
 
 ### Practice problems
 
-`practice?: { judge: 'luogu' | 'cf' | 'atcoder' | 'loj'; id: string; title: L; diff?: number }[]`, shown as links, easiest first, three to five per lesson. Problem statements are never copied. The learner ticks a problem as solved; it is stored in `solved`.
+`practice?: { judge: 'luogu' | 'loj' | 'cf' | 'atcoder'; id: string; title: L; diff?: number }[]`, shown as links, three to five per lesson: Luogu and LibreOJ (`loj`) first, as the judges of the Chinese community, then Codeforces and AtCoder; within a judge, easiest first. Problem statements are never copied. The learner ticks a problem as solved; it is stored in `solved`.
 
 A test checks the format of each id. Links can still go stale, so check them by script from time to time, not in CI.
 
@@ -170,6 +145,6 @@ Already in place, so removed from the plan: links to a tab and an animation step
 | 0.2 (done) | CI, syllabus states, authoring checklist, bundle split | – | 69 |
 | 0.3 (done) | Lesson links, three definition cards | 7 CSP-J | 76 |
 | 0.4 (done) | Profile v2, predict the next step | 7 CSP-S | 83 |
-| 0.5 | Broken versions | 7 CSP-S | 90 |
+| 0.5 (done) | Broken versions | 7 CSP-S | 90 |
 | 0.6 | Practice links, review | – | 90 |
 | 0.7+ | – | 11 NOI | 101 |

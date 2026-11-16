@@ -13,6 +13,43 @@ const same = (want: unknown, got: string): true | string => {
 const sorted = (skip: number): Oracle => ({ check: (i, o) => same(nums(i).slice(skip).sort((a, b) => a - b), o) })
 
 export const ORACLES: Record<string, Oracle | undefined> = {
+  'mod-inverse': { min: 2, max: 8, check(i, o) {
+    const [a, b, p] = toks(i).map(BigInt), x = BigInt(toks(o)[0] ?? '-1')
+    return x >= 0n && x < p && (b * x - a) % p === 0n ? true : `${b} · ${x} is not ≡ ${a} (mod ${p})`
+  } },
+  crt: { check(i, o) {
+    const d = toks(i).map(BigInt), x = BigInt(toks(o)[0] ?? '-1')
+    let prod = 1n
+    for (let k = 1; k + 1 < d.length; k += 2) { prod *= d[k]; if (x % d[k] !== d[k + 1]) return `${x} mod ${d[k]} is not ${d[k + 1]}` }
+    return x >= 0n && x < prod ? true : 'not the smallest non-negative solution'
+  } },
+  'binomial-mod': { max: 60, check(i, o) {
+    const d = nums(i), p = BigInt(d[1]), f = (n: number) => { let r = 1n; for (let x = 2n; x <= BigInt(n); x++) r *= x; return r }, res: bigint[] = []
+    for (let k = 2; k + 1 < d.length; k += 2) res.push(d[k + 1] > d[k] ? 0n : (f(d[k]) / f(d[k + 1]) / f(d[k] - d[k + 1])) % p)
+    return same(res, o)
+  } },
+  'incl-excl': { max: 6, check(i, o) {
+    const [n, , ...ps] = nums(i)
+    let c = 0
+    for (let x = 1; x <= n; x++) if (ps.some(p => x % p === 0)) c++
+    return same(c, o)
+  } },
+  'matrix-power': { max: 16, check(i, o) {
+    const n = nums(i)[0]
+    let a = 0, b = 1
+    for (let k = 0; k < n; k++) [a, b] = [b, (a + b) % 1000000007]
+    return same(a, o)
+  } },
+  'hash-table': { check(i, o) {
+    const d = nums(i), set = new Set<number>(), res: string[] = []
+    for (let p = 2; p + 1 < d.length; p += 2) if (d[p] === 1) set.add(d[p + 1]); else res.push(set.has(d[p + 1]) ? 'Y' : 'N')
+    return same(res, o)
+  } },
+  'string-hash': { check(i, o) {
+    const [s, , ...qs] = toks(i), res: string[] = []
+    for (let p = 0; p + 3 < qs.length; p += 4) { const [a, b, c, d] = qs.slice(p, p + 4).map(Number); res.push(s.slice(a - 1, b) === s.slice(c - 1, d) ? 'Y' : 'N') }
+    return same(res, o)
+  } },
   'euler-path': { max: 60, check(i, o) {
     const d = nums(i), n = d[0], m = d[1], es: [number, number][] = []
     for (let k = 0; k < m; k++) es.push([d[2 + 2 * k], d[3 + 2 * k]])

@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parseCode } from '../src/components/Code'
-import { Rng, Tracer } from '../src/engine/types'
+import { brokenCode, Rng, Tracer } from '../src/engine/types'
 import { LESSONS } from '../src/lessons/all'
 
 const GXX = process.env.GXX
@@ -51,6 +51,21 @@ describe.skipIf(!GXX).concurrent('C++ listings', () => {
       const r = await exec(exe, [], input)
       expect(r.code, `exit code on\n${input.slice(0, 300)}`).toBe(0)
       expect(sameOutput(r.stdout, t.output), `input:\n${input.slice(0, 400)}\nC++:\n${r.stdout.slice(0, 300)}\nanimation:\n${t.output.slice(0, 300)}`).toBe(true)
+    }
+    if (lesson.broken) {
+      // The broken listing must compile cleanly too and behave exactly like the broken animation: its mistake is not undefined behaviour.
+      const bsrc = join(dir, id + '.broken.cpp'), bexe = join(dir, id + '.broken.exe')
+      writeFileSync(bsrc, parseCode(brokenCode(lesson)).lines.join('\n') + '\n')
+      const bc = await exec(GXX!, ['-std=c++17', '-O2', '-Wall', '-Wextra', ...STACK, '-o', bexe, bsrc])
+      expect(bc.code, bc.stderr).toBe(0)
+      expect(warnings(bc.stderr), 'compiler warnings (broken version)').toBe('')
+      for (const n of lesson.sizes) for (let seed = 1; seed <= 12; seed++) {
+        const input = lesson.gen(n, new Rng(seed)), t = new Tracer(false)
+        lesson.run(input, t, true)
+        const r = await exec(bexe, [], input)
+        expect(r.code, `broken version exit code, n=${n} seed=${seed}`).toBe(0)
+        expect(sameOutput(r.stdout, t.output), `broken version differs, n=${n} seed=${seed}\ninput:\n${input}\nC++:\n${r.stdout.slice(0, 300)}\nanimation:\n${t.output.slice(0, 300)}`).toBe(true)
+      }
     }
     if (!lesson.first) return
     // The first version's listing must compile too and agree with the lesson on every size it is allowed to run.

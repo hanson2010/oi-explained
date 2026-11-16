@@ -39,16 +39,20 @@ int main() {
   input: ['n, then n integers. Prints the length of the longest strictly increasing subsequence.', 'n，随后 n 个整数。输出最长严格上升子序列的长度。'],
   sizes: [6, 8, 10], lab: [10, 100, 1000, 3000],
   gen: (n, r) => `${n}\n${r.ints(n, 1, n <= 40 ? 20 : 1000000).join(' ')}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'if (a[j] < a[i])', to: 'if (a[j] <= a[i])',
+    why: ['With `<=` an element may follow an __equal__ one, so the program finds the longest non-decreasing subsequence. For 3 3 3 it answers 3, but a strictly increasing subsequence cannot contain the same value twice: the answer is 1. The two problems differ by a single character, and the statement decides which one is asked.', '用 `<=` 的话，一个元素可以接在与它__相等__的元素后面，于是程序求出的是最长不下降子序列。对 3 3 3 它回答 3，但严格上升的子序列里不能有两个相同的值：正确答案是 1。这两个问题只差一个字符，到底求哪一个要看题目怎么说。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), a = rd.ints(n), f = new Array<number>(n).fill(0), from = new Array<number>(n).fill(-1)
     let ans = 0, best = -1
     for (let i = 0; i < n; i++) {
       f[i] = 1
       t.s('init', () => [[`f[${i}] starts at 1: ${a[i]} on its own.`, `f[${i}] 初值为 1：只有 ${a[i]} 自己。`], arr('a', a, tn({ dim: span(i + 1, n - 1), act: i }), { i }), arr('f', f, tn({ dim: span(i + 1, n - 1), act: i }))])
       for (let j = 0; j < i; j++) {
-        const ok = a[j] < a[i], better = ok && f[j] + 1 > f[i]
+        const ok = bug ? a[j] <= a[i] : a[j] < a[i], lt = bug ? '≤' : '<', ge = bug ? '>' : '≥', better = ok && f[j] + 1 > f[i]
         if (better) { f[i] = f[j] + 1; from[i] = j }
-        t.s('try', () => [[ok ? `a[${j}] = ${a[j]} < ${a[i]}: can extend, f[${j}] + 1 = ${f[j] + 1}${better ? ' — new best.' : ', no improvement.'}` : `a[${j}] = ${a[j]} ≥ ${a[i]}: cannot come before ${a[i]}.`, ok ? `a[${j}] = ${a[j]} < ${a[i]}：可以接上，f[${j}] + 1 = ${f[j] + 1}${better ? '——更优。' : '，没有更优。'}` : `a[${j}] = ${a[j]} ≥ ${a[i]}：不能排在 ${a[i]} 前面。`],
+        t.s('try', () => [[ok ? `a[${j}] = ${a[j]} ${lt} ${a[i]}: can extend, f[${j}] + 1 = ${f[j] + 1}${better ? ' — new best.' : ', no improvement.'}` : `a[${j}] = ${a[j]} ${ge} ${a[i]}: cannot come before ${a[i]}.`, ok ? `a[${j}] = ${a[j]} ${lt} ${a[i]}：可以接上，f[${j}] + 1 = ${f[j] + 1}${better ? '——更优。' : '，没有更优。'}` : `a[${j}] = ${a[j]} ${ge} ${a[i]}：不能排在 ${a[i]} 前面。`],
           arr('a', a, tn({ dim: span(i + 1, n - 1), act: i, [ok ? 'cmp' : 'bad']: j }), { i, j }), arr('f', f, tn({ dim: span(i + 1, n - 1), act: i, cmp: j }))])
       }
       if (f[i] > ans) { ans = f[i]; best = i }
@@ -57,7 +61,7 @@ int main() {
     t.s('done', () => {
       const path: number[] = []
       for (let x = best; x >= 0; x = from[x]) path.push(x)
-      return [[`Answer ${ans}, e.g. ${path.reverse().map(x => a[x]).join(' < ')}.`, `答案为 ${ans}，例如 ${path.map(x => a[x]).join(' < ')}。`], arr('a', a, tn({ ok: path })), arr('f', f, tn({ ok: path })), vars({ answer: ans })]
+      return [[`Answer ${ans}, e.g. ${path.reverse().map(x => a[x]).join(bug ? ' ≤ ' : ' < ')}.`, `答案为 ${ans}，例如 ${path.map(x => a[x]).join(bug ? ' ≤ ' : ' < ')}。`], arr('a', a, tn({ ok: path })), arr('f', f, tn({ ok: path })), vars({ answer: ans })]
     })
     t.out(ans)
   },
@@ -96,19 +100,23 @@ int main() {
   input: ['n W, then n lines "w v": weight and value. Prints the maximum total value with total weight ≤ W.', 'n W，随后 n 行 “w v”：重量和价值。输出总重量不超过 W 时的最大总价值。'],
   sizes: [3, 4, 5], lab: [10, 100, 1000, 3000],
   gen: (n, r) => { const W = n <= 30 ? 2 * n + 2 : n; return `${n} ${W}\n` + span(1, n).map(() => `${r.int(1, Math.max(1, Math.min(W, n <= 30 ? 5 : 50)))} ${r.int(1, 9)}`).join('\n') + '\n' },
-  run(inp, t) {
+  broken: {
+    from: 'for (int j = W; j >= w; j--)', to: 'for (int j = w; j <= W; j++)',
+    why: ['Sweeping j upward, `f[j - w]` has __already been updated for this same item__ when it is read. So the item can be added on top of itself, again and again: this is the unbounded knapsack, where every item may be used any number of times. Sweeping downward reads `f[j - w]` before this round touches it — the value from the previous items only — and that is what keeps each item to one use.', '让 j 从小到大循环时，读到的 `f[j - w]` __已经被同一件物品更新过__。于是这件物品可以叠加在它自己上面，一次又一次：这变成了完全背包，每件物品可以用任意多次。从大到小循环时，读到的 `f[j - w]` 还没有被这一轮改动——它只包含前面的物品——这正是保证每件物品只用一次的原因。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), W = rd.int(), f = new Array<number>(W + 1).fill(0)
     need(n >= 0 && W >= 0 && W <= 2e6, 'W must be between 0 and 2,000,000.', 'W 须在 0 到 2,000,000 之间。')
     for (let i = 1; i <= n; i++) {
       const w = rd.int(), v = rd.int()
       need(w >= 1, 'Weights must be positive.', '重量必须为正。')
       t.s('item', () => [[`Item ${i}: weight ${w}, value ${v}.`, `第 ${i} 件物品：重量 ${w}，价值 ${v}。`], arr('f[j] (j = capacity)', f), vars({ item: i, w, v })])
-      for (let j = W; j >= w; j--) {
+      for (let j = bug ? w : W; bug ? j <= W : j >= w; j += bug ? 1 : -1) {
         const take = f[j - w] + v, old = f[j], better = take > old
-        if (j === W && take !== old) t.ask(() => [[`Item ${i} at capacity ${j}: f[${j}] = ${old}, f[${j - w}] = ${f[j - w]}, value ${v}. What is f[${j}] afterwards?`, `第 ${i} 件物品，容量 ${j}：f[${j}] = ${old}，f[${j - w}] = ${f[j - w]}，价值 ${v}。之后 f[${j}] 是多少？`], [[String(Math.min(old, take)), String(Math.min(old, take))], [String(Math.max(old, take)), String(Math.max(old, take))]], 1])
+        if (!bug && j === W && take !== old) t.ask(() => [[`Item ${i} at capacity ${j}: f[${j}] = ${old}, f[${j - w}] = ${f[j - w]}, value ${v}. What is f[${j}] afterwards?`, `第 ${i} 件物品，容量 ${j}：f[${j}] = ${old}，f[${j - w}] = ${f[j - w]}，价值 ${v}。之后 f[${j}] 是多少？`], [[String(Math.min(old, take)), String(Math.min(old, take))], [String(Math.max(old, take)), String(Math.max(old, take))]], 1])
         if (better) f[j] = take
         t.s('try', () => [[`j = ${j}: skip → ${old}; take → f[${j - w}] + ${v} = ${take}. ${better ? 'Take it.' : 'Keep ' + old + '.'}`, `j = ${j}：不选 → ${old}；选 → f[${j - w}] + ${v} = ${take}。${better ? '选它。' : '保持 ' + old + '。'}`],
-          arr('f[j] (j = capacity)', f, tn({ ok: span(j + 1, W), cmp: j - w, [better ? 'act' : 'vis']: j }), { j, 'j-w': j - w }), vars({ item: i, w, v })])
+          arr('f[j] (j = capacity)', f, tn({ ok: bug ? span(w, j - 1) : span(j + 1, W), cmp: j - w, [better ? 'act' : 'vis']: j }), { j, 'j-w': j - w }), vars({ item: i, w, v })])
       }
     }
     t.s('done', () => [[`Best value with capacity ${W}: ${f[W]}.`, `容量为 ${W} 时的最大价值：${f[W]}。`], arr('f[j] (j = capacity)', f, tn({ ok: W })), vars({ answer: f[W] })])

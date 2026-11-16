@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { parseCode } from '../src/components/Code'
+import { bugLine, failingInput } from '../src/components/Fix'
 import { lessonsOf, SYLLABUS } from '../src/data/syllabus'
-import { Rng, Tracer } from '../src/engine/types'
+import { brokenCode, Rng, Tracer } from '../src/engine/types'
 import { BY_ID, LESSONS, metaOf } from '../src/lessons/all'
 import { META } from '../src/lessons/meta'
 import { ORACLES } from './oracles'
@@ -128,6 +129,27 @@ describe.each(LESSONS.map(l => [l.id, l] as const))('%s', (id, lesson) => {
     }
   })
 
+  it.skipIf(!lesson.broken)('has a broken version with one wrong line that gives wrong answers and always stops', () => {
+    const b = lesson.broken!, code = brokenCode(lesson)
+    expect(lesson.code.split(b.from).length, '`from` occurs exactly once').toBe(2)
+    const good = lesson.code.split('\n'), bad = code.split('\n')
+    expect(bad.length).toBe(good.length)
+    expect(good.filter((ln, k) => ln !== bad[k]).length, 'exactly one line differs').toBe(1)
+    expect(parseCode(code).tags).toEqual(tags)
+    expect(b.why[0] && b.why[1]).toBeTruthy()
+    let wrong = 0
+    for (const n of lesson.sizes) for (let seed = 1; seed <= 50; seed++) {
+      const input = lesson.gen(n, new Rng(seed)), t = new Tracer(true, 20000)
+      lesson.run(input, t, true) // throws if it runs away
+      expect([...new Set(t.steps.map(s => s.tag))].filter(tag => !(tag in tags)), 'unknown step tags').toEqual([])
+      for (const s of t.steps) { expect(s.msg[0] && s.msg[1]).toBeTruthy(); expect(s.ask, 'no questions in the broken version').toBeUndefined() }
+      if (n === lesson.sizes[0] && t.output !== run(id, input, false).output) wrong++
+    }
+    expect(wrong, 'seeds 1–50 at the smallest size on which the output is wrong').toBeGreaterThan(0)
+    expect(failingInput(lesson)).toBeTruthy()
+    expect(bugLine(lesson)).toBeGreaterThanOrEqual(0)
+  })
+
   const oracle = ORACLES[id]
   it.skipIf(!oracle)('matches an independent reference solution', () => {
     const ns = [...lesson.sizes, 1, 2, 3, 5, 30, 60].filter(n => n >= (oracle!.min ?? 1) && n <= (oracle!.max ?? 1e9))
@@ -144,6 +166,10 @@ it('has "predict the next step" questions in the lessons chosen for them', () =>
   const QUIZ = ['binary-search', 'prefix-sum', 'knapsack', 'kruskal', 'dijkstra', 'kmp', 'dsu', 'monotonic-queue', 'bfs-maze', 'merge-sort']
   const none = QUIZ.filter(id => { const l = BY_ID.get(id)!; return [1, 2, 3].every(seed => !run(id, l.gen(l.sizes[1], new Rng(seed)), true).steps.some(s => s.ask)) })
   expect(none).toEqual([])
+})
+
+it('has a broken version in the lessons chosen for one', () => {
+  expect(LESSONS.filter(l => l.broken).map(l => l.id).sort()).toEqual(['binary-search', 'dsu', 'knapsack', 'lis', 'prefix-sum'])
 })
 
 it('every lesson has an oracle', () => {
