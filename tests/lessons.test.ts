@@ -57,13 +57,15 @@ describe.each(LESSONS.map(l => [l.id, l] as const))('%s', (id, lesson) => {
     }
   })
 
-  it.skipIf(!lesson.story)('has a complete story and a flowchart that matches the animation', () => {
+  it('has a complete story and a flowchart that matches the animation', () => {
+    expect(lesson.story!.length).toBeGreaterThanOrEqual(4)
     for (const c of lesson.story!) { expect(c.body[0]).toBeTruthy(); expect(c.body[1]).toBeTruthy(); c.fig?.() }
     const ids = lesson.flow!.map(n => n.id)
     expect(new Set(ids).size).toBe(ids.length)
     for (const n of lesson.flow!) for (const to of [n.next, n.yes, n.no]) if (to !== undefined) expect(ids, `flow target ${to}`).toContain(to)
     // Every flow trigger is a real code tag, and every step of the animation lights up some node.
     const triggers = lesson.flow!.flatMap(n => n.on ?? [n.id])
+    expect(Object.keys(tags).filter(tag => !triggers.includes(tag)), 'tagged lines without a flow node').toEqual([])
     expect(lesson.flow!.flatMap(n => n.on ?? []).filter(tag => !(tag in tags)), 'unknown tags in "on"').toEqual([])
     const used = new Set(run(id, lesson.gen(lesson.sizes[1], new Rng(3)), true).steps.map(s => s.tag))
     expect([...used].filter(tag => !triggers.includes(tag)), 'steps without a flow node').toEqual([])

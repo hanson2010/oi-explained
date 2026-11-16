@@ -4,7 +4,7 @@ import { arr, grid, Heap, need, reader, tn, vars } from '../engine/h'
 const cpp = String.raw
 const DX = [-1, 0, 1, 0], DY = [0, 1, 0, -1]
 
-function readGrid(inp: string) {
+export function readGrid(inp: string) {
   const rd = reader(inp), n = rd.int(), m = rd.int()
   need(n >= 1 && m >= 1, 'The grid needs at least one row and one column.', '网格至少要有一行一列。')
   const g: string[] = []

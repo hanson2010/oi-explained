@@ -5,12 +5,14 @@ A web app for learners of competitive programming (OI). It covers 69 algorithms 
 Each lesson has five tabs:
 
 1. **Problem** – the task, a real-world example, the input format and a sample.
-2. **Ideas** – the reasoning as a sequence of steps, complexity and common pitfalls.
+2. **Ideas** – the reasoning as an illustrated sequence of steps, a flowchart, complexity and common pitfalls.
 3. **Code walkthrough** – a complete C++17 program with the explanations as comments (they can be hidden, and are included when copying).
 4. **Animation** – the algorithm running step by step on small test data, with the current code line highlighted. The data can be regenerated in three sizes or edited by hand.
 5. **Data lab** – runs the algorithm on generated data of increasing size, charts the amount of work, and downloads each test case as `.in` / `.out` files.
 
-Seven lessons (binary search, prefix sums, fast exponentiation, monotonic queue, KMP, sieve of Eratosthenes, 0/1 knapsack) additionally have illustrated ideas, a flowchart shown beside the code and followed by the animation, and an earlier version of the program to learn first: a brute-force one, or for the knapsack the 2-D table before it is reduced to one row. Both versions can be read and animated; the brute-force ones are also compared with the efficient method in the data lab.
+The flowchart is also shown beside the code and is followed by the animation.
+
+Fourteen lessons additionally have an earlier version of the program to learn first: the same method before one optimisation, such as the knapsack's 2-D table before it is reduced to one row, Dijkstra with an array scan before the heap, or a segment tree before lazy tags. Both versions can be read and animated, and most pairs are raced in the data lab. `specs/earlier-versions.md` lists them and the rule for choosing them.
 
 The Syllabus page lists every syllabus point with its difficulty coefficient and links the points that have a lesson. The Profile page tracks learned and starred lessons; it is stored in the browser's local storage only and can be exported and imported as JSON.
 
@@ -29,13 +31,15 @@ Open the address that is printed (http://localhost:5173 by default).
 
 ## Keyboard
 
+On any page: `/` or `Ctrl`+`K` opens the lesson search.
+
 In the Animation tab: `Space` plays or pauses, `←` / `→` step backward or forward.
 
 ## Tests
 
 `npm test` runs every lesson on generated data and compares its output with an independent brute-force solution.
 
-To also compile every C++ listing and compare its output with the animation, set `GXX` to a g++ executable:
+To also compile every C++ listing and compare its output with the animation, set `GXX` to a g++ executable (on Linux raise the stack limit first, `ulimit -s unlimited`, for the deeply recursive listings):
 
 ```
 GXX=/usr/bin/g++ npm test
@@ -43,7 +47,6 @@ GXX=/usr/bin/g++ npm test
 
 ## Planned
 
-- Illustrated ideas and a flowchart for the remaining 62 lessons.
 - Lessons for the syllabus points that have none yet.
 - Predict the next step: the animation pauses at a decision and asks what happens next.
 - A broken version to fix: a common pitfall as real code, animated until it goes wrong.

@@ -68,8 +68,8 @@ export interface FlowNode {
 }
 
 /**
- * The version of a lesson to learn first: a brute-force program, or the plain form of the
- * method before an optimisation (e.g. the 2-D table of a DP before it is rolled into one row).
+ * The version of a lesson to learn first: the same method before one optimisation
+ * (e.g. the 2-D table of a DP before it is rolled into one row).
  */
 export interface Variant {
   /** Short name, e.g. "Linear scan" or "2-D table". */
@@ -82,6 +82,8 @@ export interface Variant {
   notes: [tag: string, text: L][]
   /** Largest magnitude the data lab races it on. Leave out when both versions do the same amount of work. */
   maxN?: number
+  /** What the lesson's own version gains, for when the complexities of the two versions read the same. */
+  gain?: L
   run(inp: string, t: Tracer): void
 }
 

@@ -27,6 +27,9 @@ const exec = (file: string, args: string[], input?: string) =>
 // Deeply recursive listings need more than the default 1 MB stack of Windows executables.
 const STACK = process.platform === 'win32' ? ['-Wl,--stack,268435456'] : []
 
+/** Compiler output without the unused-scanf-result warnings, their source excerpts and the "In function" headers. */
+const warnings = (stderr: string) => stderr.split('\n').filter(l => !/ignoring return value|: In function |^\s*\d*\s*\|/.test(l)).join('\n').trim()
+
 const toks = (s: string) => s.split(/\s+/).filter(Boolean)
 /** Tokens must match; numbers with a decimal point may differ in the sign of zero. */
 const sameOutput = (a: string, b: string) => {
@@ -40,7 +43,7 @@ describe.skipIf(!GXX).concurrent('C++ listings', () => {
     writeFileSync(src, parseCode(lesson.code).lines.join('\n') + '\n')
     const c = await exec(GXX!, ['-std=c++17', '-O2', '-Wall', '-Wextra', ...STACK, '-o', exe, src])
     expect(c.code, c.stderr).toBe(0)
-    expect(c.stderr.replace(/.*ignoring return value.*\n(.*\n){0,3}/g, '').trim(), 'compiler warnings').toBe('')
+    expect(warnings(c.stderr), 'compiler warnings').toBe('')
     const cases = [...lesson.sizes.flatMap(n => [1, 2, 3].map(seed => lesson.gen(n, new Rng(seed)))), lesson.gen(lesson.lab[1], new Rng(5)), lesson.gen(lesson.lab[lesson.lab.length - 1], new Rng(6))]
     for (const input of cases) {
       const t = new Tracer(false)
@@ -55,7 +58,7 @@ describe.skipIf(!GXX).concurrent('C++ listings', () => {
     writeFileSync(nsrc, parseCode(lesson.first.code).lines.join('\n') + '\n')
     const nc = await exec(GXX!, ['-std=c++17', '-O2', '-Wall', '-Wextra', '-o', nexe, nsrc])
     expect(nc.code, nc.stderr).toBe(0)
-    expect(nc.stderr.replace(/.*ignoring return value.*\n(.*\n){0,3}/g, '').trim(), 'compiler warnings (brute force)').toBe('')
+    expect(warnings(nc.stderr), 'compiler warnings (brute force)').toBe('')
     for (const n of [...lesson.sizes, ...lesson.lab.filter(x => x <= (lesson.first!.maxN ?? Infinity))]) {
       const input = lesson.gen(n, new Rng(9)), t = new Tracer(false)
       lesson.run(input, t)

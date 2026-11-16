@@ -1,15 +1,15 @@
-import { useState } from 'react'
 import { Diff } from '../components/bits'
 import { SYLLABUS, type Item } from '../data/syllabus'
 import type { Level } from '../engine/types'
 import { LEVELS } from '../i18n'
 import { BY_ID } from '../lessons'
-import { useApp } from '../store'
+import { replaceRoute, setQuery, useApp } from '../store'
 
-export function SyllabusPage() {
+/** The level is part of the address ("#/syllabus/S") and the filter a query parameter, so both survive Back and can be linked to. */
+export function SyllabusPage({ level: lvl, query }: { level?: string; query: URLSearchParams }) {
   const { ui, tr, p } = useApp()
-  const [level, setLevel] = useState<Level>('J')
-  const [only, setOnly] = useState(false)
+  const level: Level = SYLLABUS.some(l => l.id === lvl) ? (lvl as Level) : 'J', only = query.get('covered') === '1'
+  const setLevel = (x: Level) => replaceRoute('syllabus/' + x, query), setOnly = (x: boolean) => setQuery({ covered: x ? '1' : '' })
   const lv = SYLLABUS.find(l => l.id === level)!
   const zh = p.lang === 'zh'
   const count = (l: (typeof SYLLABUS)[number]) => {
@@ -40,7 +40,7 @@ export function SyllabusPage() {
         <div className="seg big">
           {SYLLABUS.map(l => {
             const c = count(l)
-            return <button key={l.id} className={(level === l.id ? 'on ' : '') + 'lv-' + l.id} onClick={() => setLevel(l.id)}>{l.no} {tr(LEVELS[l.id].name)} <small>{c.cov}/{c.all} {ui('covered')}</small></button>
+            return <button key={l.id} className={(level === l.id ? 'on ' : '') + 'lv-' + l.id} aria-pressed={level === l.id} onClick={() => setLevel(l.id)}>{l.no} {tr(LEVELS[l.id].name)} <small>{c.cov}/{c.all} {ui('covered')}</small></button>
           })}
         </div>
         <label className="check"><input type="checkbox" checked={only} onChange={e => setOnly(e.target.checked)} /> {ui('sylOnly')}</label>

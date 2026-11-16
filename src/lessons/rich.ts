@@ -1,5 +1,15 @@
-import type { Card, FlowNode, L, Variant } from '../engine/types'
+import type { Card, FlowNode, L, Tones, Variant } from '../engine/types'
 import { arr, grid, gt, need, reader, span, tn, vars } from '../engine/h'
+import { FIRST } from './first'
+import { BASIC } from './stories/basic'
+import { DP } from './stories/dp'
+import { DS } from './stories/ds'
+import { GRAPH1 } from './stories/graph1'
+import { GRAPH2 } from './stories/graph2'
+import { MATH } from './stories/math'
+import { SEARCH } from './stories/search'
+import { SORT } from './stories/sort'
+import { STRING } from './stories/string'
 
 const cpp = String.raw
 
@@ -7,12 +17,13 @@ const cpp = String.raw
  * Hand-written extras for a lesson:
  * - story: the Ideas tab as an illustrated sequence (starting point → insight → method → payoff);
  * - flow:  a flowchart whose nodes light up during the animation;
- * - first: the version to learn first — brute force, or the method before an optimisation —
- *          to read, animate and compare with the lesson's own version (named by `label`).
+ * - first: the version to learn first — the same method before an optimisation (not an unrelated brute force) —
+ *          to read, animate and compare with the lesson's own version (named by `label`). See specs/earlier-versions.md.
  */
 export interface Extras { story?: Card[]; flow?: FlowNode[]; first?: Variant; label?: L }
 
-export const RICH: Record<string, Extras> = {
+/** The first lessons written; two of them also have a version to learn first. The stories and flowcharts of all the others are in ./stories. */
+const FULL: Record<string, Extras> = {
   'binary-search': {
     story: [
       { kind: 'naive', title: ['Start simple: check them one by one', '先从最简单的做起：一个一个看'],
@@ -37,37 +48,6 @@ export const RICH: Record<string, Extras> = {
       { id: 'right', text: ['l = mid + 1   (drop mid)', 'l = mid + 1（丢掉 mid）'], next: 'loop' },
       { id: 'done', kind: 'end', text: ['answer = l', '答案 = l'] },
     ],
-    label: ['Binary search', '二分查找'],
-    first: {
-      label: ['Linear scan', '顺序查找'],
-      blurb: ['Compare the elements one by one from the left. Correct on any array — but it never uses the fact that this one is sorted, so it may have to look at all n elements.', '从左到右逐个比较。对任何数组都正确——但它完全没有利用“有序”这个条件，最坏要看遍全部 n 个元素。'],
-      time: 'O(n)', space: 'O(1)', maxN: 1000000,
-      code: cpp`#include <bits/stdc++.h>
-using namespace std;
-
-int n, x, a[1000005];
-
-int main() {
-    scanf("%d%d", &n, &x);
-    for (int i = 0; i < n; i++) scanf("%d", &a[i]);
-    int i = 0;
-    while (i < n && a[i] < x) i++;  //@scan
-    printf("%d\n", i + 1);  //@done
-}`,
-      notes: [
-        ['scan', ['Every element before the answer is compared once. Nothing here uses the fact that the array is sorted.', '答案之前的每个元素都要比较一次。这里完全没有用到“数组有序”这个条件。']],
-      ],
-      run(inp, t) {
-        const rd = reader(inp), n = rd.int(), x = rd.int(), a = rd.ints(n)
-        let i = 0
-        while (i < n && a[i] < x) {
-          t.s('scan', () => [[`a[${i}] = ${a[i]} < ${x}: not yet, move on.`, `a[${i}] = ${a[i]} < ${x}：还不是，继续。`], arr('a', a, tn({ dim: span(0, i - 1), cmp: i }), { i }), vars({ x, comparisons: i + 1 })])
-          i++
-        }
-        t.s('done', () => [i < n ? [`a[${i}] = ${a[i]} ≥ ${x}: found after ${i + 1} comparison(s).`, `a[${i}] = ${a[i]} ≥ ${x}：比较了 ${i + 1} 次后找到。`] : [`Reached the end after ${n} comparisons: no element is ≥ ${x}.`, `比较了 ${n} 次走到末尾：不存在 ≥ ${x} 的元素。`], arr('a', a, i < n ? tn({ dim: span(0, i - 1), ok: i }) : tn({ dim: span(0, n - 1) })), vars({ x, answer: i + 1 })])
-        t.out(i + 1)
-      },
-    },
   },
 
   'prefix-sum': {
@@ -96,46 +76,6 @@ int main() {
       { id: 'query', text: ['print s[r] − s[l−1]', '输出 s[r] − s[l−1]'], next: 'more' },
       { id: 'end', kind: 'end', text: ['done', '结束'] },
     ],
-    label: ['Prefix sums', '前缀和'],
-    first: {
-      label: ['Add up every query', '每次询问都累加'],
-      blurb: ['Answer each query with its own loop from l to r. Overlapping queries add the same numbers again and again.', '每个询问都从 l 到 r 循环累加一遍。询问区间互相重叠时，同样的数被一遍又一遍地加。'],
-      time: 'O(n · q)', space: 'O(n)', maxN: 5000,
-      code: cpp`#include <bits/stdc++.h>
-using namespace std;
-
-int n, q, a[1000005];
-
-int main() {
-    scanf("%d%d", &n, &q);
-    for (int i = 1; i <= n; i++) scanf("%d", &a[i]);
-    while (q--) {
-        int l, r; scanf("%d%d", &l, &r);
-        long long s = 0;
-        for (int i = l; i <= r; i++) s += a[i];  //@add
-        printf("%lld\n", s);  //@query
-    }
-}`,
-      notes: [
-        ['add', ['The inner loop is the problem: its length depends on the query, up to n.', '问题就出在这个内层循环：它的长度取决于询问，最长可达 n。']],
-      ],
-      run(inp, t) {
-        const rd = reader(inp), n = rd.int(), q = rd.int(), a = [0, ...rd.ints(n)], out: number[] = []
-        for (let k = 0; k < q; k++) {
-          const l = rd.int(), r = rd.int()
-          need(1 <= l && l <= r && r <= n, 'Queries need 1 ≤ l ≤ r ≤ n.', '查询须满足 1 ≤ l ≤ r ≤ n。')
-          let s = 0
-          for (let i = l; i <= r; i++) {
-            s += a[i]
-            const ss = s
-            t.s('add', () => [[`Query (${l}, ${r}): add a[${i}] = ${a[i]}, running sum ${ss}.`, `询问 (${l}, ${r})：加上 a[${i}] = ${a[i]}，当前和为 ${ss}。`], arr('a', a, tn({ dim: 0, vis: span(l, i - 1), act: i }), { l, r }), vars({ s: ss })])
-          }
-          out.push(s)
-          t.s('query', () => [[`sum(${l}..${r}) = ${s} after ${r - l + 1} addition(s).`, `sum(${l}..${r}) = ${s}，做了 ${r - l + 1} 次加法。`], arr('a', a, tn({ dim: 0, ok: span(l, r) })), vars({ sum: s })])
-        }
-        t.out(out.join('\n'))
-      },
-    },
   },
 
   'fast-pow': {
@@ -146,7 +86,10 @@ int main() {
       { kind: 'insight', title: ['Squaring doubles the exponent', '平方一次，指数翻倍'],
         body: ['From a you get a², then a⁴, a⁸, a¹⁶ … Each squaring ==doubles how far you have come==. After only **60 squarings** the exponent is already above 10¹⁸.', '从 a 得到 a²，再得到 a⁴、a⁸、a¹⁶……每平方一次，==走过的路程就翻一倍==。只要 **60 次平方**，指数就超过 10¹⁸ 了。'],
         fig: () => [arr('squaring: every step doubles the exponent', ['a¹', 'a²', 'a⁴', 'a⁸', 'a¹⁶', 'a³²', '…'], tn({ ok: span(0, 5), dim: 6 }))] },
-      { kind: 'how', title: ['The binary digits of b say which squares to use', 'b 的二进制位决定用哪些平方项'],
+      { kind: 'how', title: ['First as a recursion: halve the exponent', '先写成递归：把指数折半'],
+        body: ['`aᵇ = (a^(b/2))²`, times one more a when b is odd. A function that calls itself with b / 2 reaches 0 after about log₂ b levels — already fast. Its only cost is the ==stack of pending calls==, one per level.', '`aᵇ = (a^(b/2))²`，b 为奇数时再多乘一个 a。函数用 b / 2 调用自己，大约 log₂ b 层之后就到 0——这已经很快了。它唯一的代价是==一层层尚未返回的调用所占的栈==，每层一个。'],
+        fig: () => [arr('a¹³: the exponents on the way down — and each level squares on the way back', [13, 6, 3, 1, 0], tn({ act: 0, cmp: span(1, 3), dim: 4 }))] },
+      { kind: 'how', title: ['Then without the stack: the binary digits of b say which squares to use', '再去掉栈：b 的二进制位决定用哪些平方项'],
         body: ['Every number is a sum of powers of two. 13 = 8 + 4 + 1 = `1101₂`, so ==a¹³ = a⁸ · a⁴ · a¹==. Walk the bits of b from the lowest: __if the bit is 1, multiply the current square into the answer__; then square again for the next bit.', '任何数都是若干 2 的幂之和。13 = 8 + 4 + 1 = `1101₂`，所以 ==a¹³ = a⁸ · a⁴ · a¹==。从最低位开始扫描 b 的每一位：__这一位是 1，就把当前的平方项乘进答案__；然后再平方，为下一位做准备。'],
         fig: () => [grid('b = 13', [[1, 1, 0, 1], ['a⁸', 'a⁴', 'a²', 'a¹'], ['✓', '✓', '', '✓']], gt({ ok: [[0, 0], [0, 1], [0, 3], [1, 0], [1, 1], [1, 3]], dim: [[0, 2], [1, 2]] }), { rows: ['bit', 'square', 'use it?'], cols: ['8', '4', '2', '1'] })] },
       { kind: 'result', title: ['One step per bit — and take the remainder as you go', '每个二进制位一步——并且边乘边取模'],
@@ -160,42 +103,6 @@ int main() {
       { id: 'sq', text: ['a = a × a mod m;  b = b / 2', 'a = a × a mod m；b = b / 2'], next: 'loop' },
       { id: 'done', kind: 'end', text: ['answer = res', '答案 = res'] },
     ],
-    label: ['Repeated squaring', '反复平方'],
-    first: {
-      label: ['Multiply b times', '乘 b 次'],
-      blurb: ['Follow the definition: multiply by a, b times over. Fine for small b, hopeless when b is around 10¹⁸.', '按定义来：把 a 连乘 b 次。b 很小时没问题，b 达到 10¹⁸ 量级时就完全算不完了。'],
-      time: 'O(b)', space: 'O(1)', maxN: 20,
-      code: cpp`#include <bits/stdc++.h>
-using namespace std;
-
-int main() {
-    long long a, b, m;
-    scanf("%lld%lld%lld", &a, &b, &m);
-    long long res = 1 % m;
-    a %= m;
-    for (long long i = 0; i < b; i++)
-        res = res * a % m;  //@mul
-    printf("%lld\n", res);  //@done
-}`,
-      notes: [
-        ['mul', ['Executed b times. Doubling the number of bits of b squares the running time.', '执行 b 次。b 的二进制位数翻一倍，运行时间就要平方。']],
-      ],
-      run(inp, t) {
-        const tk = inp.split(/\s+/).filter(Boolean)
-        need(tk.length >= 3 && tk.slice(0, 3).every(s => /^\d+$/.test(s)), 'Expected three non-negative integers.', '需要三个非负整数。')
-        const m = BigInt(tk[2]), b = BigInt(tk[1])
-        need(m > 0n, 'm must be positive.', 'm 必须为正。')
-        const a = BigInt(tk[0]) % m
-        let res = 1n % m
-        for (let i = 0n; i < b; i++) {
-          const old = res
-          res = (res * a) % m
-          t.s('mul', () => [[`Multiplication ${i + 1n} of ${b}: ${old} × ${a} mod ${m} = ${res}.`, `第 ${i + 1n} 次乘法（共 ${b} 次）：${old} × ${a} mod ${m} = ${res}。`], vars({ a: String(a), exponent: String(i + 1n), res: String(res) })])
-        }
-        t.s('done', () => [[`Done after ${b} multiplication(s): ${res}.`, `做了 ${b} 次乘法后结束：${res}。`], vars({ answer: String(res) })])
-        t.out(res)
-      },
-    },
   },
 
   'monotonic-queue': {
@@ -223,52 +130,13 @@ int main() {
       { id: 'out', text: ['output a[front]', '输出 a[队首]'], next: 'next' },
       { id: 'end', kind: 'end', text: ['done', '结束'] },
     ],
-    label: ['Monotonic queue', '单调队列'],
-    first: {
-      label: ['Rescan every window', '每个窗口重新扫描'],
-      blurb: ['Find the maximum of each window with a fresh loop over its k elements. Neighbouring windows share k − 1 elements, and all that work is thrown away.', '每个窗口都重新循环 k 个元素求最大值。相邻窗口有 k − 1 个元素是相同的，这些工作全都白做了。'],
-      time: 'O(n · k)', space: 'O(1)', maxN: 10000,
-      code: cpp`#include <bits/stdc++.h>
-using namespace std;
-
-int n, k, a[1000005];
-
-int main() {
-    scanf("%d%d", &n, &k);
-    for (int i = 0; i < n; i++) scanf("%d", &a[i]);
-    for (int i = k - 1; i < n; i++) {
-        int mx = a[i - k + 1];
-        for (int j = i - k + 2; j <= i; j++) mx = max(mx, a[j]);  //@scan
-        printf("%d ", mx);  //@out
-    }
-}`,
-      notes: [
-        ['scan', ['k − 1 comparisons for every window, although only one element changed since the last one.', '每个窗口都要比较 k − 1 次，尽管与上一个窗口相比只变了一个元素。']],
-      ],
-      run(inp, t) {
-        const rd = reader(inp), n = rd.int(), k = rd.int(), a = rd.ints(n), out: number[] = []
-        need(k >= 1 && k <= n, 'k must satisfy 1 ≤ k ≤ n.', 'k 须满足 1 ≤ k ≤ n。')
-        for (let i = k - 1; i < n; i++) {
-          let mx = a[i - k + 1], at = i - k + 1
-          for (let j = i - k + 2; j <= i; j++) {
-            if (a[j] > mx) { mx = a[j]; at = j }
-            const m = mx, p = at
-            t.s('scan', () => [[`Window [${i - k + 1}, ${i}]: look at a[${j}] = ${a[j]}; largest so far ${m}.`, `窗口 [${i - k + 1}, ${i}]：查看 a[${j}] = ${a[j]}；目前最大值为 ${m}。`], arr('a', a, tn({ dim: [...span(0, i - k), ...span(i + 1, n - 1)], cmp: j, ok: p }), { j }, { bars: true }), arr('output', out.length ? out : ['—'])])
-          }
-          out.push(mx)
-          const p = at
-          t.s('out', () => [[`Window [${i - k + 1}, ${i}]: the maximum is ${mx}.`, `窗口 [${i - k + 1}, ${i}]：最大值是 ${mx}。`], arr('a', a, tn({ dim: [...span(0, i - k), ...span(i + 1, n - 1)], ok: p }), undefined, { bars: true }), arr('output', out)])
-        }
-        t.out(out.join(' '))
-      },
-    },
   },
 
   kmp: {
     story: [
-      { kind: 'naive', title: ['Start simple: slide by one and start over', '先从最简单的做起：移动一位，从头再比'],
-        body: ['Line the pattern up at each position and compare character by character. After a mismatch, shift the pattern __one step__ and compare **from its first character again** — re-reading text you have already seen. On inputs like `aaaa…ab` that is n × m comparisons.', '把模式串对准每个位置，逐个字符比较。一旦失配，就把模式串向右移动__一位__，然后**又从它的第一个字符开始比较**——重新读一遍已经看过的文本。遇到 `aaaa…ab` 这样的数据，就要比较 n × m 次。'],
-        fig: () => [arr('text', [...'aaaaaab'], tn({ ok: span(0, 2), bad: 3 })), arr('pattern "aaab": three matches, then a mismatch — and all three will be compared again', ['a', 'a', 'a', 'b', '', '', ''], tn({ ok: span(0, 2), bad: 3 }), undefined, { base: -1 })] },
+      { kind: 'naive', title: ['Start simple: after a mismatch, go back and start over', '先从最简单的做起：失配后退回去，从头再比'],
+        body: ['Compare `s[i]` with `p[j]` and advance both while they agree. After a mismatch, move the text pointer __back__ to one position after where this attempt began and set j to 0 — re-reading text you have already seen. On inputs like `aaaa…ab` that is n × m comparisons.', '比较 `s[i]` 和 `p[j]`，相同就一起前进。一旦失配，就把文本指针__退回__到本次尝试起点的下一个位置，并把 j 置为 0——重新读一遍已经看过的文本。遇到 `aaaa…ab` 这样的数据，就要比较 n × m 次。'],
+        fig: () => [arr('text', [...'aaaaaab'], tn({ ok: span(0, 2), bad: 3 }), { 'new i': 1, i: 3 }), arr('pattern "aaab": three matches, then a mismatch — i goes back to 1 and all three are compared again', ['a', 'a', 'a', 'b', '', '', ''], tn({ ok: span(0, 2), bad: 3 }), { j: 3 }, { base: -1 })] },
       { kind: 'insight', title: ['You already know the text you just matched', '刚刚匹配过的那段文本，你其实已经知道了'],
         body: ['If the first j characters of the pattern matched, those j text characters ==are the pattern\'s own first j characters==. So everything needed to decide where the pattern could match next is __inside the pattern itself__ — the text does not have to be read again.', '如果模式串的前 j 个字符已经匹配，那么这 j 个文本字符==就是模式串自己的前 j 个字符==。所以判断模式串下一次可能在哪里匹配所需要的全部信息，都__在模式串内部__——根本不必重读文本。'],
         fig: () => [arr('text', [...'abababc'], tn({ ok: span(0, 3), bad: 4 }), { i: 4 }), arr('pattern "ababc": "abab" matched, so the text there is "abab" too', [...'ababc', '', ''], tn({ ok: span(0, 3), bad: 4 }), { j: 4 }, { base: -1 })] },
@@ -294,8 +162,8 @@ int main() {
     ],
     label: ['KMP', 'KMP'],
     first: {
-      label: ['Try every position', '逐个位置尝试'],
-      blurb: ['Line the pattern up at every position of the text and compare from its first character. After a mismatch everything just learned about the text is forgotten.', '把模式串对齐到文本的每个位置，从模式串的第一个字符开始比较。一旦失配，刚刚从文本中得到的信息就全部丢掉了。'],
+      label: ['Restart after a mismatch', '失配后从头再来'],
+      blurb: ['One loop with two pointers: i in the text, j in the pattern. Equal characters advance both. After a mismatch the text pointer __goes back__ to one position after where this attempt began, and j returns to 0 — everything just learned about the text is thrown away.', '一个循环，两个指针：i 指向文本，j 指向模式串。字符相同，两个指针一起前进。一旦失配，文本指针就__退回__到本次尝试起点的下一个位置，j 回到 0——刚刚从文本中得到的信息全部丢掉。'],
       time: 'O(n · m)', space: 'O(1)', maxN: 10000,
       code: cpp`#include <bits/stdc++.h>
 using namespace std;
@@ -305,33 +173,44 @@ char s[1000005], p[1000005];
 int main() {
     scanf("%s%s", s, p);
     int n = strlen(s), m = strlen(p);
-    for (int i = 0; i + m <= n; i++) {
-        int j = 0;
-        while (j < m && s[i + j] == p[j]) j++;  //@cmp
-        if (j == m) printf("%d ", i + 1);  //@found
+    int i = 0, j = 0;
+    while (i < n) {
+        if (s[i] == p[j]) {
+            i++; j++;  //@match
+            if (j == m) {
+                printf("%d ", i - m + 1);  //@found
+                i = i - j + 1; j = 0;
+            }
+        } else {
+            i = i - j + 1;  //@back
+            j = 0;
+        }
     }
 }`,
       notes: [
-        ['cmp', ['After a mismatch, j starts again from 0 at the next i: everything learned about the text is forgotten.', '失配之后，下一个 i 又让 j 从 0 开始：之前从文本中得到的信息全部丢掉了。']],
+        ['match', ['The same comparison as in KMP: s[i] against p[j].', '与 KMP 中完全相同的比较：s[i] 对 p[j]。']],
+        ['back', ['The line KMP replaces. i moves back by j − 1 characters that were already read; KMP keeps i where it is and sets j = nxt[j − 1] instead.', 'KMP 要替换的就是这一行。i 向后退了 j − 1 个已经读过的字符；KMP 则让 i 留在原地，只把 j 改为 nxt[j − 1]。']],
+        ['found', ['After a full match the search also restarts one position further.', '完整匹配之后，同样从下一个位置重新开始。']],
       ],
       run(inp, t) {
         const rd = reader(inp), s = rd.str(), p = rd.str(), n = s.length, m = p.length, out: number[] = [], S = s.split('')
-        let count = 0
-        const under = (i: number, tone: Record<number, 'ok' | 'bad'>) => { const v: string[] = new Array(Math.max(n, i + m)).fill(''); for (let k = 0; k < m; k++) v[i + k] = p[k]; return arr('p (aligned)', v, Object.fromEntries(Object.entries(tone).map(([k, x]) => [i + +k, x])), undefined, { base: -1 }) }
-        for (let i = 0; i + m <= n; i++) {
-          let j = 0
-          for (;;) {
-            if (j === m) break
-            const ok = s[i + j] === p[j], jj = j
-            count++
-            const c = count
-            t.s('cmp', () => [[`Start ${i}: s[${i + jj}] = '${s[i + jj]}' ${ok ? '=' : '≠'} p[${jj}] = '${p[jj]}'${ok ? '.' : ' — shift by one and start over.'}`, `起点 ${i}：s[${i + jj}] = '${s[i + jj]}' ${ok ? '=' : '≠'} p[${jj}] = '${p[jj]}'${ok ? '。' : '——右移一位，从头再比。'}`], arr('s', S, tn({ vis: span(i, i + jj - 1), [ok ? 'ok' : 'bad']: i + jj })), under(i, { ...Object.fromEntries(span(0, jj - 1).map(k => [k, 'ok' as const])), [jj]: ok ? 'ok' : 'bad' }), vars({ comparisons: c })])
-            if (!ok) break
-            j++
-          }
-          if (j === m) {
-            out.push(i + 1)
-            t.s('found', () => [[`Full match at position ${i + 1}.`, `在位置 ${i + 1} 完整匹配。`], arr('s', S, tn({ ok: span(i, i + m - 1) })), under(i, Object.fromEntries(span(0, m - 1).map(k => [k, 'ok' as const]))), arr('found at', out)])
+        let count = 0, i = 0, j = 0
+        // The pattern is drawn under the text, starting where the current attempt began.
+        const under = (st: number, tone: Tones) => { const v: string[] = new Array(Math.max(n, st + m)).fill(''); for (let k = 0; k < m; k++) v[st + k] = p[k]; return arr('p (aligned)', v, Object.fromEntries(Object.entries(tone).map(([k, x]) => [st + +k, x])), undefined, { base: -1 }) }
+        while (i < n) {
+          const st = i - j, ii = i, jj = j, c = ++count
+          if (s[i] === p[j]) {
+            i++; j++
+            t.s('match', () => [[`s[${ii}] = p[${jj}] = '${s[ii]}': both pointers advance.`, `s[${ii}] = p[${jj}] = '${s[ii]}'：两个指针一起前进。`], arr('s', S, tn({ vis: span(st, ii - 1), ok: ii }), { i: ii }), under(st, tn({ ok: span(0, jj) })), vars({ j: jj, comparisons: c })])
+            if (j === m) {
+              out.push(i - m + 1)
+              t.s('found', () => [[`Full match at position ${st + 1}. Restart at text position ${st + 1}.`, `在位置 ${st + 1} 完整匹配。从文本位置 ${st + 1} 重新开始。`], arr('s', S, tn({ ok: span(st, st + m - 1) })), under(st, tn({ ok: span(0, m - 1) })), arr('found at', out)])
+              i = i - j + 1; j = 0
+            }
+          } else {
+            i = i - j + 1; j = 0
+            const ni = i
+            t.s('back', () => [[`s[${ii}] = '${s[ii]}' ≠ p[${jj}] = '${p[jj]}': i goes back from ${ii} to ${ni}, j to 0.`, `s[${ii}] = '${s[ii]}' ≠ p[${jj}] = '${p[jj]}'：i 从 ${ii} 退回到 ${ni}，j 回到 0。`], arr('s', S, tn({ vis: span(st, ii - 1), bad: ii }), { i: ii, 'new i': ni }), under(st, tn({ ok: span(0, jj - 1), bad: jj })), vars({ j: jj, comparisons: c })])
           }
         }
         t.out(out.join(' '))
@@ -364,53 +243,6 @@ int main() {
       { id: 'inc', text: ['i++', 'i++'], next: 'loop', on: [] },
       { id: 'done', kind: 'end', text: ['print the count', '输出个数'] },
     ],
-    label: ['Sieve', '筛法'],
-    first: {
-      label: ['Trial division', '逐个试除'],
-      blurb: ['Test every number on its own by dividing it by 2, 3, … up to its square root. Each number starts from scratch; nothing is shared between them.', '对每个数单独判断：用 2、3、…… 一直试除到它的平方根。每个数都从头开始，彼此之间没有共享任何结果。'],
-      time: 'O(n · √n)', space: 'O(1)', maxN: 1000000,
-      code: cpp`#include <bits/stdc++.h>
-using namespace std;
-
-int main() {
-    int n, cnt = 0;
-    scanf("%d", &n);
-    for (int x = 2; x <= n; x++) {
-        bool prime = true;
-        for (int d = 2; d * d <= x; d++)
-            if (x % d == 0) { prime = false; break; }  //@div
-        if (prime) cnt++;  //@prime
-    }
-    printf("%d\n", cnt);  //@done
-}`,
-      notes: [
-        ['div', ['A divisor above √x would have a partner below √x, so the loop can stop at √x.', '大于 √x 的约数一定对应一个小于 √x 的约数，所以循环到 √x 就可以停了。']],
-        ['prime', ['A prime survives every division up to √x — the most expensive case.', '素数要撑过直到 √x 的每一次试除——这是代价最大的情况。']],
-      ],
-      run(inp, t) {
-        const n = reader(inp).int()
-        need(n >= 1 && n <= 2e7, 'n must be between 1 and 20,000,000.', 'n 须在 1 到 20,000,000 之间。')
-        const state = new Uint8Array(n + 1) // 1 = prime, 2 = composite
-        let cnt = 0
-        const view = (x: number) => {
-          const cells: (number | string)[][] = [], tone: Record<string, 'ok' | 'dim' | 'act'> = {}
-          for (let i = 1; i <= n; i++) { const r = Math.floor((i - 1) / 10), c = (i - 1) % 10; (cells[r] ??= new Array<number | string>(10).fill(''))[c] = i; if (i === x) tone[r + ',' + c] = 'act'; else if (state[i] === 1) tone[r + ',' + c] = 'ok'; else if (state[i] === 2 || i === 1) tone[r + ',' + c] = 'dim' }
-          return grid('green = prime, faded = composite', cells, tone, { sq: true })
-        }
-        for (let x = 2; x <= n; x++) {
-          let prime = true
-          for (let d = 2; d * d <= x; d++) {
-            const hit = x % d === 0
-            t.s('div', () => [[`${x} mod ${d} = ${x % d}${hit ? `: ${d} divides ${x}, so it is composite.` : '.'}`, `${x} mod ${d} = ${x % d}${hit ? `：${d} 整除 ${x}，它是合数。` : '。'}`], view(x), vars({ x, d, primes: cnt })])
-            if (hit) { prime = false; break }
-          }
-          state[x] = prime ? 1 : 2
-          if (prime) { cnt++; t.s('prime', () => [[`No divisor up to √${x}: ${x} is prime.`, `直到 √${x} 都没有约数：${x} 是素数。`], view(x), vars({ x, primes: cnt })]) }
-        }
-        t.s('done', () => [[`${cnt} prime(s) up to ${n}.`, `不超过 ${n} 的素数共 ${cnt} 个。`], view(0), vars({ primes: cnt })])
-        t.out(cnt)
-      },
-    },
   },
 
   // Here the first version is not brute force: it is the same DP in its natural 2-D form.
@@ -490,3 +322,7 @@ int main() {
     },
   },
 }
+
+const STORIES: Record<string, Extras> = { ...BASIC, ...SORT, ...DS, ...SEARCH, ...DP, ...GRAPH1, ...GRAPH2, ...STRING, ...MATH, ...FULL }
+
+export const RICH: Record<string, Extras> = Object.fromEntries(Object.entries(STORIES).map(([id, x]) => [id, { ...x, ...FIRST[id] }]))

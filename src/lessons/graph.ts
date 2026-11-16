@@ -5,7 +5,7 @@ const cpp = String.raw
 const edgesFor = (n: number) => (n <= 30 ? n + (n >> 1) : 2 * n)
 const genW = (n: number, r: Rng) => fmtGraph(n, genGraph(n, edgesFor(n), r).map(([u, v]) => [u, v, r.int(1, 9)]))
 const genU = (n: number, r: Rng) => fmtGraph(n, genGraph(n, edgesFor(n), r))
-const lay = (on: boolean, n: number, es: readonly E[]): P[] => (on ? layoutGraph(n, es) : [])
+export const lay = (on: boolean, n: number, es: readonly E[]): P[] => (on ? layoutGraph(n, es) : [])
 const PAL: Tone[] = ['ok', 'alt', 'cmp', 'vis', 'bad', 'act']
 const NM: Lesson['input'] = ['n m, then m lines "u v": an undirected edge.', 'n m，随后 m 行 “u v”：一条无向边。']
 const NMW: Lesson['input'] = ['n m, then m lines "u v w": an undirected edge of weight w.', 'n m，随后 m 行 “u v w”：一条权值为 w 的无向边。']
@@ -854,7 +854,7 @@ int main() {
 }
 
 /** Reads "n q", n − 1 tree edges and q vertex pairs. Returns BFS order and parents (root 0). */
-function readTreeQ(inp: string, on: boolean) {
+export function readTreeQ(inp: string, on: boolean) {
   const rd0 = inp.split(/\s+/).filter(Boolean).map(Number), n = rd0[0], q = rd0[1]
   need(n >= 1 && q >= 0 && rd0.length >= 2 + 2 * (n - 1) + 2 * q && rd0.every(Number.isFinite), 'Expected "n q", n − 1 edges and q queries.', '需要 “n q”、n − 1 条边和 q 个询问。')
   const es: E[] = []

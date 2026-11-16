@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Diff, LevelBadge } from '../components/bits'
 import { Code, CopyButton, parseCode, withComments } from '../components/Code'
 import { Flow } from '../components/Flow'
@@ -9,7 +9,7 @@ import { Stage } from '../components/Stage'
 import { Rng, Tracer, type Card, type Lesson, type Variant } from '../engine/types'
 import { CATS } from '../i18n'
 import { LESSONS } from '../lessons'
-import { useApp } from '../store'
+import { href, isRevisit, useApp } from '../store'
 
 /** Learning order: what is asked, how to think about it, the program, watching it run, scaling it up. */
 const TABS = ['problem', 'idea', 'code', 'viz', 'lab'] as const
@@ -93,13 +93,13 @@ function VariantSwitch({ lesson, first, set }: { lesson: Lesson; first: boolean;
   const { tr } = useApp()
   const v = lesson.first
   if (!v) return null
-  // Show the measure in which the two versions differ.
+  // Show the measure in which the two versions differ, or what is gained when both read the same.
   const key = v.time === lesson.time ? 'space' : 'time'
   return (
     <div className="variant">
-      <button className={first ? 'on naive' : 'naive'} onClick={() => set(true)}><b>1</b>{tr(v.label)}<code>{v[key]}</code></button>
+      <button className={first ? 'on naive' : 'naive'} onClick={() => set(true)}><b>1</b>{tr(v.label)}{!v.gain && <code>{v[key]}</code>}</button>
       <span aria-hidden="true">→</span>
-      <button className={first ? 'best' : 'on best'} onClick={() => set(false)}><b>2</b>{tr(lesson.label ?? lesson.title)}<code>{lesson[key]}</code></button>
+      <button className={first ? 'best' : 'on best'} onClick={() => set(false)}><b>2</b>{tr(lesson.label ?? lesson.title)}<code>{v.gain ? tr(v.gain) : lesson[key]}</code></button>
     </div>
   )
 }
@@ -156,13 +156,29 @@ export function LessonPage({ lesson, tab, step }: { lesson: Lesson; tab?: string
   // The first version is the same lesson with another program behind it.
   const shown = useMemo<Lesson>(() => (first && lesson.first ? { ...lesson, ...lesson.first, flow: undefined } : lesson), [lesson, first])
 
-  useEffect(() => { set({ last: lesson.id }); document.title = `${tr(lesson.title)} · ${ui('brand')}` }, [lesson, p.lang])
+  useEffect(() => { set({ last: lesson.id }) }, [lesson])
+
+  // The tab bar stays in view. After a tab change deep in the page, go back to where the new tab's content begins.
+  const mark = useRef<HTMLDivElement>(null), shownTab = useRef(cur)
+  useEffect(() => {
+    if (shownTab.current === cur || !mark.current) return
+    shownTab.current = cur
+    if (isRevisit()) return
+    const start = mark.current.getBoundingClientRect().top + scrollY - (document.querySelector<HTMLElement>('.top')?.offsetHeight ?? 0)
+    if (scrollY > start) scrollTo(0, start)
+  }, [cur])
+  const hop = (l: Lesson | undefined, label: string, sign: string) => l
+    ? <a href={'#/learn/' + l.id} title={`${label}: ${tr(l.title)}`} aria-label={`${label}: ${tr(l.title)}`}>{sign}</a>
+    : <span aria-hidden="true">{sign}</span>
 
   return (
     <article className={'lesson lv-' + lesson.level}>
       <header className="lesson-head">
         <div>
-          <div className="crumbs"><a href="#/">{ui('navLearn')}</a> / {tr(CATS[lesson.cat])} <LevelBadge level={lesson.level} /> <Diff d={lesson.diff} /></div>
+          <div className="crumbs">
+            <span><a href="#/">{ui('navLearn')}</a> / <a href={href('', { cat: lesson.cat })}>{tr(CATS[lesson.cat])}</a> <a className="plain" href={href('', { level: lesson.level })}><LevelBadge level={lesson.level} /></a> <Diff d={lesson.diff} /></span>
+            <span className="mini-pager">{hop(prev, ui("prev"), "‹")}<span>{idx + 1} / {LESSONS.length}</span>{hop(next, ui("next"), "›")}</span>
+          </div>
           <h1>{tr(lesson.title)}</h1>
           <p className="lede">{tr(lesson.blurb)}</p>
         </div>
@@ -174,6 +190,7 @@ export function LessonPage({ lesson, tab, step }: { lesson: Lesson; tab?: string
         </div>
       </header>
 
+      <div ref={mark} />
       <div className="tabs" role="tablist">
         {TABS.map((t, i) => <a key={t} role="tab" aria-selected={cur === t} className={cur === t ? 'on' : ''} href={`#/learn/${lesson.id}/${t}`}><span>{i + 1}</span>{ui(TAB_KEY[t])}</a>)}
       </div>
@@ -185,7 +202,11 @@ export function LessonPage({ lesson, tab, step }: { lesson: Lesson; tab?: string
       {cur === 'viz' && <Player key={first ? 'first' : 'main'} lesson={shown} start={Number(step) || 0} />}
       {cur === 'lab' && <Lab lesson={lesson} />}
 
-      {after && <p className="next-tab"><a className="btn primary" href={`#/learn/${lesson.id}/${after}`}>{ui('nextTab')}: {ui(TAB_KEY[after])} →</a></p>}
+      <p className="next-tab">
+        {after ? <a className="btn primary" href={`#/learn/${lesson.id}/${after}`}>{ui('nextTab')}: {ui(TAB_KEY[after])} →</a>
+          : next ? <a className="btn primary" href={'#/learn/' + next.id}>{ui('nextLesson')}: {tr(next.title)} →</a>
+          : <a className="btn primary" href="#/">{ui('allLessons')} →</a>}
+      </p>
 
       <nav className="pager">
         {prev ? <a href={'#/learn/' + prev.id}><small>← {ui('prev')}</small>{tr(prev.title)}</a> : <span />}

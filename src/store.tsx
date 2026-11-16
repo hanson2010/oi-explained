@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { L } from './engine/types'
 import { UI, type UIKey } from './i18n'
 
@@ -73,14 +73,81 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return <C.Provider value={value}>{children}</C.Provider>
 }
 
-/** Minimal hash router: "#/learn/kmp" → ["learn", "kmp"]. */
-export function useRoute(): string[] {
-  const read = () => location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent)
-  const [r, setR] = useState(read)
+export interface Route { path: string[]; query: URLSearchParams }
+
+const safe = (x: string) => { try { return decodeURIComponent(x) } catch { return x } }
+const parse = (): Route => {
+  const [path, query = ''] = location.hash.replace(/^#\/?/, '').split('?')
+  return { path: path.split('/').filter(Boolean).map(safe), query: new URLSearchParams(query) }
+}
+/** What counts as "the same page" for scrolling: tabs of one lesson and levels of the syllabus share a page. */
+const pageOf = (r: Route) => (r.path[0] === 'learn' ? 'learn/' + r.path[1] : r.path[0] ?? '')
+
+export const href = (path: string, query?: URLSearchParams | Record<string, string | undefined>) => {
+  const q = query instanceof URLSearchParams ? query : new URLSearchParams(Object.entries(query ?? {}).filter((e): e is [string, string] => !!e[1]))
+  const qs = q.toString()
+  return '#/' + path + (qs ? '?' + qs : '')
+}
+
+/** Changes query parameters of the current page in place: filters belong in the URL, not in the history. */
+export function setQuery(patch: Record<string, string | undefined>) {
+  const { path, query } = parse()
+  for (const [k, v] of Object.entries(patch)) if (v) query.set(k, v); else query.delete(k)
+  replaceRoute(path.map(encodeURIComponent).join('/'), query)
+}
+
+/** Shows another view of the same page (a syllabus level, a filter) without adding a history entry. */
+export function replaceRoute(path: string, query?: URLSearchParams | Record<string, string | undefined>) {
+  // Browsers limit how often the URL may be rewritten; the view still updates if that limit is hit.
+  try { history.replaceState(history.state, '', href(path, query)) } catch { return }
+  dispatchEvent(new Event('routechange'))
+}
+
+const SCROLL_KEY = 'oi-explained-scroll', KEEP = 60
+let revisit = false
+/** Whether the page now shown was reached with Back or Forward (its scroll position is then being restored). */
+export const isRevisit = () => revisit
+
+/**
+ * Minimal hash router: "#/learn/kmp/code?x=1" → { path: ["learn", "kmp", "code"], query }.
+ * A new page opens at the top; Back and Forward return to where the page was left; moving within a page keeps the position.
+ */
+export function useRoute(): Route {
+  const [r, setR] = useState(parse)
+  const pending = useRef<number | null>(null)
   useEffect(() => {
-    const on = () => { setR(read()); window.scrollTo(0, 0) }
-    addEventListener('hashchange', on)
-    return () => removeEventListener('hashchange', on)
+    let pos: Record<string, number> = {}
+    try { pos = JSON.parse(sessionStorage.getItem(SCROLL_KEY) ?? '{}') } catch { /* ignore */ }
+    const fresh = () => { const k = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); history.replaceState({ k }, ''); return k }
+    history.scrollRestoration = 'manual'
+    // Each history entry gets a key; an entry that already has one is being revisited.
+    let cur: string = history.state?.k ?? fresh(), page = pageOf(parse()), raf = 0
+    if (pos[cur]) scrollTo(0, pos[cur])
+    const save = () => {
+      pos[cur] = scrollY
+      const keys = Object.keys(pos)
+      for (const k of keys.slice(0, Math.max(0, keys.length - KEEP))) delete pos[k]
+      try { sessionStorage.setItem(SCROLL_KEY, JSON.stringify(pos)) } catch { /* ignore */ }
+    }
+    // Following a link to the address already shown replaces the entry and drops its key without any event: check on use.
+    const onScroll = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { cur = history.state?.k ?? fresh(); save() }) }
+    const onHash = () => {
+      const next = parse(), k: string | undefined = history.state?.k
+      // The page being left is still on screen: record where it was.
+      cancelAnimationFrame(raf); save()
+      revisit = !!k
+      if (k) { cur = k; pending.current = pos[k] ?? 0 } else { cur = fresh(); pending.current = pageOf(next) === page ? null : 0 }
+      page = pageOf(next)
+      setR(next)
+    }
+    const onQuery = () => setR(parse())
+    addEventListener('hashchange', onHash); addEventListener('routechange', onQuery); addEventListener('scroll', onScroll, { passive: true })
+    return () => { removeEventListener('hashchange', onHash); removeEventListener('routechange', onQuery); removeEventListener('scroll', onScroll) }
   }, [])
+  // Runs after the new page is in the DOM, so a restored position is not clamped by the old page's height.
+  useLayoutEffect(() => {
+    if (pending.current !== null) scrollTo(0, pending.current)
+    pending.current = null
+  }, [r])
   return r
 }

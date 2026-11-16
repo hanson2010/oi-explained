@@ -6,7 +6,7 @@ import { SECTION_COUNT } from '../data/syllabus'
 import { Rng, type Cat, type Level } from '../engine/types'
 import { CATS, LEVELS } from '../i18n'
 import { BY_ID, LESSONS } from '../lessons'
-import { useApp } from '../store'
+import { setQuery, useApp } from '../store'
 
 /** A looping preview of a real lesson trace. */
 function HeroDemo() {
@@ -20,22 +20,37 @@ function HeroDemo() {
     return () => clearInterval(id)
   }, [steps])
   const s = steps[Math.min(i, steps.length - 1)]
+  const pick = (st: (typeof steps)[number]) => st.views.filter(v => v.k !== 'vars').slice(0, 1)
+  // Every frame is also laid out invisibly in the same grid cell, so the card is as tall as its tallest frame and never jumps.
+  const ghosts = useMemo(() => ({
+    views: steps.map((st, k) => <div key={k} className="ghost" aria-hidden="true"><Stage views={pick(st)} /></div>),
+    msgs: steps.map((st, k) => <div key={k} className="ghost" aria-hidden="true">{tr(st.msg)}</div>),
+  }), [steps, tr])
   if (!s) return null
   return (
     <a className="hero-demo card" href={'#/learn/' + lesson.id}>
       <div className="hero-demo-title">{tr(lesson.title)} <span>→</span></div>
-      <Stage views={s.views.filter(v => v.k !== 'vars').slice(0, 1)} />
-      <div className="hero-demo-msg">{tr(s.msg)}</div>
+      <div className="hero-fit">{ghosts.views}<div><Stage views={pick(s)} /></div></div>
+      <div className="hero-fit hero-demo-msg">{ghosts.msgs}<div>{tr(s.msg)}</div></div>
     </a>
   )
 }
 
-export function Home() {
+/** The filters live in the URL, so a filtered list can be linked to and is still there after Back. */
+export function Home({ query }: { query: URLSearchParams }) {
   const { ui, tr, p } = useApp()
-  const [q, setQ] = useState('')
-  const [level, setLevel] = useState<Level | ''>('')
-  const [cat, setCat] = useState<Cat | ''>('')
-  const [fav, setFav] = useState(false)
+  const lv = query.get('level') ?? '', ct = query.get('cat') ?? ''
+  const level: Level | '' = lv in LEVELS ? (lv as Level) : '', cat: Cat | '' = ct in CATS ? (ct as Cat) : '', fav = query.get('fav') === '1'
+  const setLevel = (x: Level | '') => setQuery({ level: x }), setCat = (x: Cat | '') => setQuery({ cat: x }), setFav = (x: boolean) => setQuery({ fav: x ? '1' : '' })
+  // Typing updates the list at once and the URL a moment later.
+  const [q, setQ] = useState(query.get('q') ?? '')
+  useEffect(() => {
+    if (q === (query.get('q') ?? '')) return
+    const id = setTimeout(() => setQuery({ q }), 300)
+    return () => clearTimeout(id)
+  }, [q])
+  const filtered = !!(q.trim() || level || cat || fav)
+  const clear = () => { setQ(''); setQuery({ q: '', level: '', cat: '', fav: '' }) }
 
   const doneCount = LESSONS.filter(l => p.done[l.id]).length
   const nextUp = (p.last && !p.done[p.last] && BY_ID.get(p.last)) || LESSONS.find(l => !p.done[l.id]) || LESSONS[0]
@@ -81,10 +96,11 @@ export function Home() {
       <section className="filters">
         <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={ui('search')} aria-label={ui('search')} />
         <div className="chips">
-          <button className={!cat ? 'on' : ''} onClick={() => setCat('')}>{ui('all')}</button>
-          {cats.map(c => <button key={c} className={cat === c ? 'on' : ''} onClick={() => setCat(cat === c ? '' : c)}>{tr(CATS[c])}</button>)}
+          <button className={!cat ? 'on' : ''} aria-pressed={!cat} onClick={() => setCat('')}>{ui('all')}</button>
+          {cats.map(c => <button key={c} className={cat === c ? 'on' : ''} aria-pressed={cat === c} onClick={() => setCat(cat === c ? '' : c)}>{tr(CATS[c])}</button>)}
           <button className={fav ? 'on' : ''} onClick={() => setFav(!fav)}>★ {ui('favOnly')}</button>
         </div>
+        {filtered && <span className="filter-state"><span className="muted small">{list.length} {ui('shown')}</span><button className="ghost" onClick={clear}>✕ {ui('clearFilters')}</button></span>}
       </section>
 
       {list.length ? <section className="lesson-grid">{list.map(l => <LessonCard key={l.id} lesson={l} />)}</section> : <p className="empty">{ui('none')}</p>}
