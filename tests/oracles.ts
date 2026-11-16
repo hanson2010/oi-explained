@@ -13,6 +13,51 @@ const same = (want: unknown, got: string): true | string => {
 const sorted = (skip: number): Oracle => ({ check: (i, o) => same(nums(i).slice(skip).sort((a, b) => a - b), o) })
 
 export const ORACLES: Record<string, Oracle | undefined> = {
+  'linked-list': { max: 60, check(i, o) {
+    const d = nums(i), n = d[0], q = d[1], list = Array.from({ length: n }, (_, k) => k + 1)
+    let p = 2
+    for (let k = 0; k < q; k++) {
+      const op = d[p], x = d[p + 1]
+      list.splice(list.indexOf(x), 1)
+      if (op === 1) { const y = d[p + 2]; list.splice(y === 0 ? 0 : list.indexOf(y) + 1, 0, x); p += 3 } else p += 2
+    }
+    return same(list, o)
+  } },
+  'prime-factor': { max: 9, check(i, o) {
+    const n = nums(i)[0], fs = nums(o)
+    const prime = (x: number) => { if (x < 2) return false; for (let d = 2; d * d <= x; d++) if (x % d === 0) return false; return true }
+    if (!fs.length || !fs.every(prime)) return 'every printed number must be prime'
+    if (fs.some((f, k) => k > 0 && fs[k - 1] > f)) return 'factors must be in non-decreasing order'
+    return fs.reduce((a, b) => a * b, 1) === n ? true : `the product is not ${n}`
+  } },
+  permutations: { max: 7, check(i, o) {
+    const n = nums(i)[0], a = Array.from({ length: n }, (_, k) => k + 1), res: number[] = []
+    for (;;) {
+      res.push(...a)
+      let k = n - 2
+      while (k >= 0 && a[k] > a[k + 1]) k--
+      if (k < 0) break
+      let j = n - 1
+      while (a[j] < a[k]) j--
+      ;[a[k], a[j]] = [a[j], a[k]]
+      a.splice(k + 1, n, ...a.slice(k + 1).reverse())
+    }
+    return same(res, o)
+  } },
+  enumeration: { max: 60, check(i, o) {
+    const n = nums(i)[0], res: number[] = []
+    let cnt = 0
+    for (let x = 0; x <= n; x++) for (let y = 0; x + y <= n; y++) { const z = n - x - y; if (15 * x + 9 * y + z === 3 * n) { res.push(x, y, z); cnt++ } }
+    return same([...res, cnt], o)
+  } },
+  simulation: { max: 60, check(i, o) {
+    const [n, m] = nums(i), ring = Array.from({ length: n }, (_, k) => k + 1), res: number[] = []
+    let at = 0
+    while (ring.length) { at = (at + m - 1) % ring.length; res.push(ring.splice(at, 1)[0]) }
+    return same(res, o)
+  } },
+  'bignum-sub': { check: (i, o) => { const [a, b] = toks(i).map(BigInt); return same(a - b, o) } },
+  'bignum-div': { check: (i, o) => { const [a, b] = toks(i).map(BigInt); return same([a / b, a % b], o) } },
   'binary-search': { check(i, o) { const [n, x, ...a] = nums(i); const k = a.findIndex(v => v >= x); return same(k < 0 ? n + 1 : k + 1, o) } },
   'prefix-sum': { check(i, o) {
     const d = nums(i), n = d[0], q = d[1], a = d.slice(2, 2 + n), res: number[] = []

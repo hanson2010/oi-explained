@@ -16,6 +16,24 @@ it('has an up-to-date lesson index (run `npm run gen` if this fails)', () => {
   expect(META).toEqual(metaOf(LESSONS))
 })
 
+describe('links between lessons', () => {
+  const at = new Map(LESSONS.map((l, i) => [l.id, i]))
+  it('name existing lessons, never the lesson itself, without repeats', () => {
+    for (const l of LESSONS) {
+      const needs = l.needs ?? []
+      expect(needs.filter(id => !BY_ID.has(id) || id === l.id), l.id).toEqual([])
+      expect(new Set(needs).size, l.id).toBe(needs.length)
+    }
+  })
+  it('put every prerequisite earlier in the learning path', () => {
+    expect(LESSONS.flatMap(l => (l.needs ?? []).filter(id => at.get(id)! > at.get(l.id)!).map(id => `${l.id} needs ${id}`))).toEqual([])
+  })
+  it('do not send a learner up a level', () => {
+    const rank = { J: 0, S: 1, N: 2 }
+    expect(LESSONS.flatMap(l => (l.needs ?? []).filter(id => rank[BY_ID.get(id)!.level] > rank[l.level]).map(id => `${l.id} (${l.level}) needs ${id}`))).toEqual([])
+  })
+})
+
 describe('syllabus', () => {
   const items = SYLLABUS.flatMap(l => l.sections.flatMap(s => s.groups.flatMap(g => g.items)))
   const refs = items.flatMap(lessonsOf)

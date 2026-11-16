@@ -220,6 +220,7 @@ int main() {
 
 const merge: Lesson = {
   id: 'merge-sort', title: ['Merge sort', '归并排序'], level: 'S', cat: 'sort', diff: 5,
+  needs: ['hanoi'],
   blurb: ['Divide and conquer: sort each half recursively, then merge two sorted halves in linear time.', '分治：递归地排好左右两半，再用线性时间把两个有序段合并。'],
   ideas: [
     ['Divide: split [l, r] at the middle. Conquer: sort both halves. Combine: merge.', '分：在中点把 [l, r] 切开。治：分别排好两半。合：归并。'],
@@ -296,6 +297,7 @@ int main() {
 
 const quick: Lesson = {
   id: 'quick-sort', title: ['Quicksort', '快速排序'], level: 'S', cat: 'sort', diff: 5,
+  needs: ['hanoi'],
   blurb: ['Pick a pivot, sweep two pointers inward to partition around it, and recurse on both sides.', '选一个基准，用两个指针向中间扫描完成划分，再递归处理两侧。'],
   ideas: [
     ['Partition: afterwards everything on the left is ≤ pivot and everything on the right is ≥ pivot.', '划分：结束后左侧元素都 ≤ 基准，右侧元素都 ≥ 基准。'],
@@ -368,6 +370,7 @@ int main() {
 
 const heap: Lesson = {
   id: 'heap-sort', title: ['Binary heap & heap sort', '二叉堆与堆排序'], level: 'S', cat: 'sort', diff: 6,
+  needs: ['selection-sort', 'bt-traversal'],
   blurb: ['A complete binary tree stored in an array, where every parent ≥ its children. Pop the maximum n times to sort.', '用数组存储的完全二叉树，每个父结点都 ≥ 子结点。连续取出 n 次最大值即完成排序。'],
   ideas: [
     ['Array as tree: the children of node i are 2i and 2i + 1, its parent is i / 2 (1-based).', '数组即树：结点 i 的孩子是 2i 和 2i + 1，父亲是 i / 2（下标从 1 开始）。'],
@@ -445,6 +448,7 @@ int main() {
 
 const radix: Lesson = {
   id: 'radix-sort', title: ['Bucket & radix sort', '桶排序与基数排序'], level: 'S', cat: 'sort', diff: 6,
+  needs: ['counting-sort'],
   blurb: ['Sort by one digit at a time — ones, tens, hundreds — using ten buckets and a stable pass per digit.', '每次只按一位数字排序——个位、十位、百位——每一位用十个桶做一趟稳定排序。'],
   ideas: [
     ['Bucket sort: drop each number into the bucket of its key, then read the buckets in order.', '桶排序：把每个数放进其关键字对应的桶，再按桶的顺序读出。'],

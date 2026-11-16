@@ -20,4 +20,4 @@ export const LESSONS: Lesson[] = inOrder([...basic, ...sort, ...search, ...ds, .
 export const BY_ID = new Map(LESSONS.map(l => [l.id, l]))
 
 /** What meta.ts must contain. */
-export const metaOf = (ls: Lesson[]): Meta[] => ls.map(({ id, title, level, cat, diff, blurb, time }) => ({ id, title, level, cat, diff, blurb, time }))
+export const metaOf = (ls: Lesson[]): Meta[] => ls.map(({ id, title, level, cat, diff, blurb, time, needs }) => ({ id, title, level, cat, diff, blurb, time, ...(needs?.length ? { needs } : {}) }))

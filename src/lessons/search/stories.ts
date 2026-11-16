@@ -1,4 +1,4 @@
-import { grid, gt } from '../../engine/h'
+import { arr, grid, gt, span, tn } from '../../engine/h'
 import type { Extras } from '../extras'
 import { col, row } from '../story-util'
 
@@ -115,6 +115,33 @@ export const SEARCH: Record<string, Extras> = {
       { id: 'nb', kind: 'test', text: ['another free neighbour that d + 1 improves ?', '还有能被 d + 1 改进的可走邻居？'], no: 'loop', on: [] },
       { id: 'relax', text: ['d[neighbour] = d + 1;  push it with f = d + 1 + h', 'd[邻居] = d + 1；以 f = d + 1 + h 入队'], next: 'nb' },
       { id: 'done', kind: 'end', text: ['print d of the target   (−1 if unreachable)', '输出终点的 d（无法到达则为 −1）'] },
+    ],
+  },
+
+  permutations: {
+    story: [
+      { kind: 'term', title: ['Counting choices: the rules of product and sum', '数一数有多少种选择：乘法原理与加法原理'],
+        body: ['**Rule of product**: if a task is done in steps, with a ways for the first step and b ways for the second whatever the first was, there are ==a · b== ways in all. **Rule of sum**: if a task is done __either__ in one of a ways __or__ in one of b other ways, there are ==a + b==. Arranging n different things in a row is a task in n steps: n choices for the first place, n − 1 for the second, … so there are `n · (n − 1) · … · 1 = n!` **permutations**. Stopping after k places gives `n · (n − 1) · … · (n − k + 1)` arrangements of k out of n; if the order of those k does not matter, divide by k! to get the number of **combinations**, C(n, k).', '**乘法原理**：一件事分几步完成，第一步有 a 种方法，无论第一步怎么做，第二步都有 b 种方法，那么一共有 ==a · b== 种方法。**加法原理**：一件事__要么__用 a 种方法中的一种完成，__要么__用另外 b 种方法中的一种完成，那么一共有 ==a + b== 种方法。把 n 个不同的东西排成一行是一件分 n 步完成的事：第一个位置有 n 种选择，第二个有 n − 1 种……所以共有 `n · (n − 1) · … · 1 = n!` 种**排列**。只排 k 个位置就停下，得到从 n 个中取 k 个的排列数 `n · (n − 1) · … · (n − k + 1)`；如果这 k 个的顺序无关紧要，再除以 k!，就是**组合**数 C(n, k)。'],
+        fig: () => [grid('arranging 1, 2, 3', [[3, 2, 1, '3 · 2 · 1 = 6']], gt({ cmp: row(0, 0, 2), ok: [[0, 3]] }), { cols: ['choices for place 1', 'place 2', 'place 3', 'permutations'] })] },
+      { kind: 'naive', title: ['Start simple: one loop per position', '先从最简单的做起：每个位置一重循环'],
+        body: ['For n = 3, three nested loops over 1 … 3, printing when the three values are all different. But the program must work for any n — and ==you cannot write "n nested loops"== when n is read from the input.', 'n = 3 时，写三重循环，每层从 1 到 3，三个值互不相同时输出。但程序要对任意的 n 都能用——而 n 是从输入读入的，==写不出“n 重循环”==。'] },
+      { kind: 'insight', title: ['Recursion is a loop nest of any depth', '递归就是任意层数的循环嵌套'],
+        body: ['Let `dfs(k)` choose the number for position k and then call `dfs(k + 1)`. Each call contains one loop, and the calls nest n deep by themselves. To avoid repeats, keep `used[x]`: ==a number may be placed only if no earlier position holds it==.', '让 `dfs(k)` 为第 k 个位置选一个数，然后调用 `dfs(k + 1)`。每次调用里有一重循环，调用自己就嵌套了 n 层。为了避免重复，用 `used[x]` 记录：==只有前面的位置都没用过的数才能放==。'],
+        fig: () => [arr('a = 2 1 ?  —  position 3 may only take what is still free', [2, 1, ''], tn({ ok: [0, 1], act: 2 }), { k: 2 }, { base: 1 }), arr('still free', ['', '', 3], tn({ dim: [0, 1], ok: 2 }), undefined, { base: 1 })] },
+      { kind: 'how', title: ['Put it down, explore, pick it up again', '放下，探索，再拿起来'],
+        body: ['Inside the loop: `a[k] = x; used[x] = true;` then `dfs(k + 1)`, then ==`used[x] = false`==. The last line is the heart of **backtracking**: when the call returns, everything that starts with this choice has been printed, so x is released and the loop moves on to the next candidate. When k passes n, the array holds a complete permutation.', '循环里依次是：`a[k] = x; used[x] = true;`，然后 `dfs(k + 1)`，然后 ==`used[x] = false`==。最后这一行是**回溯**的核心：调用返回时，以这个选择开头的所有排列都已经输出，于是释放 x，循环继续尝试下一个候选。当 k 超过 n 时，数组里就是一个完整的排列。'] },
+      { kind: 'result', title: ['Every permutation once, in dictionary order', '每个排列恰好一次，按字典序'],
+        body: ['The calls form a tree with **n!** leaves, one per permutation, reached in dictionary order because smaller numbers are tried first. That is 24 for n = 4 and 362 880 for n = 9: fine for small n, hopeless beyond about 11. The same skeleton — ==choose, recurse, undo== — solves N queens, subsets, and most puzzles.', '所有调用构成一棵树，它有 **n!** 片叶子，每片对应一个排列；因为先试较小的数，叶子按字典序被访问。n = 4 时是 24 个，n = 9 时是 362 880 个：n 较小时没问题，超过 11 左右就不现实了。同样的骨架——==选择、递归、撤销==——还能解决 N 皇后、子集枚举和大多数智力题。'],
+        fig: () => [grid('n = 3', [['1 2 3', '1 3 2', '2 1 3', '2 3 1', '3 1 2', '3 2 1']], gt({ ok: row(0, 0, 5) }), { cols: [1, 2, 3, 4, 5, 6] })] },
+    ],
+    flow: [
+      { id: 'call', kind: 'start', text: ['dfs(k)', 'dfs(k)'], on: [] },
+      { id: 'full', kind: 'test', text: ['k > n ?', 'k > n ？'], yes: 'print', no: 'skip', on: [] },
+      { id: 'print', text: ['print a[1 … n];   return', '输出 a[1 … n]；返回'], next: 'ret' },
+      { id: 'skip', kind: 'test', text: ['next x in 1 … n that is not used ?', '1 … n 中还有没用过的 x ？'], no: 'ret' },
+      { id: 'put', text: ['a[k] = x;   used[x] = true;   dfs(k + 1)', 'a[k] = x；used[x] = true；dfs(k + 1)'] },
+      { id: 'undo', text: ['used[x] = false', 'used[x] = false'], next: 'skip' },
+      { id: 'ret', kind: 'end', text: ['return', '返回'], on: [] },
     ],
   },
 }

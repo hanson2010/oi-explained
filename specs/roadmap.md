@@ -4,16 +4,16 @@ Revised 2026-11-16 after a review against the code. The audience is self-learner
 
 ## Where the project stands
 
-- 69 lessons: 28 CSP-J, 30 CSP-S, 11 NOI. 14 have an earlier version.
-- Milestone 0.2 (groundwork) is done. Next is 0.3.
+- 76 lessons: 35 CSP-J, 30 CSP-S, 11 NOI. 15 have an earlier version.
+- Milestones 0.2 and 0.3 are done.
 - A lesson costs about 150 lines on average, counting its program, story, text and oracle.
 
 Syllabus points with a lesson, out of the points that should have one:
 
 | Level | With lessons | Wanted | Out of scope |
 |---|---|---|---|
-| CSP-J | 42 | 54 | 62 |
-| CSP-S | 45 | 78 | 16 |
+| CSP-J | 54 | 54 | 62 |
+| CSP-S | 47 | 78 | 16 |
 | NOI | 14 | 59 | 8 |
 
 Out of scope are computer basics, the C++ language itself, school mathematics, and concepts with no program to animate. The Syllabus page shows them greyed with the reason.
@@ -44,39 +44,13 @@ Out of scope are computer basics, the C++ language itself, school mathematics, a
 
 ---
 
-## Milestone 0.3: lesson links and the CSP-J gaps
+## Milestone 0.3: lesson links and the CSP-J gaps (done)
 
-### Links between lessons
+- **Links between lessons.** `needs` on a lesson lists its direct prerequisites. The lesson page shows "Learn first" and "Leads to". The learning path is still ordered by level, difficulty and topic, except that a lesson never comes before one it needs; this moved one existing lesson. Tests check that the ids exist, that prerequisites come earlier, and that none is at a higher level.
+- **Background cards.** A new card kind, `term`, holds definitions and theorems. Three were added: tree terms (`bt-traversal`), graph terms (`graph-dfs`), equivalence classes (`dsu`).
+- **Seven CSP-J lessons**: enumeration (with a three-loop earlier version), simulation, linked list, high-precision subtraction, high-precision ÷ small number, prime factorisation, permutations by backtracking. CSP-J now has a lesson for all 54 points in scope.
 
-`needs?: string[]` on `Lesson`. The lesson page shows "Learn first" and "Leads to". The Home page shows the learning path.
-
-Tests: every id exists; there are no cycles; a prerequisite never comes after its dependant in the Home page order. That last test checks the existing ordering (level, then difficulty, then topic) against real dependencies and will probably find a few lessons to move.
-
-Set `needs` for all 69 existing lessons in this milestone. Every lesson added later sets it from the start.
-
-### Cards for definition points
-
-Three existing lessons need one story card each before these syllabus points can link to them:
-
-| Points | Lesson |
-|---|---|
-| Trees: definition and terminology; representing and storing trees | `bt-traversal` |
-| Graphs: definition and terminology; sparse graphs | `graph-dfs` |
-| Equivalence relations and classes | `dsu` |
-
-### CSP-J lessons (7)
-
-| Lesson | Syllabus point | Notes |
-|---|---|---|
-| Enumeration | 2.1.4 [1] | Nested loops, then narrowing the range. Leads to N queens. |
-| Simulation | 2.1.4 [1] | A circle-of-people problem. `arr` and `vars`. |
-| Linked list | 2.1.3 [3] | Array-based. Earlier version: singly linked; the lesson: doubly linked. |
-| High-precision subtraction | 2.1.4 [4] | Same layout as the existing addition. |
-| High-precision ÷ small number | 2.1.4 [4] | Digit by digit from the top. |
-| Prime factorisation | 2.1.5 [3] | Trial division to √n. Carries the fundamental theorem of arithmetic as a card. Leads to the sieve. |
-| Permutations and combinations | 2.1.5 [2–4] | Next permutation, generating combinations. Carries the rules of sum and product as cards. |
-
-Done when: CSP-J has no planned points left (42 of 54 today).
+Changed from the plan: the linked list has no singly linked earlier version (the story explains the difference instead), and the permutations lesson generates permutations only; combinations are a card that points to Pascal's triangle.
 
 ---
 
@@ -227,7 +201,7 @@ Already in place, so removed from the plan: links to a tab and an animation step
 | Milestone | Engineering | Lessons | Total lessons |
 |---|---|---|---|
 | 0.2 (done) | CI, syllabus states, authoring checklist, bundle split | – | 69 |
-| 0.3 | Lesson links, three definition cards | 7 CSP-J | 76 |
+| 0.3 (done) | Lesson links, three definition cards | 7 CSP-J | 76 |
 | 0.4 | Profile v2, predict the next step | 7 CSP-S | 83 |
 | 0.5 | Broken versions | 7 CSP-S | 90 |
 | 0.6 | Practice links, review | – | 90 |

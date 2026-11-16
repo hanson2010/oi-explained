@@ -1,5 +1,5 @@
 import type { L, Variant } from '../../engine/types'
-import { arr, need, span, tn, vars } from '../../engine/h'
+import { arr, grid, need, reader, span, tn, vars } from '../../engine/h'
 
 const cpp = String.raw
 
@@ -61,6 +61,49 @@ int main() {
         }
         t.s('done', () => [[`Result: ${h}. The recursion was ${levels.length - 1} level(s) deep.`, `结果：${h}。递归深度为 ${levels.length - 1} 层。`], view(0, 0), vars({ answer: String(h) })])
         t.out(h)
+      },
+    },
+  },
+  enumeration: {
+    label: ['Compute z', '算出 z'],
+    first: {
+      label: ['Three loops', '三重循环'],
+      blurb: ['The most direct enumeration: try every x, every y and every z from 0 to n, and test both conditions. It is correct, and it looks at **(n + 1)³** triples — although for any x and y at most one z can have the right number of birds.', '最直接的枚举：x、y、z 都从 0 试到 n，再检验两个条件。它是对的，但要检查 **(n + 1)³** 个三元组——而对于任意的 x 和 y，鸡的总数正确的 z 至多只有一个。'],
+      time: 'O(n³)', space: 'O(1)', maxN: 300,
+      code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    int n, cnt = 0;
+    scanf("%d", &n);
+    for (int x = 0; x <= n; x++) {
+        for (int y = 0; y <= n; y++) {
+            for (int z = 0; z <= n; z++) {  //@z
+                if (x + y + z == n && z % 3 == 0 && 5 * x + 3 * y + z / 3 == n) {  //@check
+                    printf("%d %d %d\n", x, y, z);  //@found
+                    cnt++;
+                }
+            }
+        }
+    }
+    printf("%d\n", cnt);  //@done
+}`,
+      notes: [
+        ['z', ['A whole loop to find a value that x and y already determine.', '用整整一层循环去找一个早已被 x 和 y 确定的值。']],
+        ['check', ['Two conditions: the number of birds, and the number of coins.', '两个条件：鸡的只数，和花的钱数。']],
+      ],
+      run(inp, t) {
+        const n = reader(inp).int(), sols: number[][] = []
+        need(Number.isInteger(n) && n >= 1 && n <= 2000, 'n must be between 1 and 2,000 for the three-loop version.', '三重循环的版本要求 n 在 1 到 2,000 之间。')
+        for (let x = 0; x <= n; x++) for (let y = 0; y <= n; y++) {
+          let hit = -1
+          for (let z = 0; z <= n; z++) { t.tick(); if (x + y + z === n && z % 3 === 0 && 5 * x + 3 * y + z / 3 === n) { hit = z; sols.push([x, y, z]) } }
+          const h = hit
+          t.s(h >= 0 ? 'found' : 'z', () => [h >= 0 ? [`x = ${x}, y = ${y}: of the ${n + 1} values of z, z = ${h} passes both tests. A solution!`, `x = ${x}，y = ${y}：在 z 的 ${n + 1} 个取值中，z = ${h} 同时满足两个条件。找到一组解！`] : [`x = ${x}, y = ${y}: tried all ${n + 1} values of z, none passes.`, `x = ${x}，y = ${y}：z 的 ${n + 1} 个取值全部试过，都不满足。`],
+            sols.length > 0 && grid('solutions', sols, undefined, { cols: ['roosters', 'hens', 'chicks'] }), vars({ x, y, 'triples tried': (x * (n + 1) + y + 1) * (n + 1) })])
+        }
+        t.s('done', () => [[`All ${(n + 1) ** 3} triples tried: ${sols.length} solution${sols.length === 1 ? '' : 's'}.`, `${(n + 1) ** 3} 个三元组全部试过：共 ${sols.length} 组解。`], sols.length > 0 && grid('solutions', sols, undefined, { cols: ['roosters', 'hens', 'chicks'] }), vars({ answer: sols.length })])
+        t.out([...sols.map(s => s.join(' ')), sols.length].join('\n'))
       },
     },
   },

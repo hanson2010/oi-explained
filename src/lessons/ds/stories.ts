@@ -51,6 +51,9 @@ export const DS: Record<string, Extras> = {
 
   'bt-traversal': {
     story: [
+      { kind: 'term', title: ['The words for trees', '关于树的几个词'],
+        body: ['A **tree** is n nodes joined by n − 1 edges so that there is ==exactly one path== between any two of them. Choose one node as the **root** and every other node gets one **parent**, the next node on its path to the root; the nodes below it are its **children**. A node without children is a **leaf**. The **depth** of a node is the number of edges from the root to it, and the **height** of the tree is the largest depth. A node together with everything below it is a **subtree**. In a **binary tree** each node has at most two children, and they are told apart: a __left__ child and a __right__ child. To store a binary tree, keep two arrays, `l[u]` and `r[u]`, with 0 for "no child" — as this lesson does. A general tree stores a list of children for each node, or just the parent of each node.', '**树**由 n 个结点和 n − 1 条边组成，任意两个结点之间==恰好有一条路径==。选定一个结点作为**根**，其他每个结点就有了唯一的**父结点**——它通往根的路径上的下一个结点；它下面相邻的结点是它的**子结点**。没有子结点的结点叫**叶子**。结点的**深度**是从根到它经过的边数，树的**高度**是最大的深度。一个结点连同它下面的所有结点构成一棵**子树**。**二叉树**中每个结点至多有两个子结点，而且要区分__左__儿子和__右__儿子。存储二叉树时用两个数组 `l[u]` 和 `r[u]`，0 表示没有这个儿子——本课就是这样做的。一般的树则为每个结点保存一个子结点列表，或者只记录每个结点的父结点。'],
+        fig: () => [graph(TRAV.pos, TRAV.edges, { name: 'root 1 · leaves 4, 5, 6 · height 2 · the subtree of 2 is {2, 4, 5}', tone: tn({ act: 0, ok: [3, 4, 5], cmp: 1 }), sub: ['depth 0', 'depth 1', 'depth 1', 'depth 2', 'depth 2', 'depth 2'] })] },
       { kind: 'naive', title: ['Start with the problem: a tree has no "next"', '先看问题所在：树没有“下一个”'],
         body: ['An array is visited from left to right — there is nothing to decide. A tree **branches**: after the root you can go left or right, and whichever you choose, you must come back later for the other side. What order is "the" order?', '数组从左到右访问就行，没什么可选的。树却会**分叉**：访问完根之后可以往左也可以往右，而无论选了哪边，之后都得回来处理另一边。那么“顺序”到底指什么？'],
         fig: () => [graph(TRAV.pos, TRAV.edges, { tone: tn({ act: 0, cmp: [1, 2] }) })] },
@@ -161,6 +164,9 @@ export const DS: Record<string, Extras> = {
         fig: () => { const a = forest([-1, 0, 1, 2], true), b = forest([-1, 0, 0, 0], true); return [graph(a.pos, a.edges, { name: 'before find(4)', tone: tn({ ok: 0, cmp: [1, 2, 3] }), small: false }), graph(b.pos, b.edges, { name: 'after find(4): everyone on the path points at the root', tone: tn({ ok: 0 }) })] } },
       { kind: 'result', title: ['Practically constant time', '几乎是常数时间'],
         body: ['With path compression (plus attaching the smaller tree under the larger), m operations cost **O(m · α(n))**, where α is at most 4 for any imaginable n. It is the engine of Kruskal\'s algorithm and of every "are these connected yet?" problem. One limit: sets can be merged, ==never split==.', '使用路径压缩（再加上把小树接到大树下面），m 次操作的代价是 **O(m · α(n))**，对任何能想到的 n，α 都不超过 4。它是 Kruskal 算法的核心，也用在所有“这些点连通了吗”的问题里。有一个限制：集合只能合并，==不能拆开==。'] },
+      { kind: 'term', title: ['What the sets are: equivalence classes', '这些集合是什么：等价类'],
+        body: ['A relation ~ is an **equivalence relation** when it is __reflexive__ (a ~ a), __symmetric__ (a ~ b gives b ~ a) and __transitive__ (a ~ b and b ~ c give a ~ c). "Is connected to", "has the same remainder mod m" and "is in the same team as" are all of this kind. Such a relation ==splits the elements into groups that do not overlap==, the **equivalence classes**: everything in a class is related to everything else in it, and to nothing outside. A disjoint set union stores exactly these classes. `union(x, y)` records the new fact x ~ y, and transitivity is why the two __whole__ classes must merge.', '如果关系 ~ 满足__自反性__（a ~ a）、__对称性__（a ~ b 则 b ~ a）和__传递性__（a ~ b 且 b ~ c 则 a ~ c），它就是一个**等价关系**。“连通”“模 m 同余”“在同一个队里”都是这样的关系。等价关系会把所有元素==划分成互不相交的若干组==，称为**等价类**：同一类中的元素两两相关，与类外的元素都不相关。并查集保存的正是这些等价类。`union(x, y)` 记录了一条新事实 x ~ y，而由于传递性，两个类必须__整个__合并。'],
+        fig: () => [arr('"same remainder mod 3" splits 1 … 9 into three classes', [1, 2, 3, 4, 5, 6, 7, 8, 9], tn({ act: [0, 3, 6], cmp: [1, 4, 7], ok: [2, 5, 8] }), undefined, { base: 1 })] },
     ],
     flow: [
       { id: 'init', kind: 'start', text: ['fa[i] = i  for every i', '对每个 i：fa[i] = i'] },
@@ -345,6 +351,33 @@ export const DS: Record<string, Extras> = {
       { id: 'win', kind: 'test', text: ['i ≥ k − 1 ?', 'i ≥ k − 1 ？'], yes: 'out', no: 'next', on: [] },
       { id: 'out', text: ['output a[front]', '输出 a[队首]'], next: 'next' },
       { id: 'end', kind: 'end', text: ['done', '结束'] },
+    ],
+  },
+
+  'linked-list': {
+    story: [
+      { kind: 'naive', title: ['Start with an array', '先用数组试试'],
+        body: ['Keep the sequence in an array and remove an element from the middle. The hole must be closed: **every element behind it moves one place**. Inserting is the same in reverse. With n elements and n operations that is up to n² moves.', '把序列存在数组里，然后删掉中间的一个元素。空位必须补上：**它后面的每个元素都要前移一格**。插入则正好反过来。n 个元素、n 次操作，最多要移动 n² 次。'],
+        fig: () => [arr('remove 2: everything behind it shifts', [1, 2, 3, 4, 5, 6], tn({ bad: 1, act: [2, 3, 4, 5] }), undefined, { base: 1 })] },
+      { kind: 'insight', title: ['Store the order, not the positions', '保存顺序，而不是位置'],
+        body: ['Let each element remember ==who comes next and who comes before==. The sequence is then whatever you meet by following the links. Positions no longer exist, so nothing ever has to shift: changing the order means __changing a few links__.', '让每个元素记住==谁在它后面、谁在它前面==。沿着指针依次遇到的元素就是整个序列。位置不存在了，自然也就没有什么需要挪动：改变顺序只是__改几个指针__。'],
+        fig: () => [grid('the list 1, 2, 3, 4 with a sentinel 0', [[1, 2, 3, 4, 0], [4, 0, 1, 2, 3]], gt({ vis: [[0, 0], [1, 0]] }), { rows: ['nxt', 'pre'], cols: [0, 1, 2, 3, 4] })] },
+      { kind: 'term', title: ['Singly, doubly, circular', '单链表、双向链表、循环链表'],
+        body: ['A **singly linked** list keeps only `nxt`: you can walk forward, but to remove x you must first find the element before it — a walk from the head. A **doubly linked** list adds `pre`, so both neighbours of x are at hand and removal takes constant time. In a **circular** list the last element points back to the first. Here an extra node 0, the __sentinel__, stands between the last and the first element: the list is circular through it, and the two ends stop being special.', '**单链表**只保存 `nxt`：可以向后走，但要删除 x，必须先找到它前面的元素——得从表头走过来。**双向链表**再加上 `pre`，x 的两个邻居随时可得，删除只需常数时间。**循环链表**中，最后一个元素指回第一个。这里额外增加一个 0 号结点作为__哨兵__，它站在最后一个和第一个元素之间：链表通过它连成了环，两端也就不再特殊。'] },
+      { kind: 'how', title: ['Two links to remove, four to insert', '删除改两个指针，插入改四个'],
+        body: ['**Remove x**: `nxt[pre[x]] = nxt[x]` and `pre[nxt[x]] = pre[x]` — the neighbours now skip x. **Insert x after y**: first x learns its neighbours, `nxt[x] = nxt[y]`, `pre[x] = y`; then they learn about x, `pre[nxt[y]] = x`, `nxt[y] = x`. ==Change nxt[y] last==: until then it is the only way to reach the old successor.', '**删除 x**：`nxt[pre[x]] = nxt[x]`，`pre[nxt[x]] = pre[x]`——两个邻居从此跳过 x。**把 x 插到 y 后面**：先让 x 认识它的邻居，`nxt[x] = nxt[y]`，`pre[x] = y`；再让邻居认识 x，`pre[nxt[y]] = x`，`nxt[y] = x`。==nxt[y] 要最后改==：在那之前，它是找到 y 原来后继的唯一途径。'],
+        fig: () => [grid('remove 2 from 1, 2, 3, 4: only the links of 1 and 3 change', [[1, 3, 3, 4, 0], [4, 0, 1, 1, 3]], gt({ act: [[0, 1], [1, 3]], dim: [[0, 2], [1, 2]] }), { rows: ['nxt', 'pre'], cols: [0, 1, 2, 3, 4] })] },
+      { kind: 'result', title: ['Constant time anywhere — if you are already there', '任何位置都是常数时间——前提是你已经在那里'],
+        body: ['Insertion and removal cost **O(1)** wherever they happen. What a list cannot do is jump: reaching the k-th element takes k steps. So lists suit problems where you ==hold the element== you want to move — queues of people, undo histories, the adjacency lists of a graph — and arrays suit problems that ask for positions.', '无论在哪里，插入和删除都是 **O(1)**。链表做不到的是跳跃：到达第 k 个元素要走 k 步。所以链表适合==手里已经有那个元素==的问题——排队、撤销记录、图的邻接表——而需要按位置访问的问题适合数组。'] },
+    ],
+    flow: [
+      { id: 'init', kind: 'start', text: ['link 0 → 1 → 2 → … → n → 0', '连成 0 → 1 → 2 → … → n → 0'] },
+      { id: 'more', kind: 'test', text: ['operations left ?', '还有操作 ？'], no: 'done', on: [] },
+      { id: 'cut', text: ['cut x:   nxt[pre[x]] = nxt[x];   pre[nxt[x]] = pre[x]', '取出 x：nxt[pre[x]] = nxt[x]；pre[nxt[x]] = pre[x]'] },
+      { id: 'op', kind: 'test', text: ['is it "move x after y" ?', '是“把 x 移到 y 后面”吗 ？'], no: 'more', on: [] },
+      { id: 'own', text: ['nxt[x] = nxt[y];   pre[x] = y', 'nxt[x] = nxt[y]；pre[x] = y'] },
+      { id: 'in', text: ['pre[nxt[y]] = x;   nxt[y] = x', 'pre[nxt[y]] = x；nxt[y] = x'], next: 'more' },
+      { id: 'done', kind: 'end', text: ['print by following nxt from 0 back to 0', '从 0 出发沿 nxt 走回 0，依次输出'] },
     ],
   },
 }

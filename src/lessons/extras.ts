@@ -13,4 +13,4 @@ export interface Prose { problem: L; why: L; pitfalls: L[] }
 export interface Extras { story?: Card[]; flow?: FlowNode[]; first?: Variant; label?: L }
 
 /** What the lists and the search show of a lesson, available before the lesson itself is loaded. Generated into meta.ts. */
-export type Meta = Pick<Lesson, 'id' | 'title' | 'level' | 'cat' | 'diff' | 'blurb' | 'time'>
+export type Meta = Pick<Lesson, 'id' | 'title' | 'level' | 'cat' | 'diff' | 'blurb' | 'time' | 'needs'>

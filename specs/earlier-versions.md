@@ -42,6 +42,8 @@ Each row is one edit away from the lesson's listing and prints the same output f
 As built: every row except fast exponentiation and Floyd is raced in the data lab. Union-find and LCA are raced on the ordinary random data; the gap is real there (about 40× and 5× at the largest size), so no adversarial generator was added.
 | Z-function | Every `z[i]` starts at 0 | Start from `min(z[i − l], r − i)` | O(n²) → O(n) | yes |
 
+Added later: **Enumeration** — three nested loops, then the third unknown computed from the other two. O(n³) → O(n²), raced in the lab.
+
 ### Second tier
 
 Valid under the rule, lower value. Implement only if the first group reads well.

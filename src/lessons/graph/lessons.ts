@@ -76,6 +76,7 @@ int main() {
 
 const gbfs: Lesson = {
   id: 'graph-bfs', title: ['Breadth-first traversal', '图的广度优先遍历'], level: 'J', cat: 'graph', diff: 4,
+  needs: ['bfs-maze'],
   blurb: ['Visit all neighbours first, then their neighbours: vertices come out in order of distance from the start.', '先访问所有邻居，再访问邻居的邻居：顶点按到起点的距离由近到远被访问。'],
   ideas: [
     ['Use a queue instead of recursion: take a vertex from the front, append its unvisited neighbours at the back.', '用队列代替递归：从队首取出顶点，把它未访问的邻居加到队尾。'],
@@ -137,6 +138,7 @@ int main() {
 
 const dijkstra: Lesson = {
   id: 'dijkstra', title: ["Dijkstra's shortest paths", 'Dijkstra 最短路'], level: 'S', cat: 'graph', diff: 6,
+  needs: ['graph-bfs', 'heap-sort'],
   blurb: ['Repeatedly settle the closest unsettled vertex and relax its edges. Needs non-negative weights.', '反复取出距离最小的未确定顶点，并松弛它的出边。要求边权非负。'],
   ideas: [
     ['d[v] is the best distance found so far; it only ever decreases.', 'd[v] 是目前找到的最短距离，只会减小。'],
@@ -216,6 +218,7 @@ int main() {
 
 const spfa: Lesson = {
   id: 'spfa', title: ['Bellman-Ford & SPFA', 'Bellman-Ford 与 SPFA'], level: 'S', cat: 'graph', diff: 6,
+  needs: ['graph-bfs'],
   blurb: ['Relax edges until nothing changes — correct even with negative weights. SPFA only re-relaxes from vertices whose distance just improved.', '不断松弛直到没有变化——有负权边也正确。SPFA 只从距离刚被改进的顶点出发重新松弛。'],
   ideas: [
     ['Bellman-Ford: relax all m edges, n − 1 times. A shortest path has at most n − 1 edges, so that is enough.', 'Bellman-Ford：把全部 m 条边松弛 n − 1 轮。最短路至多 n − 1 条边，所以足够了。'],
@@ -363,6 +366,7 @@ int main() {
 
 const prim: Lesson = {
   id: 'prim', title: ["Prim's minimum spanning tree", 'Prim 最小生成树'], level: 'S', cat: 'graph', diff: 6,
+  needs: ['heap-sort'],
   blurb: ['Grow one tree from a start vertex, always adding the cheapest edge that leaves it.', '从一个起点开始让一棵树不断生长，每次加入离开这棵树的最便宜的边。'],
   ideas: [
     ['A spanning tree connects all n vertices with n − 1 edges; we want the smallest total weight.', '生成树用 n − 1 条边连通全部 n 个顶点；我们要总权值最小的那棵。'],
@@ -431,6 +435,7 @@ int main() {
 
 const kruskal: Lesson = {
   id: 'kruskal', title: ["Kruskal's minimum spanning tree", 'Kruskal 最小生成树'], level: 'S', cat: 'graph', diff: 6,
+  needs: ['dsu'],
   blurb: ['Sort the edges by weight and add each one unless it would close a cycle — a union-find tells you instantly.', '把边按权值排序，逐条加入，会成环的就跳过——并查集可以瞬间判断。'],
   ideas: [
     ['Consider edges from lightest to heaviest.', '按从轻到重的顺序考虑每条边。'],
@@ -491,6 +496,7 @@ int main() {
 
 const topo: Lesson = {
   id: 'topo-sort', title: ['Topological sort', '拓扑排序'], level: 'S', cat: 'graph', diff: 6,
+  needs: ['graph-bfs'],
   blurb: ['Order the vertices of a DAG so every edge points forward: repeatedly remove a vertex with no incoming edges.', '给有向无环图的顶点排序，使每条边都从前指向后：不断删去入度为 0 的顶点。'],
   ideas: [
     ['A vertex with in-degree 0 depends on nothing, so it can go first.', '入度为 0 的顶点不依赖任何其他顶点，可以排在最前面。'],
@@ -560,6 +566,7 @@ int main() {
 
 const bipartite: Lesson = {
   id: 'bipartite', title: ['Bipartite check', '二分图的判定'], level: 'S', cat: 'graph', diff: 6,
+  needs: ['graph-bfs'],
   blurb: ['Try to 2-colour the graph with BFS; an edge between two vertices of the same colour is an odd cycle.', '用 BFS 尝试对图进行二染色；一旦出现两端同色的边，就找到了奇环。'],
   ideas: [
     ['A graph is bipartite if its vertices split into two groups with every edge going between the groups.', '如果能把顶点分成两组，使每条边都连接不同的组，这个图就是二分图。'],
@@ -646,6 +653,7 @@ int main() {
 
 const tarjan: Lesson = {
   id: 'tarjan-scc', title: ['Strongly connected components (Tarjan)', '强连通分量（Tarjan）'], level: 'S', cat: 'graph', diff: 7,
+  needs: ['graph-dfs'],
   blurb: ['One DFS with a stack: a vertex whose low-link equals its own index is the root of a component, and everything above it on the stack belongs to it.', '一次带栈的 DFS：若某顶点的 low 等于自己的 dfn，它就是一个分量的根，栈中在它之上的顶点都属于这个分量。'],
   ideas: [
     ['Strongly connected: every vertex can reach every other. Components partition the graph; contracting them leaves a DAG.', '强连通：任意两点互相可达。强连通分量把图划分开；把每个分量缩成一点后得到 DAG。'],
@@ -746,6 +754,7 @@ int main() {
 
 const cutBridge: Lesson = {
   id: 'cut-bridge', title: ['Cut vertices and bridges', '割点与割边'], level: 'S', cat: 'graph', diff: 7,
+  needs: ['graph-dfs'],
   blurb: ['Use dfn and low on an undirected graph: a child subtree that cannot climb above its parent is cut off when the parent (or the edge) is removed.', '在无向图上用 dfn 和 low：如果某棵子树爬不到父亲之上，删掉父亲（或那条边）它就会被断开。'],
   ideas: [
     ['A cut vertex (bridge) is a vertex (edge) whose removal disconnects the graph.', '割点（割边）是删除后会使图不再连通的顶点（边）。'],
@@ -875,6 +884,7 @@ const TREEQ: Lesson['input'] = ['n q, then n − 1 tree edges "u v", then q quer
 
 const lca: Lesson = {
   id: 'lca', title: ['LCA by binary lifting', '倍增求最近公共祖先'], level: 'S', cat: 'graph', diff: 6,
+  needs: ['graph-dfs'],
   blurb: ['Store every 2ʲ-th ancestor. Lift the deeper vertex level, then make both jump as far as possible without meeting.', '预存每个顶点的第 2ʲ 级祖先。先把较深的点提到同一深度，再让两点一起尽量往上跳而不相遇。'],
   ideas: [
     ['up[j][u] = the 2ʲ-th ancestor of u. Doubling: up[j][u] = up[j−1][ up[j−1][u] ].', 'up[j][u] = u 的第 2ʲ 级祖先。倍增：up[j][u] = up[j−1][ up[j−1][u] ]。'],
@@ -964,6 +974,7 @@ int main() {
 
 const diameter: Lesson = {
   id: 'tree-diameter', title: ['Tree diameter', '树的直径'], level: 'S', cat: 'graph', diff: 6,
+  needs: ['graph-dfs'],
   blurb: ['Two searches: the farthest vertex from anywhere is one end of a diameter; the farthest vertex from that end is the other.', '两次搜索：从任意点出发最远的点一定是直径的一端；从这一端出发最远的点就是另一端。'],
   ideas: [
     ['The diameter is the longest path between two vertices of the tree.', '直径是树上两点之间最长的路径。'],
@@ -1045,6 +1056,7 @@ int main() {
 
 const hld: Lesson = {
   id: 'hld', title: ['Heavy-light decomposition', '树链剖分'], level: 'N', cat: 'graph', diff: 8,
+  needs: ['lca', 'segment-tree'],
   blurb: ['Split the tree into heavy chains so that any root path crosses only O(log n) of them — then a path becomes a few array segments.', '把树剖成若干条重链，使任意一条到根的路径只跨过 O(log n) 条链——于是路径就变成了数组上的几段区间。'],
   ideas: [
     ['Heavy child: the child with the largest subtree. The edge to it is heavy, all others are light.', '重儿子：子树最大的那个孩子。连向它的边是重边，其余是轻边。'],
@@ -1143,6 +1155,7 @@ int main() {
 
 const dinic: Lesson = {
   id: 'dinic', title: ['Maximum flow (Dinic)', '网络流：Dinic 最大流'], level: 'N', cat: 'graph', diff: 8,
+  needs: ['graph-bfs', 'graph-dfs'],
   blurb: ['Layer the residual graph by BFS, push flow along level-increasing paths by DFS, and repeat until the sink is unreachable.', '用 BFS 给残量网络分层，用 DFS 沿层数递增的路径推流，重复直到汇点不可达。'],
   ideas: [
     ['Each edge has a capacity; flow leaves the source, is conserved at every other vertex, and arrives at the sink.', '每条边有容量；流量从源点出发，在其余顶点守恒，最终到达汇点。'],
@@ -1263,6 +1276,7 @@ int main() {
 
 const hungarian: Lesson = {
   id: 'hungarian', title: ['Bipartite matching (Hungarian algorithm)', '二分图最大匹配（匈牙利算法）'], level: 'N', cat: 'graph', diff: 8,
+  needs: ['bipartite'],
   blurb: ['For each left vertex look for an augmenting path: take a free partner, or ask the current owner of a partner to move elsewhere.', '为每个左部点寻找增广路：要么找到空闲的右部点，要么请占用者“让一让”，换到别处去。'],
   ideas: [
     ['A matching is a set of edges with no shared endpoints; we want as many as possible.', '匹配是一组没有公共端点的边；我们要让匹配的边尽量多。'],

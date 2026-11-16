@@ -75,6 +75,42 @@ export const TEXT: Record<string, Prose> = {
       ['For negative n the % operator in C++ gives negative remainders; convert the absolute value.', 'n 为负数时 C++ 的 % 会得到负的余数；应先对绝对值进行转换。'],
     ],
   },
+  enumeration: {
+    problem: ['A rooster costs 5 coins, a hen costs 3 coins, and three chicks cost 1 coin. Buy exactly n birds with exactly n coins. List every way to do it.', '公鸡 5 文钱一只，母鸡 3 文钱一只，小鸡 1 文钱三只。用恰好 n 文钱买恰好 n 只鸡，列出所有买法。'],
+    why: ['There is no formula to reach for, and none is needed: the numbers are small enough to try every possibility. That is enumeration, and it is the first method to consider for any problem. What makes it work in practice is keeping the number of candidates down. Three unknowns suggest three nested loops, about n³ candidates. But the birds must add up to n, so once x and y are chosen there is exactly one z worth looking at, n − x − y: the third loop disappears and n² candidates remain. The loop bounds shrink the set further: x roosters already cost 5x coins, so x never needs to exceed n / 5, and likewise for y. What is left is tested against the remaining condition, the total cost.', '这里没有现成的公式，也不需要公式：数据范围足够小，把所有可能都试一遍就行。这就是枚举，它是拿到任何题目时首先应该考虑的方法。枚举能否实用，关键在于控制候选解的个数。三个未知数让人想到三重循环，大约 n³ 个候选解。但鸡的总数必须是 n，所以选定 x 和 y 之后，值得考虑的 z 只有一个：n − x − y。第三层循环就这样消失了，只剩 n² 个候选解。循环的上界还能进一步缩小范围：x 只公鸡已经要花 5x 文，所以 x 不必超过 n / 5，y 也是同理。剩下的候选解再用另一个条件——总花费——来检验。'],
+    pitfalls: [
+      ['Testing z / 3 without first checking z % 3 == 0 accepts impossible purchases: integer division silently rounds down.', '不先判断 z % 3 == 0 就使用 z / 3，会接受不可能的买法：整数除法会悄悄向下取整。'],
+      ['Before enumerating, estimate the number of candidates. About 10⁸ simple steps per second is a safe budget.', '枚举之前先估算候选解的个数。每秒大约 10⁸ 次简单运算是比较稳妥的预算。'],
+      ['Three loops are correct but waste a factor of n. Look for a quantity that the others determine.', '三重循环是对的，但白白多了 n 倍的工作量。要找找有没有能被其他量确定的量。'],
+    ],
+  },
+  simulation: {
+    problem: ['n people stand in a circle and count off 1, 2, …, m. Whoever says m leaves the circle, and the next person starts again from 1. In what order do they leave?', 'n 个人围成一圈，从 1 开始依次报数，报到 m 的人出圈，下一个人重新从 1 开始报。求出圈的顺序。'],
+    why: ['The statement already is the algorithm: it describes a process step by step, and the program only has to carry it out faithfully. This is simulation. The work lies in choosing variables that describe the situation completely. Here two things matter at every moment: who is still in the circle, and who spoke last. An array of flags records the first, one integer the second. Moving to the next person is p % n + 1, which wraps from n back to 1. People who have left are skipped — they keep their place in the array but no longer say a number. Simulation problems are rarely hard to understand; they are hard to get exactly right, because every detail of the statement becomes a line of code.', '题目本身就是算法：它一步一步地描述了一个过程，程序只需要老老实实地照做。这就是模拟。真正要动脑筋的是选择变量，让它们能完整地描述当前的局面。这里每个时刻有两件事重要：谁还在圈里，以及上一个报数的是谁。前者用一个标记数组记录，后者用一个整数记录。走到下一个人是 p % n + 1，它能从 n 绕回 1。已经出圈的人会被跳过——他们在数组里的位置还在，只是不再报数。模拟题很少难在理解上，而是难在写得完全正确，因为题目中的每个细节都会变成一行代码。'],
+    pitfalls: [
+      ['Writing p = (p + 1) % n gives positions 0 … n − 1; mixing that with people numbered from 1 is the classic off-by-one.', '写成 p = (p + 1) % n 得到的是 0 … n − 1；把它和从 1 开始的编号混用，是最典型的差一错误。'],
+      ['Counting people who have already left: the count must advance only for those still in the circle.', '把已经出圈的人也算进报数：只有还在圈里的人才能让报数加一。'],
+      ['Simulating step by step is too slow when n and m are both large; then you need a formula or a data structure.', 'n 和 m 都很大时，一步一步地模拟会太慢；那时需要公式或数据结构。'],
+    ],
+  },
+  'bignum-sub': {
+    problem: ['Subtract one non-negative integer from another. Both may have hundreds of thousands of digits, and the result may be negative.', '计算两个非负整数的差。两个数都可能有几十万位，结果可能为负。'],
+    why: ['Column subtraction works from the lowest digit upward, like addition, so the same reversed digit array is used. In each column subtract the digit of b and any borrow from the digit of a. If the result is negative, add 10 and borrow 1 from the next column — that column then has one less to give. A borrow can always be repaid only if the number on top is the larger one, so the program compares first: more digits means larger, and with equal lengths the first difference from the top decides. When a is smaller, it computes b − a and prints a minus sign. Unlike addition, the result can lose digits, even all but one, so leading zeros are removed at the end.', '竖式减法和加法一样从最低位算起，所以沿用同样的倒序数字数组。每一位用 a 的数字减去 b 的数字和借位。如果结果为负，就加上 10，并向高一位借 1——高一位能用的就少了 1。只有被减数较大时，借位才一定还得上，所以程序要先比较大小：位数多的更大；位数相同时，从高位起第一个不同的数字决定大小。a 较小时，就计算 b − a 并输出负号。与加法不同，结果的位数可能减少，甚至只剩一位，所以最后要去掉前导零。'],
+    pitfalls: [
+      ['Subtracting the larger from the smaller leaves a borrow at the top and prints garbage. Compare and swap first.', '用小数减大数，最高位会留下一个还不上的借位，输出毫无意义。要先比较并交换。'],
+      ['Comparing the two strings with < compares them as text: "9" comes after "10". Compare lengths first.', '直接用 < 比较两个字符串是按字典序比的："9" 会排在 "10" 后面。要先比较长度。'],
+      ['Stripping every zero turns the answer 0 into an empty line. Keep at least one digit.', '把 0 全部去掉会让答案 0 变成空行。至少要保留一位。'],
+    ],
+  },
+  'bignum-div': {
+    problem: ['Divide a non-negative integer with up to hundreds of thousands of digits by an ordinary integer b. Print the quotient and the remainder.', '把一个可能有几十万位的非负整数除以一个普通整数 b，输出商和余数。'],
+    why: ['Long division on paper goes from the highest digit down, carrying a remainder. At each step you bring down the next digit: the remainder r, which is worth ten times as much in the new column, becomes r · 10 + digit. Dividing that by b gives the next digit of the quotient, and what is left over is the new remainder. Because the remainder is always less than b, the number being divided is less than 10 · b, so each quotient digit is a single digit 0 … 9 and all the arithmetic fits in a 64-bit integer. One pass over the digits gives the whole quotient, and the final remainder is the remainder of the division. Since the work starts at the top, the digits are processed in the order they were read — no reversing.', '纸上的竖式除法从最高位往低位做，并且一路带着余数。每一步落下下一位数字：余数 r 在新的一位上相当于原来的十倍，于是变成 r · 10 + 这一位。用它除以 b，得到商的下一位，剩下的就是新的余数。由于余数始终小于 b，被除的数小于 10 · b，所以商的每一位都是 0 … 9 中的一个数字，所有运算都在 64 位整数范围内。把各位数字扫一遍就得到整个商，最后的余数就是除法的余数。因为从最高位开始算，所以按读入的顺序处理即可——不需要倒序。'],
+    pitfalls: [
+      ['Using int for r overflows: r · 10 can reach 10¹⁰ when b is close to 10⁹.', 'r 用 int 会溢出：b 接近 10⁹ 时，r · 10 可达 10¹⁰。'],
+      ['The quotient has as many digits as a, so it starts with zeros (0123). Skip them, but print 0 when the quotient is 0.', '商的位数与 a 相同，所以开头会有 0（如 0123）。要跳过它们，但商为 0 时仍要输出 0。'],
+      ['This only works when the divisor fits in a built-in type. Dividing by another huge number needs a different method.', '这个方法只适用于除数是内置整数类型的情况。除以另一个大整数需要别的方法。'],
+    ],
+  },
 }
 
 /** Where each problem shows up outside contests, shown on the Problem tab. Same inline markup as the Ideas story. */
@@ -87,4 +123,8 @@ export const REAL: Record<string, L> = {
   'bignum-add': ['A 64-bit integer holds about 19 digits. **Cryptographic keys** have more than 600, and bank ledgers or scientific constants must not lose a single digit — so the computer adds digit by digit with carries, exactly as you do on paper.', '64 位整数只能存大约 19 位十进制数。**密码学密钥**有 600 多位，银行账目和科学常数也一位都不能丢——于是计算机像你列竖式一样，一位一位地加并处理进位。'],
   'bignum-mul': ['World records for the **digits of π** and the search for huge prime numbers both rest on multiplying numbers with millions of digits. The schoolbook method here is the starting point; faster ones (Karatsuba, FFT) refine the same layout.', '计算 **π 的小数位**的世界纪录、寻找巨大的素数，都建立在几百万位数的乘法之上。这里的竖式乘法是起点，更快的方法（Karatsuba、FFT）都是在同样的格局上改进。'],
   'base-conversion': ['The colour `#FF8800` on a web page is three numbers written in **base 16**; file permissions like `755` are base 8; and every number in memory is base 2. Converting between them is daily work for a programmer.', '网页上的颜色 `#FF8800` 是三个用 **16 进制**写出的数；文件权限 `755` 是 8 进制；内存里的每个数都是 2 进制。在它们之间转换是程序员的日常。'],
+  enumeration: ['A **combination lock** with three dials has only 1 000 settings: trying them all takes minutes. A password cracker does the same with every short password — which is why the best defence is to make the number of candidates astronomically large.', '三位数的**密码锁**只有 1 000 种组合：全部试一遍只要几分钟。密码破解程序对所有短密码做的也是同一件事——所以最好的防御就是让候选的数量大到天文数字。'],
+  simulation: ['A **weather forecast** is a simulation: the computer advances the state of the atmosphere a few minutes at a time, following the laws of physics. Games, traffic planners and flight simulators all work this way: store the state, apply the rules, repeat.', '**天气预报**就是模拟：计算机按照物理规律，把大气的状态每次向前推进几分钟。游戏、交通规划和飞行模拟器都是这样工作的：保存状态，应用规则，不断重复。'],
+  'bignum-sub': ['A **bank** must know a balance to the last cent however large it grows, and checking a digital signature subtracts numbers hundreds of digits long. Rounding is not an option, so the subtraction is done digit by digit.', '**银行**的账户余额无论多大都必须精确到分，验证数字签名时也要对几百位的数做减法。不能四舍五入，所以减法只能一位一位地做。'],
+  'bignum-div': ['Checking whether a huge number is divisible by a small prime — the first step in **testing a candidate key** for encryption — is exactly this: sweep the digits once, keeping only the remainder.', '判断一个巨大的数能否被某个小素数整除——**检验加密密钥候选数**的第一步——正是这样做的：把各位数字扫一遍，只保留余数。'],
 }

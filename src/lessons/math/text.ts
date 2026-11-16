@@ -84,6 +84,16 @@ export const TEXT: Record<string, Prose> = {
       ['The heap version is O(n log n); a pointer-based version achieves O(n).', '用堆的写法是 O(n log n)；用指针扫描的写法可以做到 O(n)。'],
     ],
   },
+  'prime-factor': {
+    problem: ['Write an integer n as a product of prime numbers.', '把整数 n 写成若干个质数的乘积。'],
+    why: ['The fundamental theorem of arithmetic says the product exists and is unique, so the task is only to find it. Trial division does that from the small end. Try 2: as long as it divides n, record a factor 2 and divide it out. Then 3, then 4, and so on. It looks as if composite numbers such as 4 or 6 could be recorded by mistake, but they never divide: by the time p is reached, every prime below p has been removed from n completely, and a composite p is built from exactly those primes. The second idea is when to stop. Factors come in pairs — if d divides n, so does n / d — and one of the pair is at most √n. So if no p with p · p ≤ n divides n, then n has no factor other than 1 and itself: it is prime, and it is the last factor. Since n shrinks with every division, this stopping point usually arrives far sooner than the square root of the original number.', '算术基本定理告诉我们，这样的乘积存在且唯一，所以任务只是把它找出来。试除法从小的一端做起。先试 2：只要它能整除 n，就记下一个因数 2 并把它除掉。然后试 3，再试 4，依此类推。看起来 4、6 这样的合数可能被误记为因数，但它们永远不会整除 n：试到 p 时，所有小于 p 的质数都已经从 n 中除尽了，而合数 p 恰恰是由这些质数乘出来的。第二个要点是什么时候停。因数是成对出现的——若 d 整除 n，则 n / d 也整除 n——每一对中总有一个不超过 √n。所以如果没有满足 p · p ≤ n 的 p 能整除 n，n 就只有 1 和它本身两个因数：它是质数，也就是最后一个质因数。由于每除一次 n 都会变小，这个停止点通常比原数的平方根来得早得多。'],
+    pitfalls: [
+      ['Using "if" instead of "while" misses repeated factors: 12 would come out as 2 · 3.', '把 while 写成 if 会漏掉重复的质因数：12 会被分解成 2 · 3。'],
+      ['Forgetting the final "if (n > 1)" drops the largest prime factor, e.g. the 7 in 14.', '忘记最后的 “if (n > 1)” 会丢掉最大的质因数，例如 14 中的 7。'],
+      ['Writing p * p <= n with int p overflows for n near 10¹⁴. Use long long.', 'p 用 int 时，p * p <= n 在 n 接近 10¹⁴ 时会溢出。要用 long long。'],
+      ['Looping p all the way to n is correct but takes n steps instead of √n.', '让 p 一直循环到 n 是对的，但需要 n 步而不是 √n 步。'],
+    ],
+  },
 }
 
 /** Where each problem shows up outside contests, shown on the Problem tab. Same inline markup as the Ideas story. */
@@ -97,4 +107,5 @@ export const REAL: Record<string, L> = {
   'nim-sg': ['Taking **matches from piles** against a friend: with the XOR rule you know from the first move whether you can force a win. The SG function extends this to any game where the player unable to move loses.', '和朋友玩**取火柴**游戏：掌握了异或规则，第一步之前你就知道自己能不能必胜。SG 函数把这个结论推广到一切“无法行动者输”的游戏。'],
   'convex-hull': ['Stretch a **rubber band** around nails on a board: it snaps to the convex hull. Games use hulls for fast collision checks, and a farmer for the shortest fence around all the trees.', '用一根**橡皮筋**套住木板上的钉子：它绷紧后的形状就是凸包。游戏用凸包快速判断碰撞，农场主用它求围住所有树的最短篱笆。'],
   prufer: ['**Storing or sending a labelled tree** — a network layout, say — as just n − 2 numbers. Because every sequence gives exactly one tree, it is also the simplest way to generate a uniformly random tree as test data.', '只用 n − 2 个数就能**存储或传输一棵带标号的树**（比如一个网络的拓扑）。由于每个序列恰好对应一棵树，它也是生成均匀随机树作为测试数据的最简单方法。'],
+  'prime-factor': ['**RSA encryption**, which protects most connections on the Internet, rests on one fact: multiplying two 300-digit primes takes a moment, but nobody knows how to factor the product back in less than billions of years. Trial division is where every attack starts — and why it fails.', '保护着互联网上大多数连接的 **RSA 加密**依赖于一个事实：把两个 300 位的质数相乘只需一瞬间，但要把乘积重新分解，目前已知的方法都需要几十亿年。试除法是所有攻击的起点——也正说明了攻击为什么行不通。'],
 }

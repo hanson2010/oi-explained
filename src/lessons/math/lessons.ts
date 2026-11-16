@@ -51,6 +51,7 @@ int main() {
 
 const exgcd: Lesson = {
   id: 'exgcd', title: ['Extended Euclid & Bézout', '扩展欧几里得算法与裴蜀定理'], level: 'S', cat: 'math', diff: 7,
+  needs: ['gcd'],
   blurb: ['While Euclid\'s algorithm unwinds, carry coefficients back up to get x and y with a·x + b·y = gcd(a, b).', '在欧几里得算法回溯的过程中，把系数一路带回来，得到满足 a·x + b·y = gcd(a, b) 的 x 和 y。'],
   ideas: [
     ['Bézout: a·x + b·y = c has integer solutions exactly when gcd(a, b) divides c.', '裴蜀定理：a·x + b·y = c 有整数解，当且仅当 gcd(a, b) 整除 c。'],
@@ -123,6 +124,7 @@ const numGrid = (n: number, tone: (i: number) => Tone | undefined, name: string)
 
 const sieve: Lesson = {
   id: 'sieve', title: ['Sieve of Eratosthenes', '埃氏筛法'], level: 'J', cat: 'math', diff: 4,
+  needs: ['prime-factor'],
   blurb: ['Walk upward from 2; every number still standing is prime, and its multiples are crossed out.', '从 2 开始往上走；每个还没被划掉的数都是素数，然后划掉它的所有倍数。'],
   ideas: [
     ['A composite number has a prime factor smaller than itself, so it gets crossed out before we reach it.', '合数一定有比它小的素因子，所以在走到它之前就已经被划掉了。'],
@@ -177,6 +179,7 @@ int main() {
 
 const linearSieve: Lesson = {
   id: 'linear-sieve', title: ['Linear sieve (Euler)', '线性筛法（欧拉筛）'], level: 'J', cat: 'math', diff: 4,
+  needs: ['sieve'],
   blurb: ['Arrange for every composite to be crossed out exactly once — by its smallest prime factor — and the sieve becomes truly linear.', '让每个合数只被划掉一次——由它的最小素因子负责——筛法就真正成为线性的。'],
   ideas: [
     ['The Eratosthenes sieve crosses a number like 30 several times (by 2, 3 and 5).', '埃氏筛会把 30 这样的数划掉好几次（被 2、3、5 各划一次）。'],
@@ -591,4 +594,58 @@ int main() {
   },
 }
 
-export default [gcd, exgcd, sieve, linearSieve, pascal, gauss, nimSg, hull, prufer]
+const primeFactor: Lesson = {
+  id: 'prime-factor', title: ['Prime factorisation', '分解质因数'], level: 'J', cat: 'math', diff: 3,
+  blurb: ['Divide out 2, then 3, then every later number while it divides — and stop at the square root of what is left.', '先把 2 除尽，再除 3，再依次往后试——试到剩下的数的平方根为止。'],
+  ideas: [
+    ['Every integer above 1 is a product of primes in exactly one way. Finding that product is factorisation.', '每个大于 1 的整数都能唯一地写成若干质数的乘积。把这个乘积找出来就是分解质因数。'],
+    ['Try p = 2, 3, 4, … and divide n by p as long as it divides. Each division yields one prime factor.', '依次试 p = 2, 3, 4, …，只要 p 能整除 n 就一直除。每除一次就得到一个质因数。'],
+    ['A composite p never divides: its own prime factors were divided out earlier.', '合数 p 永远不会整除 n：它自己的质因数早就被除尽了。'],
+    ['If p · p > n, then n has no factor left except itself: whatever remains above 1 is prime.', '如果 p · p > n，n 除了它自身就没有别的因数了：剩下的数只要大于 1 就是质数。'],
+  ],
+  time: 'O(√n)', space: 'O(1)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    long long n;
+    scanf("%lld", &n);
+    for (long long p = 2; p * p <= n; p++) {  //@try
+        while (n % p == 0) {
+            printf("%lld ", p);  //@take
+            n /= p;
+        }
+    }
+    if (n > 1) printf("%lld", n);  //@last
+}`,
+  notes: [
+    ['try', ['n shrinks as factors are removed, so this bound tightens while the loop runs.', 'n 会随着因数被除掉而变小，所以这个上界在循环过程中不断收紧。']],
+    ['take', ['"while", not "if": 8 = 2 · 2 · 2 contains the prime 2 three times.', '是 while 而不是 if：8 = 2 · 2 · 2 含有三个质因数 2。']],
+    ['last', ['A number has at most one prime factor above its square root; if there is one, this is it.', '一个数至多有一个大于其平方根的质因数；如果有，就是这里剩下的数。']],
+  ],
+  input: ['n (2 ≤ n ≤ 10¹⁴). Prints its prime factors in non-decreasing order, each as often as it occurs. (In the generator, n is the number of digits.)', 'n（2 ≤ n ≤ 10¹⁴）。按从小到大的顺序输出它的质因数，重复的质因数重复输出。（生成器中 n 表示位数。）'],
+  sizes: [2, 3, 4], lab: [4, 8, 11, 14],
+  gen: (n, r) => `${n <= 1 ? r.int(2, 9) : n <= 8 ? r.int(10 ** (n - 1), 10 ** n - 1) : Math.floor(10 ** (n - 1) * (1 + 9 * r.next()))}\n`,
+  run(inp, t) {
+    const N = reader(inp).int(), fs: number[] = []
+    need(Number.isInteger(N) && N >= 2 && N <= 1e14, 'n must be an integer between 2 and 10¹⁴.', 'n 须为 2 到 10¹⁴ 之间的整数。')
+    let n = N
+    const found = () => fs.length > 0 && arr(`prime factors of ${N} found so far`, fs)
+    for (let p = 2; p * p <= n; p++) {
+      if (n % p !== 0) { t.s('try', () => [[`p = ${p}: ${p} × ${p} = ${p * p} ≤ ${n}, but ${p} does not divide ${n}.`, `p = ${p}：${p} × ${p} = ${p * p} ≤ ${n}，但 ${p} 不能整除 ${n}。`], found(), vars({ n, p })]); continue }
+      while (n % p === 0) {
+        const old = n
+        n /= p; fs.push(p)
+        const now = n
+        t.s('take', () => [[`${p} divides ${old}: take the factor ${p}, leaving ${old} ÷ ${p} = ${now}.`, `${p} 能整除 ${old}：取出质因数 ${p}，剩下 ${old} ÷ ${p} = ${now}。`], arr(`prime factors of ${N} found so far`, fs, tn({ act: fs.length - 1 })), vars({ n: now, p })])
+      }
+    }
+    const rest = n
+    if (n > 1) fs.push(n)
+    t.s('last', () => [rest > 1 ? [`No p with p × p ≤ ${rest} is left, so ${rest} has no smaller factor: it is prime.`, `已经没有满足 p × p ≤ ${rest} 的 p 了，所以 ${rest} 没有更小的因数：它是质数。`] : ['Nothing is left: n has become 1.', '什么都没剩下：n 已经变成 1。'],
+      arr(`${N} =`, fs, tn({ ok: span(0, fs.length - 1) })), vars({ n: rest })])
+    t.out(fs.join(' '))
+  },
+}
+
+export default [gcd, exgcd, sieve, linearSieve, pascal, gauss, nimSg, hull, prufer, primeFactor]
