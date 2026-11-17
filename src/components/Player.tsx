@@ -29,9 +29,13 @@ interface PlayerProps {
   expect?(input: string): string
   /** Makes the code lines clickable, with a verdict on those already picked. */
   pick?: { on(line: number): void; picked: Record<number, 'ok' | 'bad'> }
+  /** Starts with "Ask me first" switched on (a review). */
+  asking?: boolean
+  /** Called each time the last step of an animation is reached. */
+  onEnd?(): void
 }
 
-export function Player({ lesson, start = 0, initial, expect, pick }: PlayerProps) {
+export function Player({ lesson, start = 0, initial, expect, pick, asking: askFirst = false, onEnd }: PlayerProps) {
   const { ui, tr, p, answerQuiz } = useApp()
   const [size, setSize] = useState(0)
   const [seed, setSeed] = useState(1)
@@ -42,7 +46,7 @@ export function Player({ lesson, start = 0, initial, expect, pick }: PlayerProps
   const [speed, setSpeed] = useState(1)
   const [panel, setPanel] = useState<'code' | 'flow'>('code')
   // "Predict the next step": with the quiz on, the player stops before a step that carries a question.
-  const [quiz, setQuiz] = useState(false)
+  const [quiz, setQuiz] = useState(askFirst)
   const [asking, setAsking] = useState<number | null>(null)
   const [answered, setAnswered] = useState<Record<number, number>>({})
 
@@ -54,6 +58,7 @@ export function Player({ lesson, start = 0, initial, expect, pick }: PlayerProps
   const sameOut = (a: string, b: string) => a.split(/\s+/).filter(Boolean).join(' ') === b.split(/\s+/).filter(Boolean).join(' ')
   const cur = res.steps[Math.min(i, n - 1)]
   const questions = useMemo(() => res.steps.filter(s => s.ask).length, [res])
+  useEffect(() => { if (n > 1 && i === n - 1) onEnd?.() }, [i, n])
   useEffect(() => { setAnswered({}); setAsking(null) }, [res])
   /** One step forward, unless the quiz has a question about that step first. */
   const forward = () => {

@@ -7,6 +7,7 @@ import type { Cat, Level } from '../engine/types'
 import { CATS, LEVELS } from '../i18n'
 import { useLesson } from '../lessons/load'
 import { META, META_BY_ID } from '../lessons/meta'
+import { dueNow } from '../review'
 import { setQuery, useApp } from '../store'
 
 const DEMO = 'quick-sort'
@@ -57,6 +58,7 @@ export function Home({ query }: { query: URLSearchParams }) {
   const clear = () => { setQ(''); setQuery({ q: '', level: '', cat: '', fav: '' }) }
 
   const doneCount = META.filter(l => p.done[l.id]).length
+  const dueCount = dueNow(p, Date.now(), META.map(l => l.id)).length
   const nextUp = (p.last && !p.done[p.last] && META_BY_ID.get(p.last)) || META.find(l => !p.done[l.id]) || META[0]
   const needle = q.trim().toLowerCase()
   const list = META.filter(l =>
@@ -73,6 +75,7 @@ export function Home({ query }: { query: URLSearchParams }) {
           <div className="row">
             <a className="btn primary big" href={'#/learn/' + nextUp.id}>{doneCount || p.last ? ui('resume') : ui('start')}: {tr(nextUp.title)}</a>
             <a className="btn big" href="#/syllabus">{ui('browse')}</a>
+            {dueCount > 0 && <a className="btn big" href="#/profile">{ui('reviewTitle')} ({dueCount})</a>}
           </div>
           <div className="stats">
             <span><b>{META.length}</b> {ui('lessons')}</span>

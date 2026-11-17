@@ -11,6 +11,7 @@ import { Rng, Tracer, type Card, type Lesson, type Variant } from '../engine/typ
 import { CATS } from '../i18n'
 import type { Meta } from '../lessons/extras'
 import { leadsTo, META, META_BY_ID } from '../lessons/meta'
+import { dueAt } from '../review'
 import { href, isRevisit, useApp } from '../store'
 
 /** Learning order: what is asked, how to think about it, the program, watching it run, scaling it up — and, where there is one, a broken version to repair. */
@@ -148,14 +149,21 @@ function CodeTab({ lesson, variant }: { lesson: Lesson; variant?: Variant }) {
   )
 }
 
-export function LessonPage({ lesson, tab, step }: { lesson: Lesson; tab?: string; step?: string }) {
-  const { ui, tr, p, set, toggleDone, toggleFav } = useApp()
+/** `review`: the lesson was opened from the review list (…/viz?review=1). Playing the animation to its end counts as the review. */
+export function LessonPage({ lesson, tab, step, review = false }: { lesson: Lesson; tab?: string; step?: string; review?: boolean }) {
+  const { ui, tr, p, set, toggleDone, toggleFav, markReviewed } = useApp()
   const TABS = ALL_TABS.filter(t => t !== 'fix' || lesson.broken)
   const cur: Tab = (TABS as readonly string[]).includes(tab ?? '') ? (tab as Tab) : 'problem'
   const idx = META.findIndex(m => m.id === lesson.id), prev = META[idx - 1], next = META[idx + 1]
   const after = TABS[TABS.indexOf(cur) + 1]
   // Lessons with two versions open on the first one: that is the order to learn them in.
-  const [first, setFirst] = useState(!!lesson.first)
+  const [first, setFirst] = useState(!!lesson.first && !review)
+  // A review runs on data the learner has not seen: a fresh seed, at the middle size.
+  const fresh = useMemo(() => (review ? lesson.gen(lesson.sizes[1], new Rng(1 + Math.floor(Math.random() * 1e6))) : undefined), [lesson, review])
+  const [reviewed, setReviewed] = useState(false)
+  const due = review && !!p.done[lesson.id] && (dueAt(p, lesson.id) ?? Infinity) <= Date.now()
+  const finishReview = () => { if (due && !reviewed) { setReviewed(true); markReviewed(lesson.id) } }
+  const nextDue = dueAt(p, lesson.id)
   // The first version is the same lesson with another program behind it.
   const shown = useMemo<Lesson>(() => (first && lesson.first ? { ...lesson, ...lesson.first, flow: undefined } : lesson), [lesson, first])
 
@@ -208,7 +216,13 @@ export function LessonPage({ lesson, tab, step }: { lesson: Lesson; tab?: string
       {cur === 'idea' && <IdeaTab lesson={lesson} />}
       {(cur === 'code' || cur === 'viz') && <VariantSwitch lesson={lesson} first={first} set={setFirst} />}
       {cur === 'code' && <CodeTab key={first ? 'first' : 'main'} lesson={shown} variant={first ? lesson.first : undefined} />}
-      {cur === 'viz' && <Player key={first ? 'first' : 'main'} lesson={shown} start={Number(step) || 0} />}
+      {cur === 'viz' && review && (
+        <p className={'review-note' + (reviewed ? ' ok' : '')}>
+          {reviewed ? '✓ ' + ui('reviewDone') + (nextDue ? ' ' + ui('reviewNext') + ' ' + new Date(nextDue).toLocaleDateString(p.lang === 'zh' ? 'zh-CN' : 'en-GB') + '.' : ' ' + ui('reviewLast'))
+            : due ? ui('reviewHow') : ui('reviewNotDue')}
+        </p>
+      )}
+      {cur === 'viz' && <Player key={first ? 'first' : 'main'} lesson={shown} start={Number(step) || 0} initial={fresh} asking={review} onEnd={review ? finishReview : undefined} />}
       {cur === 'lab' && <Lab lesson={lesson} />}
       {cur === 'fix' && <Fix lesson={lesson} />}
 

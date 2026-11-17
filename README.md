@@ -16,7 +16,9 @@ Sixteen lessons additionally have an earlier version of the program to learn fir
 
 A lesson names the lessons to learn first and shows the ones it leads to; the learning path on the home page never puts a lesson before its prerequisites.
 
-The Syllabus page lists every syllabus point with its difficulty coefficient and links the points that have a lesson. Points with a lesson to come are marked as planned; points outside what the site teaches (such as the C++ language itself) are greyed. The Profile page tracks learned and starred lessons and quiz answers; it is stored in the browser's local storage only and can be exported and imported as JSON.
+The Syllabus page lists every syllabus point with its difficulty coefficient and links the points that have a lesson. Points with a lesson to come are marked as planned; points outside what the site teaches (such as the C++ language itself) are greyed. A learned lesson comes back for review 1, 7 and 30 days later: the Profile page lists what is due, and a review is the lesson's animation played to the end on new data, with its questions switched on.
+
+The Profile page tracks learned and starred lessons, quiz answers and reviews; it is stored in the browser's local storage only and can be exported and imported as JSON.
 
 ## Run
 
@@ -62,7 +64,7 @@ GitHub Actions runs the build and all tests, including the C++ checks, on every 
 `specs/roadmap.md` has the full plan, in order. In short:
 
 - Lessons for the syllabus points that have none yet.
-- Practice problems for each lesson.
+- Practice problems for each lesson, on AcWing, Luogu and Codeforces.
 
 ## Syllabus
 

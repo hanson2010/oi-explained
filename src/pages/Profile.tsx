@@ -3,7 +3,8 @@ import { LessonCard } from '../components/bits'
 import type { Cat, Level } from '../engine/types'
 import { CATS, LEVELS } from '../i18n'
 import { META } from '../lessons/meta'
-import { PROGRESS, sanitize, useApp } from '../store'
+import { dueNow } from '../review'
+import { href, PROGRESS, sanitize, useApp } from '../store'
 
 export function ProfilePage() {
   const { ui, tr, p, set } = useApp()
@@ -13,6 +14,7 @@ export function ProfilePage() {
   const recent = done.slice().sort((a, b) => p.done[b.id] - p.done[a.id]).slice(0, 6)
   const starred = META.filter(l => p.fav[l.id])
   const pct = META.length ? Math.round((100 * done.length) / META.length) : 0
+  const due = dueNow(p, Date.now(), META.map(l => l.id)).map(id => META.find(l => l.id === id)!)
   const quiz = Object.values(p.quiz).reduce((a, q) => ({ right: a.right + q.right, total: a.total + q.total }), { right: 0, total: 0 })
 
   const exportP = () => {
@@ -71,6 +73,7 @@ export function ProfilePage() {
           {err && <p className="bad">{err}</p>}
         </section>
       </div>
+      {due.length > 0 && <><h2>{ui('reviewTitle')} <small className="muted">({due.length})</small></h2><p className="muted">{ui('reviewIntro')}</p><section className="lesson-grid">{due.slice(0, 12).map(l => <LessonCard key={l.id} lesson={l} to={href(`learn/${l.id}/viz`, { review: '1' })} />)}</section></>}
       {recent.length > 0 && <><h2>{ui('recent')}</h2><section className="lesson-grid">{recent.map(l => <LessonCard key={l.id} lesson={l} />)}</section></>}
       {starred.length > 0 && <><h2>★ {ui('favOnly')}</h2><section className="lesson-grid">{starred.map(l => <LessonCard key={l.id} lesson={l} />)}</section></>}
     </div>

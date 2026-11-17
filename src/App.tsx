@@ -9,10 +9,10 @@ import { SyllabusPage } from './pages/Syllabus'
 import { useApp, useRoute } from './store'
 
 /** A lesson's category is downloaded the first time one of its lessons is opened. */
-function LessonRoute({ id, tab, step }: { id: string; tab?: string; step?: string }) {
+function LessonRoute({ id, tab, step, review }: { id: string; tab?: string; step?: string; review: boolean }) {
   const { ui } = useApp()
   const { lesson, error } = useLesson(id)
-  if (lesson) return <LessonPage lesson={lesson} tab={tab} step={step} />
+  if (lesson) return <LessonPage lesson={lesson} tab={tab} step={step} review={review} />
   if (error) return <div className="empty"><p>{ui('loadFailed')}</p><button className="btn primary" onClick={() => location.reload()}>{ui('retry')}</button></div>
   return <div className="empty" aria-busy="true"><p className="muted">{ui('loading')}</p></div>
 }
@@ -57,7 +57,7 @@ export function App() {
         {page === '' ? <Home query={query} />
           : page === 'syllabus' ? <SyllabusPage level={path[1]} query={query} />
           : page === 'profile' ? <ProfilePage />
-          : lesson ? <LessonRoute key={lesson.id} id={lesson.id} tab={path[2]} step={path[3]} />
+          : lesson ? <LessonRoute key={lesson.id} id={lesson.id} tab={path[2]} step={path[3]} review={query.get('review') === '1'} />
           : <div className="empty"><p>{ui('notFound')}</p><a className="btn primary" href="#/">{ui('home')}</a></div>}
       </main>
       <footer className="foot">{ui('footer')}</footer>
