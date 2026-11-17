@@ -12,12 +12,13 @@ import { CATS } from '../i18n'
 import type { Meta } from '../lessons/extras'
 import { leadsTo, META, META_BY_ID } from '../lessons/meta'
 import { dueAt } from '../review'
+import { JUDGES, practiceKey } from '../practice'
 import { href, isRevisit, useApp } from '../store'
 
-/** Learning order: what is asked, how to think about it, the program, watching it run, scaling it up — and, where there is one, a broken version to repair. */
-const ALL_TABS = ['problem', 'idea', 'code', 'viz', 'lab', 'fix'] as const
+/** Learning order: what is asked, how to think about it, the program, watching it run, scaling it up — and, where there are, a broken version to repair and problems to practise on. */
+const ALL_TABS = ['problem', 'idea', 'code', 'viz', 'lab', 'fix', 'practice'] as const
 type Tab = (typeof ALL_TABS)[number]
-const TAB_KEY = { problem: 'tabProblem', idea: 'tabIdea', code: 'tabCode', viz: 'tabViz', lab: 'tabLab', fix: 'tabFix' } as const
+const TAB_KEY = { problem: 'tabProblem', idea: 'tabIdea', code: 'tabCode', viz: 'tabViz', lab: 'tabLab', fix: 'tabFix', practice: 'tabPractice' } as const
 const KIND_KEY = { term: 'kindTerm', naive: 'kindNaive', insight: 'kindInsight', how: 'kindHow', result: 'kindResult' } as const
 
 function ProblemTab({ lesson }: { lesson: Lesson }) {
@@ -91,6 +92,33 @@ function IdeaTab({ lesson }: { lesson: Lesson }) {
   )
 }
 
+/** Links to problems on online judges, grouped by judge, each with a box to tick once solved. */
+function PracticeTab({ lesson }: { lesson: Lesson }) {
+  const { ui, p, toggleSolved } = useApp()
+  const judges = (Object.keys(JUDGES) as (keyof typeof JUDGES)[]).filter(j => lesson.practice!.some(x => x.judge === j))
+  return (
+    <section className="practice">
+      <p className="muted">{ui('practiceIntro')}</p>
+      {judges.map(j => (
+        <div key={j} className="card">
+          <h3>{JUDGES[j].name}</h3>
+          <ul>
+            {lesson.practice!.filter(x => x.judge === j).map(x => {
+              const key = practiceKey(x)
+              return (
+                <li key={key} className={p.solved[key] ? 'solved' : ''}>
+                  <input type="checkbox" checked={!!p.solved[key]} onChange={() => toggleSolved(key)} aria-label={`${JUDGES[j].name} ${x.title}`} />
+                  <a href={JUDGES[j].url(x.id)} target="_blank" rel="noopener noreferrer">{x.title}</a>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ))}
+    </section>
+  )
+}
+
 /** Chooses between the version to learn first and the lesson's own version. */
 function VariantSwitch({ lesson, first, set }: { lesson: Lesson; first: boolean; set(v: boolean): void }) {
   const { tr } = useApp()
@@ -152,7 +180,7 @@ function CodeTab({ lesson, variant }: { lesson: Lesson; variant?: Variant }) {
 /** `review`: the lesson was opened from the review list (…/viz?review=1). Playing the animation to its end counts as the review. */
 export function LessonPage({ lesson, tab, step, review = false }: { lesson: Lesson; tab?: string; step?: string; review?: boolean }) {
   const { ui, tr, p, set, toggleDone, toggleFav, markReviewed } = useApp()
-  const TABS = ALL_TABS.filter(t => t !== 'fix' || lesson.broken)
+  const TABS = ALL_TABS.filter(t => (t !== 'fix' || lesson.broken) && (t !== 'practice' || lesson.practice))
   const cur: Tab = (TABS as readonly string[]).includes(tab ?? '') ? (tab as Tab) : 'problem'
   const idx = META.findIndex(m => m.id === lesson.id), prev = META[idx - 1], next = META[idx + 1]
   const after = TABS[TABS.indexOf(cur) + 1]
@@ -225,6 +253,7 @@ export function LessonPage({ lesson, tab, step, review = false }: { lesson: Less
       {cur === 'viz' && <Player key={first ? 'first' : 'main'} lesson={shown} start={Number(step) || 0} initial={fresh} asking={review} onEnd={review ? finishReview : undefined} />}
       {cur === 'lab' && <Lab lesson={lesson} />}
       {cur === 'fix' && <Fix lesson={lesson} />}
+      {cur === 'practice' && <PracticeTab lesson={lesson} />}
 
       <p className="next-tab">
         {after ? <a className="btn primary" href={`#/learn/${lesson.id}/${after}`}>{ui('nextTab')}: {ui(TAB_KEY[after])} →</a>

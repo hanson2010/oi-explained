@@ -66,6 +66,8 @@ interface Ctx {
   answerQuiz(id: string, right: boolean): void
   /** Records that the lesson was reviewed now. */
   markReviewed(id: string): void
+  /** Ticks or unticks a practice problem ("judge:id") as solved. */
+  toggleSolved(key: string): void
 }
 
 const C = createContext<Ctx>(null!)
@@ -88,6 +90,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Unmarking a lesson also forgets its reviews: learning it again starts the schedule afresh.
       toggleDone: id => setP(o => { const done = { ...o.done }, review = { ...o.review }; if (done[id]) { delete done[id]; delete review[id] } else done[id] = Date.now(); return { ...o, done, review } }),
       markReviewed: id => setP(o => ({ ...o, review: { ...o.review, [id]: [...(o.review[id] ?? []), Date.now()] } })),
+      toggleSolved: key => setP(o => { const solved = { ...o.solved }; if (solved[key]) delete solved[key]; else solved[key] = Date.now(); return { ...o, solved } }),
       toggleFav: id => setP(o => { const fav = { ...o.fav }; if (fav[id]) delete fav[id]; else fav[id] = true; return { ...o, fav } }),
       answerQuiz: (id, right) => setP(o => { const q = o.quiz[id] ?? { right: 0, total: 0, at: 0 }; return { ...o, quiz: { ...o.quiz, [id]: { right: q.right + (right ? 1 : 0), total: q.total + 1, at: Date.now() } } } }),
     }

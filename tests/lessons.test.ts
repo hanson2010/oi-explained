@@ -5,6 +5,7 @@ import { lessonsOf, SYLLABUS } from '../src/data/syllabus'
 import { brokenCode, Rng, Tracer } from '../src/engine/types'
 import { BY_ID, LESSONS, metaOf } from '../src/lessons/all'
 import { META } from '../src/lessons/meta'
+import { JUDGES, practiceKey } from '../src/practice'
 import { ORACLES } from './oracles'
 
 const run = (id: string, input: string, on: boolean) => {
@@ -32,6 +33,35 @@ describe('links between lessons', () => {
   it('do not send a learner up a level', () => {
     const rank = { J: 0, S: 1, N: 2 }
     expect(LESSONS.flatMap(l => (l.needs ?? []).filter(id => rank[BY_ID.get(id)!.level] > rank[l.level]).map(id => `${l.id} (${l.level}) needs ${id}`))).toEqual([])
+  })
+})
+
+describe('practice problems', () => {
+  const all = LESSONS.flatMap(l => (l.practice ?? []).map(x => ({ lesson: l.id, ...x })))
+  it('have ids in the format of their judge and a title that starts with the problem number', () => {
+    const numbered = (x: (typeof all)[number]) => x.judge === 'acwing' ? /^[1-9]\d*\. \S/.test(x.title) : x.title.startsWith(x.id + (x.judge === 'cf' ? '. ' : ' '))
+    expect(all.filter(x => !JUDGES[x.judge]?.format.test(x.id) || !numbered(x)).map(x => `${x.lesson}: ${x.judge} ${x.id}`)).toEqual([])
+  })
+  it('cover every lesson', () => {
+    expect(LESSONS.filter(l => !l.practice).map(l => l.id)).toEqual([])
+  })
+  it('are listed one to five times per lesson, without repeats, grouped by judge in order', () => {
+    const order = Object.keys(JUDGES)
+    for (const l of LESSONS.filter(l => l.practice)) {
+      const ps = l.practice!, judges = ps.map(x => order.indexOf(x.judge))
+      expect(ps.length, l.id).toBeGreaterThanOrEqual(1)
+      expect(ps.length, l.id).toBeLessThanOrEqual(5)
+      expect(new Set(ps.map(practiceKey)).size, l.id).toBe(ps.length)
+      expect(judges, l.id).toEqual(judges.slice().sort((a, b) => a - b))
+    }
+  })
+  it('have the same title wherever they are listed', () => {
+    const title = new Map<string, string>()
+    for (const x of all) {
+      const k = practiceKey(x)
+      expect(title.get(k) ?? x.title, `${x.lesson}: ${k}`).toBe(x.title)
+      title.set(k, x.title)
+    }
   })
 })
 
@@ -163,13 +193,14 @@ describe.each(LESSONS.map(l => [l.id, l] as const))('%s', (id, lesson) => {
 })
 
 it('has "predict the next step" questions in the lessons chosen for them', () => {
-  const QUIZ = ['binary-search', 'prefix-sum', 'knapsack', 'kruskal', 'dijkstra', 'kmp', 'dsu', 'monotonic-queue', 'bfs-maze', 'merge-sort']
+  // The others make no decision worth predicting: their steps are single comparisons or arithmetic.
+  const QUIZ = ['simulation', 'prefix-sum', 'stack', 'gcd', 'prime-factor', 'binary-search', 'difference', 'hanoi', 'bignum-add', 'bignum-mul', 'bignum-div', 'permutations', 'bt-traversal', 'huffman', 'graph-dfs', 'lis', 'sieve', 'n-queens', 'bfs-maze', 'graph-bfs', 'knapsack', 'merge-sort', 'quick-sort', 'monotonic-queue', 'coord-compress', 'heap-sort', 'radix-sort', 'memo-search', 'sparse-table', 'dsu', 'fenwick', 'segment-tree', 'trie', 'dijkstra', 'prim', 'kruskal', 'tree-diameter', 'lcs', 'tree-dp', 'kmp', 'string-hash', 'tarjan-scc', 'cut-bridge', 'second-shortest', 'manacher', 'exgcd', 'gauss', 'binomial-mod', 'incl-excl', 'treap', 'leftist-heap', 'persistent-seg', 'hld', 'z-function', 'expect-dp', 'nim-sg', 'prufer', 'xor-basis', 'mobius']
   const none = QUIZ.filter(id => { const l = BY_ID.get(id)!; return [1, 2, 3].every(seed => !run(id, l.gen(l.sizes[1], new Rng(seed)), true).steps.some(s => s.ask)) })
   expect(none).toEqual([])
 })
 
-it('has a broken version in the lessons chosen for one', () => {
-  expect(LESSONS.filter(l => l.broken).map(l => l.id).sort()).toEqual(['binary-search', 'dsu', 'knapsack', 'lis', 'prefix-sum'])
+it('has a broken version in every lesson', () => {
+  expect(LESSONS.filter(l => !l.broken).map(l => l.id)).toEqual([])
 })
 
 it('every lesson has an oracle', () => {

@@ -107,6 +107,15 @@ export interface Broken {
 /** The listing of the broken version. */
 export const brokenCode = (l: Pick<Lesson, 'code' | 'broken'>) => l.code.replace(l.broken!.from, () => l.broken!.to)
 
+/** A problem on an online judge that the lesson's method solves. See src/practice.ts for the judges. */
+export interface Practice {
+  judge: 'acwing' | 'luogu' | 'cf'
+  /** As in the problem's address: AcWing's page number (not the problem number it shows), Luogu's "P1048", Codeforces' "474B". */
+  id: string
+  /** The problem's number and title as the judge writes them: "789. 数的范围", "P2249 【深基13.例1】查找", "474B. Worms". */
+  title: string
+}
+
 export interface Lesson {
   id: string
   title: L
@@ -131,6 +140,8 @@ export interface Lesson {
   first?: Variant
   /** A version with one mistake to find. `run` then accepts `bug = true`. */
   broken?: Broken
+  /** Problems on online judges to practise on, easiest first within a judge, from practice.ts of the lesson's category. */
+  practice?: Practice[]
   /** Name of the lesson's own version when there is a `first` one, e.g. "Binary search". */
   label?: L
   time: string

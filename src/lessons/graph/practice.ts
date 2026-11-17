@@ -1,0 +1,131 @@
+import type { Practice } from '../../engine/types'
+
+/** Problems on online judges for each lesson, easiest first within a judge. Titles are checked with `npm run check:practice`. */
+export const PRACTICE: Record<string, Practice[]> = {
+  'graph-dfs': [
+    { judge: 'acwing', id: '848', title: '846. 树的重心' },
+    { judge: 'luogu', id: 'P5318', title: 'P5318 【深基18.例3】查找文献' },
+    { judge: 'luogu', id: 'P3916', title: 'P3916 图的遍历' },
+    { judge: 'cf', id: '580C', title: '580C. Kefa and Park' },
+  ],
+  'graph-bfs': [
+    { judge: 'acwing', id: '849', title: '847. 图中点的层次' },
+    { judge: 'luogu', id: 'P5318', title: 'P5318 【深基18.例3】查找文献' },
+    { judge: 'luogu', id: 'P1443', title: 'P1443 马的遍历' },
+    { judge: 'cf', id: '1037D', title: '1037D. Valid BFS?' },
+  ],
+  dijkstra: [
+    { judge: 'acwing', id: '851', title: '849. Dijkstra求最短路 I' },
+    { judge: 'acwing', id: '852', title: '850. Dijkstra求最短路 II' },
+    { judge: 'luogu', id: 'P4779', title: 'P4779 【模板】单源最短路径（标准版）' },
+    { judge: 'luogu', id: 'P1339', title: 'P1339 [USACO09OCT] Heat Wave G' },
+    { judge: 'cf', id: '20C', title: '20C. Dijkstra?' },
+  ],
+  spfa: [
+    { judge: 'acwing', id: '853', title: '851. spfa求最短路' },
+    { judge: 'acwing', id: '854', title: '852. spfa判断负环' },
+    { judge: 'acwing', id: '855', title: '853. 有边数限制的最短路' },
+    { judge: 'luogu', id: 'P3371', title: 'P3371 【模板】单源最短路径（弱化版）' },
+    { judge: 'luogu', id: 'P3385', title: 'P3385 【模板】负环' },
+  ],
+  floyd: [
+    { judge: 'acwing', id: '856', title: '854. Floyd求最短路' },
+    { judge: 'acwing', id: '1127', title: '1125. 牛的旅行' },
+    { judge: 'luogu', id: 'B3647', title: 'B3647 【模板】Floyd' },
+    { judge: 'luogu', id: 'P2910', title: 'P2910 [USACO08OPEN] Clear And Present Danger S' },
+    { judge: 'cf', id: '295B', title: '295B. Greg and Graph' },
+  ],
+  prim: [
+    { judge: 'acwing', id: '860', title: '858. Prim算法求最小生成树' },
+    { judge: 'acwing', id: '1142', title: '1140. 最短网络' },
+    { judge: 'luogu', id: 'P3366', title: 'P3366 【模板】最小生成树' },
+    { judge: 'luogu', id: 'P1546', title: 'P1546 [USACO3.1] 最短网络 Agri-Net' },
+    { judge: 'cf', id: '1245D', title: '1245D. Shichikuji and Power Grid' },
+  ],
+  kruskal: [
+    { judge: 'acwing', id: '861', title: '859. Kruskal算法求最小生成树' },
+    { judge: 'acwing', id: '1143', title: '1141. 局域网' },
+    { judge: 'luogu', id: 'P3366', title: 'P3366 【模板】最小生成树' },
+    { judge: 'luogu', id: 'P1546', title: 'P1546 [USACO3.1] 最短网络 Agri-Net' },
+    { judge: 'cf', id: '1095F', title: '1095F. Make It Connected' },
+  ],
+  'topo-sort': [
+    { judge: 'acwing', id: '850', title: '848. 有向图的拓扑序列' },
+    { judge: 'acwing', id: '1193', title: '1191. 家谱树' },
+    { judge: 'luogu', id: 'B3644', title: 'B3644 【模板】拓扑排序 / 家谱树' },
+    { judge: 'luogu', id: 'P4017', title: 'P4017 最大食物链计数' },
+    { judge: 'cf', id: '510C', title: '510C. Fox And Names' },
+  ],
+  bipartite: [
+    { judge: 'acwing', id: '862', title: '860. 染色法判定二分图' },
+    { judge: 'acwing', id: '259', title: '257. 关押罪犯' },
+    { judge: 'luogu', id: 'P1330', title: 'P1330 封锁阳光大学' },
+    { judge: 'luogu', id: 'P1525', title: 'P1525 [NOIP 2010 提高组] 关押罪犯' },
+    { judge: 'cf', id: '687A', title: '687A. NP-Hard Problem' },
+  ],
+  lca: [
+    { judge: 'acwing', id: '1174', title: '1172. 祖孙询问' },
+    { judge: 'acwing', id: '1173', title: '1171. 距离' },
+    { judge: 'luogu', id: 'P3379', title: 'P3379 【模板】最近公共祖先（LCA）' },
+    { judge: 'luogu', id: 'P3128', title: 'P3128 [USACO15DEC] Max Flow P' },
+    { judge: 'cf', id: '832D', title: '832D. Misha, Grisha and Underground' },
+  ],
+  'tree-diameter': [
+    { judge: 'acwing', id: '1074', title: '1072. 树的最长路径' },
+    { judge: 'acwing', id: '1209', title: '1207. 大臣的旅费' },
+    { judge: 'luogu', id: 'B4016', title: 'B4016 树的直径' },
+    { judge: 'luogu', id: 'P5536', title: 'P5536 【XR-3】核心城市' },
+  ],
+  'euler-path': [
+    { judge: 'acwing', id: '1186', title: '1184. 欧拉回路' },
+    { judge: 'acwing', id: '1126', title: '1124. 骑马修栅栏' },
+    { judge: 'luogu', id: 'P7771', title: 'P7771 【模板】欧拉路径' },
+    { judge: 'luogu', id: 'P2731', title: 'P2731 [USACO3.3] 骑马修栅栏 Riding the Fences' },
+    { judge: 'cf', id: '508D', title: '508D. Tanya and Password' },
+  ],
+  'tarjan-scc': [
+    { judge: 'acwing', id: '1176', title: '1174. 受欢迎的牛' },
+    { judge: 'acwing', id: '369', title: '367. 学校网络' },
+    { judge: 'luogu', id: 'B3609', title: 'B3609 [图论与代数结构 701] 强连通分量' },
+    { judge: 'luogu', id: 'P3387', title: 'P3387 【模板】缩点 / 强连通分量' },
+    { judge: 'cf', id: '427C', title: '427C. Checkposts' },
+  ],
+  'cut-bridge': [
+    { judge: 'acwing', id: '1185', title: '1183. 电力' },
+    { judge: 'acwing', id: '397', title: '395. 冗余路径' },
+    { judge: 'luogu', id: 'P3388', title: 'P3388 【模板】割点' },
+    { judge: 'luogu', id: 'P8436', title: 'P8436 【模板】边双连通分量' },
+    { judge: 'cf', id: '118E', title: '118E. Bertown roads' },
+  ],
+  'second-shortest': [
+    { judge: 'acwing', id: '385', title: '383. 观光' },
+    { judge: 'luogu', id: 'P2865', title: 'P2865 [USACO06NOV] Roadblocks G' },
+  ],
+  hld: [
+    { judge: 'acwing', id: '2570', title: '2568. 树链剖分' },
+    { judge: 'luogu', id: 'P3379', title: 'P3379 【模板】最近公共祖先（LCA）' },
+    { judge: 'luogu', id: 'P3384', title: 'P3384 【模板】重链剖分 / 树链剖分' },
+    { judge: 'cf', id: '343D', title: '343D. Water Tree' },
+  ],
+  dinic: [
+    { judge: 'acwing', id: '2174', title: '2172. Dinic/ISAP求最大流' },
+    { judge: 'luogu', id: 'P3376', title: 'P3376 【模板】网络最大流' },
+    { judge: 'luogu', id: 'P2740', title: 'P2740 [USACO4.2] 草地排水 Drainage Ditches' },
+    { judge: 'cf', id: '653D', title: '653D. Delivery Bears' },
+  ],
+  hungarian: [
+    { judge: 'acwing', id: '863', title: '861. 二分图的最大匹配' },
+    { judge: 'acwing', id: '374', title: '372. 棋盘覆盖' },
+    { judge: 'luogu', id: 'P3386', title: 'P3386 【模板】二分图最大匹配' },
+    { judge: 'luogu', id: 'P2756', title: 'P2756 飞行员配对方案问题' },
+    { judge: 'cf', id: '1139E', title: '1139E. Maximize Mex' },
+  ],
+  'two-sat': [
+    { judge: 'acwing', id: '2404', title: '2402. 2-SAT 问题' },
+    { judge: 'luogu', id: 'P4782', title: 'P4782 【模板】2-SAT' },
+    { judge: 'cf', id: '776D', title: '776D. The Door Problem' },
+  ],
+  km: [
+    { judge: 'luogu', id: 'P6577', title: 'P6577 【模板】二分图最大权完美匹配' },
+  ],
+}

@@ -52,8 +52,12 @@ int main() {
   input: [NM[0] + ' Prints the vertices reachable from 1 in DFS order.', NM[1] + ' 按 DFS 序输出从 1 可达的顶点。'],
   sizes: [6, 8, 10], lab: [10, 1000, 100000, 300000],
   gen: genU,
-  run(inp, t) {
-    const { n, es } = readGraph(inp), g = adjOf(n, es), pos = lay(t.on, n, es), ed = toEdges(es)
+  broken: {
+    from: 'g[u].push_back(v); g[v].push_back(u);', to: 'g[u].push_back(v);',
+    why: ['The edges are undirected: u – v can be walked __in both directions__, so v must appear in the list of u and u in the list of v. Storing only u → v makes the graph directed: from v the search cannot go back to u, so vertices that are reached only through such an edge "backwards" are never visited.', '这些边是无向的：u – v __两个方向__都能走，所以 v 要出现在 u 的邻接表里，u 也要出现在 v 的邻接表里。只存 u → v 就把图变成了有向图：从 v 无法走回 u，于是那些只能“逆着”这种边才能到达的顶点永远不会被访问。'],
+  },
+  run(inp, t, bug = false) {
+    const { n, es } = readGraph(inp), g = adjOf(n, es, bug), pos = lay(t.on, n, es), ed = toEdges(es)
     const vis = new Uint8Array(n), it = new Int32Array(n), out: number[] = [], st = [0], tone: Tones = {}, et: Tones = {}
     const view = () => [graph(pos, ed, { tone: { ...tone, [st[st.length - 1]]: 'act' }, et }), arr('recursion stack', st.map(x => x + 1)), arr('output', out)] as const
     vis[0] = 1; out.push(1); tone[0] = 'vis'
@@ -67,6 +71,11 @@ int main() {
       }
       const [v, , e] = g[u][it[u]++]
       if (vis[v]) { t.s('skip', () => [[`${u + 1} → ${v + 1}: already visited, skip.`, `${u + 1} → ${v + 1}：已访问，跳过。`], graph(pos, ed, { tone: { ...tone, [u]: 'act', [v]: 'cmp' }, et: { ...et, [e]: et[e] ?? 'bad' } }), arr('recursion stack', st.map(x => x + 1)), arr('output', out)]); continue }
+      // Which new vertex comes next? Offer unvisited vertices next to the stack: DFS always continues from its top.
+      if (!bug) t.ask(() => {
+        const cands = [...new Set([v, ...st.flatMap(x => g[x].map(e => e[0]))])].filter(x => !vis[x]).slice(0, 4).sort((a, b) => a - b)
+        return cands.length < 2 ? undefined : [['Which vertex is visited next?', '下一个访问的是哪个顶点？'], cands.map(x => [`vertex ${x + 1}`, `顶点 ${x + 1}`] as const), cands.indexOf(v)]
+      })
       vis[v] = 1; out.push(v + 1); tone[v] = 'vis'; et[e] = 'ok'; st.push(v)
       t.s('visit', () => [[`${u + 1} → ${v + 1}: new vertex, go deeper.`, `${u + 1} → ${v + 1}：新顶点，继续深入。`], ...view()])
     }
@@ -117,14 +126,22 @@ int main() {
   input: [NM[0] + ' Prints the vertices reachable from 1 in BFS order.', NM[1] + ' 按 BFS 序输出从 1 可达的顶点。'],
   sizes: [6, 8, 10], lab: [10, 1000, 100000, 300000],
   gen: genU,
-  run(inp, t) {
+  broken: {
+    from: 'q.push(1); d[1] = 0;', to: 'q.push(1);',
+    why: ['d doubles as the "discovered" mark, and the start vertex is discovered before anything else. Left at −1, it looks undiscovered to its neighbours: the first of them pushes vertex 1 __a second time__, so 1 is printed twice — and the distances come out wrong as well, starting with d[1] itself.', 'd 同时充当“已发现”的标记，而起点比任何顶点都先被发现。如果它保持 −1，在邻居看来它就是未发现的：第一个邻居会把顶点 1 __再次__入队，于是 1 被输出了两次——距离也全都错了，首先就是 d[1] 本身。'],
+  },
+  run(inp, t, bug = false) {
     const { n, es } = readGraph(inp), g = adjOf(n, es), pos = lay(t.on, n, es), ed = toEdges(es)
     const d = new Int32Array(n).fill(-1), q = [0], out: number[] = [], tone: Tones = { 0: 'cmp' }, et: Tones = {}
     const view = (h: number, cur: number) => [graph(pos, ed, { tone: { ...tone, [cur]: 'act' }, et, sub: Array.from(d, x => (x < 0 ? undefined : x)), name: 'caption = distance from vertex 1' }), arr('queue', q.slice(h).map(x => x + 1)), arr('output', out)] as const
-    d[0] = 0
-    t.s('start', () => [['Push vertex 1 with distance 0.', '顶点 1 入队，距离为 0。'], ...view(0, 0)])
+    if (!bug) d[0] = 0
+    t.s('start', () => [[bug ? 'Push vertex 1.' : 'Push vertex 1 with distance 0.', bug ? '顶点 1 入队。' : '顶点 1 入队，距离为 0。'], ...view(0, 0)])
     for (let h = 0; h < q.length; h++) {
       const u = q[h]
+      if (!bug && h > 0 && q.length - h > 1) t.ask(() => {
+        const opts = [q[h], q[q.length - 1]].sort((a, b) => a - b)
+        return [['Which vertex leaves the queue next?', '下一个出队的是哪个顶点？'], opts.map(x => [`vertex ${x + 1}`, `顶点 ${x + 1}`] as const), opts.indexOf(q[h])]
+      })
       out.push(u + 1); tone[u] = 'ok'
       t.s('pop', () => [[`Pop ${u + 1} (distance ${d[u]}).`, `取出 ${u + 1}（距离 ${d[u]}）。`], ...view(h + 1, u)])
       for (const [v, , e] of g[u]) if (d[v] === -1) {
@@ -187,11 +204,16 @@ int main() {
   input: [NMW[0] + ' Prints the shortest distance from vertex 1 to every vertex (−1 if unreachable).', NMW[1] + ' 输出从顶点 1 到每个顶点的最短距离（不可达输出 −1）。'],
   sizes: [5, 7, 9], lab: [10, 1000, 100000, 200000],
   gen: genW,
-  run(inp, t) {
+  broken: {
+    from: 'priority_queue<P, vector<P>, greater<P>> pq;', to: 'priority_queue<P> pq;',
+    why: ['The greedy step settles the unsettled vertex with the __smallest__ distance, which needs a min-heap. A plain priority_queue is a max-heap, so the program settles the farthest vertex first, while shorter routes to it may still be waiting in the heap. Once settled, a vertex is never expanded again, so its improvements never reach its neighbours.', '贪心的一步是确定未确定顶点中距离__最小__的那个，这需要小根堆。不加参数的 priority_queue 是大根堆，于是程序先确定最远的顶点，而通向它的更短路线可能还在堆里等着。顶点一旦被确定就不会再扩展，它后来得到的改进也就传不到邻居那里。'],
+  },
+  run(inp, t, bug = false) {
     const { n, es } = readGraph(inp, true), g = adjOf(n, es), pos = lay(t.on, n, es), ed = toEdges(es, true)
     for (const e of es) need(e[2] >= 0, 'Dijkstra needs non-negative weights.', 'Dijkstra 要求边权非负。')
     const d = new Array<number>(n).fill(INF), done = new Uint8Array(n), from = new Int32Array(n).fill(-1)
-    const pq = new Heap<[number, number]>((a, b) => a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]))
+    // The broken version pops the largest pair first, as std::priority_queue<pair> does: larger distance, then larger vertex.
+    const pq = new Heap<[number, number]>((a, b) => (bug ? a[0] > b[0] || (a[0] === b[0] && a[1] > b[1]) : a[0] < b[0] || (a[0] === b[0] && a[1] < b[1])))
     const view = (cur: number, hi: Tones = {}, ehi: Tones = {}) => {
       const tone: Tones = {}, et: Tones = {}
       for (let i = 0; i < n; i++) { if (done[i]) tone[i] = 'ok'; else if (d[i] < INF) tone[i] = 'cmp'; if (from[i] >= 0) et[from[i]] = done[i] ? 'ok' : 'cmp' }
@@ -203,21 +225,21 @@ int main() {
     while (pq.size) {
       const [du, u] = pq.pop()
       if (done[u]) { t.s('stale', () => [[`Pop (${du}, ${u + 1}): vertex ${u + 1} is already settled — skip.`, `弹出 (${du}, ${u + 1})：顶点 ${u + 1} 已确定——跳过。`], ...view(-1, { [u]: 'dim' })]); continue }
-      t.ask(() => {
+      if (!bug) t.ask(() => {
         const open = span(0, n - 1).filter(i => !done[i] && d[i] < INF)
         if (open.length < 2 || open.some(i => i !== u && d[i] === du)) return undefined
         const pick = [u, ...open.filter(i => i !== u).sort((p, q) => d[p] - d[q]).slice(0, 3)].sort((p, q) => p - q)
         return [['Which vertex is settled next?', '下一个被确定的是哪个顶点？'], pick.map(i => [`vertex ${i + 1}`, `顶点 ${i + 1}`] as const), pick.indexOf(u)]
       })
       done[u] = 1
-      t.s('settle', () => [[`Pop (${du}, ${u + 1}): the smallest distance, so d[${u + 1}] = ${du} is final.`, `弹出 (${du}, ${u + 1})：距离最小，d[${u + 1}] = ${du} 已确定。`], ...view(u)])
+      t.s('settle', () => [bug ? [`Pop (${du}, ${u + 1}): mark vertex ${u + 1} as settled.`, `弹出 (${du}, ${u + 1})：把顶点 ${u + 1} 标记为已确定。`] : [`Pop (${du}, ${u + 1}): the smallest distance, so d[${u + 1}] = ${du} is final.`, `弹出 (${du}, ${u + 1})：距离最小，d[${u + 1}] = ${du} 已确定。`], ...view(u)])
       for (const [v, w, e] of g[u]) if (du + w < d[v]) {
         const old = d[v]
         d[v] = du + w; from[v] = e; pq.push([d[v], v])
         t.s('relax', () => [[`Relax ${u + 1} → ${v + 1}: ${du} + ${w} = ${d[v]} < ${inf(old)}, update d[${v + 1}].`, `松弛 ${u + 1} → ${v + 1}：${du} + ${w} = ${d[v]} < ${inf(old)}，更新 d[${v + 1}]。`], ...view(u, { [v]: 'alt' }, { [e]: 'act' })])
       }
     }
-    t.s('done', () => [['The heap is empty: all distances are final.', '堆已空：所有距离都已确定。'], ...view(-1)])
+    t.s('done', () => [bug ? ['The heap is empty: the program prints d.', '堆已空：程序输出 d。'] : ['The heap is empty: all distances are final.', '堆已空：所有距离都已确定。'], ...view(-1)])
     t.out(d.map(x => (x >= INF ? -1 : x)).join(' '))
   },
 }
@@ -276,9 +298,13 @@ int main() {
     const p = r.ints(n, 0, 5)
     return fmtGraph(n, genGraph(n, edgesFor(n), r).map(([u, v], i) => { const [a, b] = i < n - 1 || r.next() < 0.5 ? [u, v] : [v, u]; return [a, b, r.int(1, 8) + p[a] - p[b]] }))
   },
-  run(inp, t) {
+  broken: {
+    from: 'memset(d, 0x3f, sizeof d);', to: 'memset(d, 0, sizeof d);',
+    why: ['A distance only ever goes down, so it must start __above__ every possible answer: "unknown" has to mean infinity. Starting at 0 claims that every vertex can already be reached for free. A route of positive length can then never improve on that, only negative edges lower anything, and unreachable vertices are printed as 0 instead of inf.', '距离只会越来越小，所以它的初值必须__大于__任何可能的答案：“未知”必须表示为无穷大。初值为 0，等于声称每个顶点都已经可以免费到达。于是长度为正的路线永远无法改进它，只有负权边能把某些值降下来，而不可达的顶点会输出 0 而不是 inf。'],
+  },
+  run(inp, t, bug = false) {
     const { n, es } = readGraph(inp, true), g = adjOf(n, es, true), pos = lay(t.on, n, es), ed = toEdges(es, true, true)
-    const d = new Array<number>(n).fill(INF), inq = new Uint8Array(n), cnt = new Int32Array(n), q = [0]
+    const d = new Array<number>(n).fill(bug ? 0 : INF), inq = new Uint8Array(n), cnt = new Int32Array(n), q = [0]
     let h = 0
     const view = (cur: number, hi: Tones = {}, ehi: Tones = {}) => {
       const tone: Tones = {}
@@ -345,11 +371,15 @@ int main() {
   input: [NMW[0] + ' Prints the n × n matrix of shortest distances (−1 if unreachable).', NMW[1] + ' 输出 n × n 的最短距离矩阵（不可达输出 −1）。'],
   sizes: [4, 5, 6], lab: [10, 50, 100, 200],
   gen: (n, r) => fmtGraph(n, genGraph(n, n + 1, r).map(([u, v]) => [u, v, r.int(1, 9)])),
-  run(inp, t) {
+  broken: {
+    from: 'd[u][v] = min(d[u][v], w); d[v][u] = min(d[v][u], w);', to: 'd[u][v] = min(d[u][v], w);',
+    why: ['An undirected edge can be walked both ways, so it fills __two__ cells of the matrix: d[u][v] and d[v][u]. With only d[u][v] the matrix describes a directed graph, and every shortest path that needs to cross some edge from v to u comes out longer than it should, or as −1.', '无向边两个方向都能走，所以它要填矩阵的__两个__格子：d[u][v] 和 d[v][u]。只填 d[u][v]，矩阵描述的就成了有向图，凡是需要从 v 到 u 走过某条边的最短路，结果都会偏长，甚至变成 −1。'],
+  },
+  run(inp, t, bug = false) {
     const { n, es } = readGraph(inp, true)
     need(n <= 500, 'n must be at most 500.', 'n 不能超过 500。')
     const d: number[][] = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => (i === j ? 0 : INF)))
-    for (const [u, v, w] of es) { d[u][v] = Math.min(d[u][v], w); d[v][u] = Math.min(d[v][u], w) }
+    for (const [u, v, w] of es) { d[u][v] = Math.min(d[u][v], w); if (!bug) d[v][u] = Math.min(d[v][u], w) }
     const hd = span(1, n)
     const view = (tone: Record<string, Tone>) => grid('d[i][j]', d.map(r => r.map(inf)), tone, { rows: hd, cols: hd })
     const line = (k: number) => span(0, n - 1).flatMap(x => [[k, x], [x, k]] as [number, number][])
@@ -415,7 +445,11 @@ int main() {
   input: [NMW[0] + ' The graph is connected. Prints the weight of a minimum spanning tree.', NMW[1] + ' 图连通。输出最小生成树的权值。'],
   sizes: [5, 7, 9], lab: [10, 1000, 100000, 200000],
   gen: genW,
-  run(inp, t) {
+  broken: {
+    from: 'if (!in[v]) pq.push({c, v});', to: 'if (!in[v]) pq.push({w + c, v});',
+    why: ['Prim compares the edges that leave the tree by their __own__ weight c: the cut property is about the lightest single edge. Adding w, the weight that brought u in, turns the key into a distance from the start — that is Dijkstra. The program then builds a shortest-path tree, and adds up distances instead of edge weights.', 'Prim 比较离开这棵树的边时，看的是边__自己__的权值 c：切割性质讲的是最轻的那一条边。加上把 u 带进来的那条边的权值 w，键值就变成了到起点的距离——这就成了 Dijkstra。程序于是建出一棵最短路树，加起来的也是距离而不是边权。'],
+  },
+  run(inp, t, bug = false) {
     const { n, es } = readGraph(inp, true), g = adjOf(n, es), pos = lay(t.on, n, es), ed = toEdges(es, true)
     const inT = new Uint8Array(n), et: Tones = {}
     const pq = new Heap<[number, number, number]>((a, b) => a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]))
@@ -426,15 +460,25 @@ int main() {
     while (pq.size) {
       const [w, u, e] = pq.pop()
       if (inT[u]) { t.s('stale', () => [[`Edge of weight ${w} to ${u + 1}: ${u + 1} is already in the tree — skip.`, `权值 ${w}、通向 ${u + 1} 的边：${u + 1} 已在树内——跳过。`], ...view({ [u]: 'cmp' }, e >= 0 ? { [e]: 'bad' } : {})]); continue }
+      if (!bug && e >= 0) t.ask(() => {
+        const best = new Map<number, number>()
+        for (const [k, x] of pq.a) if (!inT[x] && (!best.has(x) || k < best.get(x)!)) best.set(x, k)
+        best.set(u, w)
+        const others = [...best.entries()].filter(([x]) => x !== u)
+        if (!others.length || others.some(([, k]) => k === w)) return undefined
+        const pick = [u, ...others.sort((a, b) => a[1] - b[1]).slice(0, 3).map(([x]) => x)].sort((a, b) => a - b)
+        return [['Which vertex joins the tree next?', '下一个加入树的是哪个顶点？'], pick.map(x => [`vertex ${x + 1}`, `顶点 ${x + 1}`] as const), pick.indexOf(u)]
+      })
       inT[u] = 1; total += w
       if (e >= 0) et[e] = 'ok'
       t.s('add', () => [e >= 0 ? [`Lightest edge leaving the tree has weight ${w}: add vertex ${u + 1}.`, `离开树的最轻的边权值为 ${w}：加入顶点 ${u + 1}。`] : ['Vertex 1 joins the tree.', '顶点 1 加入树。'], ...view({ [u]: 'act' })])
       for (const [v, c, id] of g[u]) if (!inT[v]) {
-        pq.push([c, v, id])
-        t.s('push', () => [[`Candidate edge ${u + 1} – ${v + 1} (weight ${c}) enters the heap.`, `候选边 ${u + 1} – ${v + 1}（权值 ${c}）进入堆。`], ...view({ [u]: 'act', [v]: 'cmp' }, { [id]: 'cmp' })])
+        const key = bug ? w + c : c
+        pq.push([key, v, id])
+        t.s('push', () => [bug ? [`Candidate ${u + 1} – ${v + 1} enters the heap with key ${w} + ${c} = ${key}.`, `候选 ${u + 1} – ${v + 1} 以键值 ${w} + ${c} = ${key} 进入堆。`] : [`Candidate edge ${u + 1} – ${v + 1} (weight ${c}) enters the heap.`, `候选边 ${u + 1} – ${v + 1}（权值 ${c}）进入堆。`], ...view({ [u]: 'act', [v]: 'cmp' }, { [id]: 'cmp' })])
       }
     }
-    t.s('done', () => [[`Minimum spanning tree weight: ${total}.`, `最小生成树权值：${total}。`], ...view()])
+    t.s('done', () => [bug ? [`The heap is empty: the program prints ${total}.`, `堆已空：程序输出 ${total}。`] : [`Minimum spanning tree weight: ${total}.`, `最小生成树权值：${total}。`], ...view()])
     t.out(total)
   },
 }
@@ -481,9 +525,13 @@ int main() {
   input: [NMW[0] + ' The graph is connected. Prints the weight of a minimum spanning tree.', NMW[1] + ' 图连通。输出最小生成树的权值。'],
   sizes: [5, 7, 9], lab: [10, 1000, 100000, 200000],
   gen: genW,
-  run(inp, t) {
+  broken: {
+    from: 'return a.w < b.w;', to: 'return a.w > b.w;',
+    why: ['Kruskal is safe only because each edge it takes is the __lightest__ one joining two components. Sorted the other way round, every edge taken is the heaviest available, and the same procedure builds a maximum spanning tree instead.', 'Kruskal 之所以正确，是因为它选中的每条边都是连接两个连通块的__最轻__的边。排序方向反了以后，每次选中的都是能选的最重的边，同样的过程建出的就成了最大生成树。'],
+  },
+  run(inp, t, bug = false) {
     const { n, m, es } = readGraph(inp, true), pos = lay(t.on, n, es), ed = toEdges(es, true)
-    const ord = span(0, m - 1).sort((a, b) => es[a][2] - es[b][2] || a - b), fa = span(0, n - 1), et: Tones = {}
+    const ord = span(0, m - 1).sort((a, b) => (bug ? es[b][2] - es[a][2] : es[a][2] - es[b][2]) || a - b), fa = span(0, n - 1), et: Tones = {}
     const find = (x: number) => { let r = x; while (fa[r] !== r) r = fa[r]; while (fa[x] !== r) { const nx = fa[x]; fa[x] = r; x = nx } return r }
     let total = 0, taken = 0
     const list = (k: number) => arr('edges by weight', ord.slice(0, 16).map(i => `${es[i][0] + 1}-${es[i][1] + 1}:${es[i][2]}`), tn({ dim: span(0, k - 1), act: k }))
@@ -491,12 +539,12 @@ int main() {
     t.s('sort', () => [[`Sort the ${m} edges by weight.`, `把 ${m} 条边按权值排序。`], graph(pos, ed), list(-1)])
     for (let k = 0; k < m; k++) {
       const [u, v, w] = es[ord[k]], a = find(u), b = find(v)
-      t.ask(() => [[`Edge ${u + 1} – ${v + 1} (${w}) is next. What happens to it?`, `下一条边是 ${u + 1} – ${v + 1}（${w}）。怎么处理它？`], [['Take it: it joins two components', '选中：它连接两个连通块'], ['Skip it: its ends are already connected', '跳过：两端已经连通']], a === b ? 1 : 0])
+      if (!bug) t.ask(() => [[`Edge ${u + 1} – ${v + 1} (${w}) is next. What happens to it?`, `下一条边是 ${u + 1} – ${v + 1}（${w}）。怎么处理它？`], [['Take it: it joins two components', '选中：它连接两个连通块'], ['Skip it: its ends are already connected', '跳过：两端已经连通']], a === b ? 1 : 0])
       if (a === b) { et[ord[k]] = 'dim'; t.s('skip', () => [[`Edge ${u + 1} – ${v + 1} (${w}): both ends are already connected — skip.`, `边 ${u + 1} – ${v + 1}（${w}）：两端已经连通——跳过。`], graph(pos, ed, { tone: comp(), et: { ...et, [ord[k]]: 'bad' }, name: 'colour = component' }), list(k), vars({ total })]); continue }
       fa[a] = b; total += w; taken++; et[ord[k]] = 'ok'
       t.s('take', () => [[`Edge ${u + 1} – ${v + 1} (${w}) joins two components: take it.`, `边 ${u + 1} – ${v + 1}（${w}）连接两个连通块：选中。`], graph(pos, ed, { tone: comp(), et, name: 'colour = component' }), list(k), vars({ total, edges: taken })])
     }
-    t.s('done', () => [[`Minimum spanning tree weight: ${total}.`, `最小生成树权值：${total}。`], graph(pos, ed, { tone: tn({ ok: span(0, n - 1) }), et }), vars({ total })])
+    t.s('done', () => [bug ? [`All edges considered: the program prints ${total}.`, `所有边都考虑过了：程序输出 ${total}。`] : [`Minimum spanning tree weight: ${total}.`, `最小生成树权值：${total}。`], graph(pos, ed, { tone: tn({ ok: span(0, n - 1) }), et }), vars({ total })])
     t.out(total)
   },
 }
@@ -547,10 +595,14 @@ int main() {
     const perm = r.shuffle(span(0, n - 1))
     return fmtGraph(n, genGraph(n, edgesFor(n), r).map(([u, v]) => [perm[u], perm[v]]))
   },
-  run(inp, t) {
+  broken: {
+    from: 'g[u].push_back(v); deg[v]++;', to: 'g[u].push_back(v); deg[u]++;',
+    why: ['A vertex may go out only once everything that must come __before__ it is out, so the count that matters is its incoming edges: the edge u → v raises the in-degree of v. Counting at u gives out-degrees instead. The queue then starts from the vertices with no outgoing edges — the ones that should come last — and the order falls apart.', '一个顶点只有在所有必须排在它__前面__的顶点都输出后才能输出，所以要数的是它的入边：边 u → v 让 v 的入度加一。在 u 处计数，得到的是出度。于是队列一开始放进的是没有出边的顶点——它们本该排在最后——整个顺序就乱了。'],
+  },
+  run(inp, t, bug = false) {
     const { n, es } = readGraph(inp), g = adjOf(n, es, true), pos = lay(t.on, n, es), ed = toEdges(es, false, true)
     const deg = new Int32Array(n), q: number[] = [], out: number[] = [], et: Tones = {}, tone: Tones = {}
-    for (const e of es) deg[e[1]]++
+    for (const e of es) deg[e[bug ? 0 : 1]]++
     const view = (h: number, hi: Tones = {}) => [graph(pos, ed, { tone: { ...tone, ...hi }, et, sub: Array.from(deg), name: 'caption = in-degree' }), arr('queue', q.slice(h).map(x => x + 1)), arr('order', out)] as const
     for (let i = 0; i < n; i++) if (!deg[i]) { q.push(i); tone[i] = 'cmp' }
     t.s('init', () => [[`Vertices with in-degree 0 start in the queue: ${q.map(x => x + 1).join(', ') || 'none'}.`, `入度为 0 的顶点先入队：${q.map(x => x + 1).join('、') || '无'}。`], ...view(0)])
@@ -631,7 +683,11 @@ int main() {
     }
     return fmtGraph(n, es)
   },
-  run(inp, t) {
+  broken: {
+    from: 'col[v] = 3 - col[u];', to: 'col[v] = col[u];',
+    why: ['The colouring is forced: a neighbour must get the __opposite__ colour, and 3 − c is what turns 1 into 2 and 2 into 1. Giving v the same colour as u creates a conflict on the very edge u – v, which is found as soon as v looks back at u — so every graph with an edge is reported as not bipartite.', '染色是被迫的：邻居必须染成__相反__的颜色，3 − c 正是把 1 变成 2、把 2 变成 1 的写法。把 v 染成和 u 一样的颜色，就在边 u – v 本身制造了冲突，只要 v 回头看到 u 就会发现——于是任何有边的图都被判为不是二分图。'],
+  },
+  run(inp, t, bug = false) {
     const { n, es } = readGraph(inp), g = adjOf(n, es), pos = lay(t.on, n, es), ed = toEdges(es)
     const col = new Uint8Array(n), et: Tones = {}
     const view = (hi: Tones = {}, ehi: Tones = {}) => { const tone: Tones = {}; for (let i = 0; i < n; i++) if (col[i]) tone[i] = col[i] === 1 ? 'cmp' : 'alt'; return graph(pos, ed, { tone: { ...tone, ...hi }, et: { ...et, ...ehi } }) }
@@ -644,10 +700,10 @@ int main() {
         const u = q[h]
         for (const [v, , e] of g[u]) {
           if (!col[v]) {
-            col[v] = 3 - col[u]; q.push(v); et[e] = 'ok'
-            t.s('color', () => [[`${u + 1} – ${v + 1}: give ${v + 1} the opposite colour.`, `${u + 1} – ${v + 1}：把 ${v + 1} 染成相反的颜色。`], view()])
+            col[v] = bug ? col[u] : 3 - col[u]; q.push(v); et[e] = 'ok'
+            t.s('color', () => [bug ? [`${u + 1} – ${v + 1}: give ${v + 1} the colour of ${u + 1}.`, `${u + 1} – ${v + 1}：把 ${v + 1} 染成 ${u + 1} 的颜色。`] : [`${u + 1} – ${v + 1}: give ${v + 1} the opposite colour.`, `${u + 1} – ${v + 1}：把 ${v + 1} 染成相反的颜色。`], view()])
           } else if (col[v] === col[u]) {
-            t.s('conflict', () => [[`${u + 1} and ${v + 1} are neighbours with the same colour: an odd cycle. Not bipartite.`, `${u + 1} 和 ${v + 1} 相邻却同色：存在奇环，不是二分图。`], view({ [u]: 'bad', [v]: 'bad' }, { [e]: 'bad' })])
+            t.s('conflict', () => [bug ? [`${u + 1} and ${v + 1} are neighbours with the same colour: the program prints No.`, `${u + 1} 和 ${v + 1} 相邻却同色：程序输出 No。`] : [`${u + 1} and ${v + 1} are neighbours with the same colour: an odd cycle. Not bipartite.`, `${u + 1} 和 ${v + 1} 相邻却同色：存在奇环，不是二分图。`], view({ [u]: 'bad', [v]: 'bad' }, { [e]: 'bad' })])
             t.out('No'); return
           }
         }
@@ -713,7 +769,11 @@ int main() {
   input: ['n m, then m lines "u v": a directed edge u → v. Prints the number of strongly connected components.', 'n m，随后 m 行 “u v”：一条有向边 u → v。输出强连通分量的个数。'],
   sizes: [5, 7, 9], lab: [10, 1000, 100000, 300000],
   gen: (n, r) => fmtGraph(n, genGraph(n, edgesFor(n), r).map(([u, v]) => (r.next() < 0.6 ? [u, v] : [v, u]))),
-  run(inp, t) {
+  broken: {
+    from: '} else if (in[v]) {', to: '} else {',
+    why: ['A visited vertex that is __no longer on the stack__ already belongs to a finished component, and u cannot reach back up from there: nothing in that component leads back to u. Using its dfn anyway lowers low[u] below dfn[u], so u is not recognised as the root of its own component, and it is merged into the component of the vertex above it.', '一个已访问、但__已经不在栈中__的顶点，属于一个已经完成的分量，u 无法经由它回到上面：那个分量里没有任何东西能回到 u。仍然用它的 dfn，就会把 low[u] 压到 dfn[u] 以下，于是 u 不再被认作自己所在分量的根，被并进了上面那个顶点的分量。'],
+  },
+  run(inp, t, bug = false) {
     const { n, es } = readGraph(inp), g = adjOf(n, es, true), pos = lay(t.on, n, es), ed = toEdges(es, false, true)
     const dfn = new Int32Array(n), low = new Int32Array(n), id = new Int32Array(n), onst = new Uint8Array(n), it = new Int32Array(n), st: number[] = [], et: Tones = {}
     let idx = 0, scc = 0
@@ -734,13 +794,15 @@ int main() {
           if (!dfn[v]) {
             dfn[v] = low[v] = ++idx; st.push(v); onst[v] = 1; call.push(v); et[e] = 'ok'
             t.s('visit', () => [[`Tree edge ${u + 1} → ${v + 1}: dfn = low = ${dfn[v]}, push it.`, `树边 ${u + 1} → ${v + 1}：dfn = low = ${dfn[v]}，入栈。`], ...view()])
-          } else if (onst[v]) {
+          } else if (onst[v] || bug) {
             low[u] = Math.min(low[u], dfn[v])
-            t.s('back', () => [[`${u + 1} → ${v + 1} reaches a vertex on the stack: low[${u + 1}] = min(low, dfn[${v + 1}]) = ${low[u]}.`, `${u + 1} → ${v + 1} 指向栈中的顶点：low[${u + 1}] = min(low, dfn[${v + 1}]) = ${low[u]}。`], ...view({ [v]: 'cmp' }, { [e]: 'cmp' })])
+            if (bug) t.s('back', () => [[`${u + 1} → ${v + 1} reaches a visited vertex: low[${u + 1}] = min(low, dfn[${v + 1}]) = ${low[u]}.`, `${u + 1} → ${v + 1} 指向已访问的顶点：low[${u + 1}] = min(low, dfn[${v + 1}]) = ${low[u]}。`], ...view({ [v]: 'cmp' }, { [e]: 'cmp' })])
+            else t.s('back', () => [[`${u + 1} → ${v + 1} reaches a vertex on the stack: low[${u + 1}] = min(low, dfn[${v + 1}]) = ${low[u]}.`, `${u + 1} → ${v + 1} 指向栈中的顶点：low[${u + 1}] = min(low, dfn[${v + 1}]) = ${low[u]}。`], ...view({ [v]: 'cmp' }, { [e]: 'cmp' })])
           }
           continue
         }
         call.pop()
+        if (!bug && call.length) t.ask(() => [[`Vertex ${u + 1} is finished with dfn = ${dfn[u]} and low = ${low[u]}. Is it the root of a component?`, `顶点 ${u + 1} 处理完了，dfn = ${dfn[u]}，low = ${low[u]}。它是一个分量的根吗？`], [['yes: pop its component now', '是：现在弹出它的分量'], ['no: it belongs to a component above it', '否：它属于上面的某个分量']], low[u] === dfn[u] ? 0 : 1])
         if (low[u] === dfn[u]) {
           scc++
           const members: number[] = []
@@ -816,7 +878,11 @@ int main() {
   input: [NM[0] + ' Prints the number of cut vertices and the number of bridges.', NM[1] + ' 输出割点数和割边数。'],
   sizes: [6, 8, 10], lab: [10, 1000, 100000, 300000],
   gen: (n, r) => fmtGraph(n, genGraph(n, n <= 30 ? n + 1 : n + (n >> 2), r)),
-  run(inp, t) {
+  broken: {
+    from: 'if (low[v] > dfn[u]) bridges++;', to: 'if (low[v] >= dfn[u]) bridges++;',
+    why: ['low[v] = dfn[u] means the subtree of v has a back edge __to u itself__. Then u and v lie on a cycle, and removing the edge u – v leaves them connected the other way round. That is enough to make u a cut vertex (deleting u breaks the cycle), but not to make the edge a bridge; for a bridge the subtree must not even reach u: `>`.', 'low[v] = dfn[u] 说明 v 的子树有一条返祖边__恰好连到 u__。于是 u 和 v 在同一个环上，删掉边 u – v 后，它们仍然可以从另一边连通。这足以让 u 成为割点（删掉 u 会断开这个环），却不能让这条边成为割边；割边要求子树连 u 都到不了：`>`。'],
+  },
+  run(inp, t, bug = false) {
     const { n, es } = readGraph(inp), g = adjOf(n, es), pos = lay(t.on, n, es), ed = toEdges(es)
     const dfn = new Int32Array(n), low = new Int32Array(n), it = new Int32Array(n), pe = new Int32Array(n).fill(-1), child = new Int32Array(n), cut = new Uint8Array(n), et: Tones = {}
     let idx = 0, bridges = 0
@@ -851,10 +917,11 @@ int main() {
         }
         const p = call[call.length - 1], e = pe[u]
         low[p] = Math.min(low[p], low[u])
-        if (low[u] > dfn[p]) {
+        if (!bug) t.ask(() => [[`Back from ${u + 1} to ${p + 1}: low[${u + 1}] = ${low[u]}, dfn[${p + 1}] = ${dfn[p]}. Is the edge ${p + 1} – ${u + 1} a bridge?`, `从 ${u + 1} 回到 ${p + 1}：low[${u + 1}] = ${low[u]}，dfn[${p + 1}] = ${dfn[p]}。边 ${p + 1} – ${u + 1} 是割边吗？`], [['yes', '是'], ['no', '不是']], low[u] > dfn[p] ? 0 : 1])
+        if (bug ? low[u] >= dfn[p] : low[u] > dfn[p]) {
           bridges++; et[e] = 'bad'
           if (pe[p] !== -1) cut[p] = 1
-          t.s('bridge', () => [[`low[${u + 1}] = ${low[u]} > dfn[${p + 1}] = ${dfn[p]}: edge ${p + 1} – ${u + 1} is a bridge.`, `low[${u + 1}] = ${low[u]} > dfn[${p + 1}] = ${dfn[p]}：边 ${p + 1} – ${u + 1} 是割边。`], ...view({ [u]: 'cmp' })])
+          t.s('bridge', () => [bug ? [`low[${u + 1}] = ${low[u]} ≥ dfn[${p + 1}] = ${dfn[p]}: the program counts edge ${p + 1} – ${u + 1} as a bridge.`, `low[${u + 1}] = ${low[u]} ≥ dfn[${p + 1}] = ${dfn[p]}：程序把边 ${p + 1} – ${u + 1} 计为割边。`] : [`low[${u + 1}] = ${low[u]} > dfn[${p + 1}] = ${dfn[p]}: edge ${p + 1} – ${u + 1} is a bridge.`, `low[${u + 1}] = ${low[u]} > dfn[${p + 1}] = ${dfn[p]}：边 ${p + 1} – ${u + 1} 是割边。`], ...view({ [u]: 'cmp' })])
         } else if (pe[p] !== -1 && low[u] >= dfn[p]) {
           cut[p] = 1
           t.s('cut', () => [[`low[${u + 1}] = ${low[u]} ≥ dfn[${p + 1}] = ${dfn[p]}: removing ${p + 1} cuts off the subtree of ${u + 1}.`, `low[${u + 1}] = ${low[u]} ≥ dfn[${p + 1}] = ${dfn[p]}：删掉 ${p + 1} 会把 ${u + 1} 的子树断开。`], ...view({ [u]: 'cmp' })])
@@ -943,7 +1010,11 @@ int main() {
   ],
   input: TREEQ, sizes: [7, 10, 14], lab: [10, 1000, 100000, 200000],
   gen: genTreeQ,
-  run(inp, t) {
+  broken: {
+    from: 'if (dep[up[j][u]] >= dep[v]) u = up[j][u];', to: 'if (dep[up[j][u]] > dep[v]) u = up[j][u];',
+    why: ['The lift must bring u __exactly__ to the depth of v, so a jump that lands on that depth is allowed: `>=`. With `>` u stops one level too deep. The two vertices then start the second phase at different depths, the common-ancestor test compares ancestors at different levels, and the answer is wrong whenever the depths differed.', '提升必须把 u 恰好带到与 v __相同__的深度，所以落在这个深度上的跳跃是允许的：`>=`。写成 `>` 后，u 停在了深一层的位置。于是两点在第二阶段开始时深度不同，判断公共祖先时比较的是不同层的祖先，只要原来深度不同，答案就是错的。'],
+  },
+  run(inp, t, bug = false) {
     const { n, qs, par, order, pos, ed } = readTreeQ(inp, t.on)
     let LOG = 1
     while (1 << LOG < n) LOG++
@@ -960,12 +1031,12 @@ int main() {
       let u = a + 1, v = b + 1
       if (dep[u] < dep[v]) [u, v] = [v, u]
       const q0 = `lca(${a + 1}, ${b + 1})`
-      for (let j = LOG; j >= 0; j--) if (dep[up[j][u]] >= dep[v]) {
+      for (let j = LOG; j >= 0; j--) if (bug ? dep[up[j][u]] > dep[v] : dep[up[j][u]] >= dep[v]) {
         const from = u
         u = up[j][u]
         t.s('lift', () => [[`${q0}: lift ${from} by 2^${j} = ${1 << j} to ${u} (target depth ${dep[v]}).`, `${q0}：把 ${from} 向上跳 2^${j} = ${1 << j} 层到 ${u}（目标深度 ${dep[v]}）。`], view(tn({ vis: from - 1, act: u - 1, cmp: v - 1 }), true)])
       }
-      if (u === v) { out.push(u); t.s('same', () => [[`${q0}: both are now at ${u} — it is the LCA.`, `${q0}：两者在 ${u} 相遇——它就是 LCA。`], view(tn({ ok: u - 1 }))]); continue }
+      if (u === v) { out.push(u); t.s('same', () => [[`${q0}: both are now at ${u}${bug ? '.' : ' — it is the LCA.'}`, `${q0}：两者在 ${u} 相遇——它就是 LCA。`], view(tn({ ok: u - 1 }))]); continue }
       for (let j = LOG; j >= 0; j--) if (up[j][u] !== up[j][v]) {
         const fu = u, fv = v
         u = up[j][u]; v = up[j][v]
@@ -973,7 +1044,7 @@ int main() {
       }
       const ans = up[0][u]
       out.push(ans)
-      t.s('ans', () => [[`${q0}: ${u} and ${v} sit just below the LCA, their parent ${ans}.`, `${q0}：${u} 和 ${v} 就在 LCA 的正下方，答案是它们的父亲 ${ans}。`], view(tn({ act: u - 1, cmp: v - 1, ok: ans - 1 }))])
+      t.s('ans', () => [bug ? [`${q0}: no more jumps; the program prints the parent of ${u}, ${ans}.`, `${q0}：不能再跳了；程序输出 ${u} 的父亲 ${ans}。`] : [`${q0}: ${u} and ${v} sit just below the LCA, their parent ${ans}.`, `${q0}：${u} 和 ${v} 就在 LCA 的正下方，答案是它们的父亲 ${ans}。`], view(tn({ act: u - 1, cmp: v - 1, ok: ans - 1 }))])
     }
     t.out(out.join('\n'))
   },
@@ -1029,7 +1100,11 @@ int main() {
   input: ['n, then n − 1 tree edges "u v". Prints the number of edges on a longest path.', 'n，随后 n − 1 条树边 “u v”。输出最长路径上的边数。'],
   sizes: [7, 10, 14], lab: [10, 1000, 100000, 300000],
   gen: (n, r) => `${n}\n` + genTree(n, r).map(([u, v]) => `${u + 1} ${v + 1}`).join('\n') + '\n',
-  run(inp, t) {
+  broken: {
+    from: 'int u = bfs(1);  //@first', to: 'int u = 1;  //@first',
+    why: ['The first search is not a warm-up: it is what finds u, __one end__ of a diameter, and the second search must start from there, because the other end is the vertex farthest from u. Skipping it and starting the second search at vertex 1 gives the distance from 1 to its farthest vertex, which is shorter than the diameter whenever 1 is not an end of one.', '第一次搜索不是热身：正是它找到了 u，也就是直径的__一个端点__，第二次搜索必须从那里出发，因为另一个端点是离 u 最远的顶点。跳过它、直接从顶点 1 开始第二次搜索，得到的是 1 到离它最远的顶点的距离，只要 1 不是某条直径的端点，它就比直径短。'],
+  },
+  run(inp, t, bug = false) {
     const tk = inp.split(/\s+/).filter(Boolean).map(Number), n = tk[0]
     need(n >= 1 && tk.length >= 2 * n - 1 && tk.every(Number.isFinite), 'Expected n and n − 1 edges.', '需要 n 和 n − 1 条边。')
     const es = span(0, n - 2).map((i): E => [tk[1 + 2 * i] - 1, tk[2 + 2 * i] - 1, 1])
@@ -1048,14 +1123,15 @@ int main() {
       }
       return far
     }
-    const u = bfs(0, 1)
-    t.s('first', () => [[`Farthest from 1 is ${u + 1}: it is one end of a diameter.`, `离 1 最远的是 ${u + 1}：它是直径的一个端点。`], graph(pos, ed, { tone: tn({ ok: u }) })])
-    const v = bfs(u, 2)
-    t.s('second', () => [[`Farthest from ${u + 1} is ${v + 1}: the other end.`, `离 ${u + 1} 最远的是 ${v + 1}：另一个端点。`], graph(pos, ed, { tone: tn({ ok: [u, v] }) })])
+    const u = bug ? 0 : bfs(0, 1)
+    t.s('first', () => [bug ? ['u = 1.', 'u = 1。'] : [`Farthest from 1 is ${u + 1}: it is one end of a diameter.`, `离 1 最远的是 ${u + 1}：它是直径的一个端点。`], graph(pos, ed, { tone: tn({ ok: u }) })])
+    if (!bug && u !== 0) t.ask(() => [['Where does the second search start?', '第二次搜索从哪里出发？'], [['vertex 1 again', '还是顶点 1'], [`vertex ${u + 1}, the farthest one`, `顶点 ${u + 1}，也就是最远的那个`]], 1])
+    const s2 = u, v = bfs(s2, 2)
+    t.s('second', () => [bug ? [`Farthest from ${s2 + 1} is ${v + 1}.`, `离 ${s2 + 1} 最远的是 ${v + 1}。`] : [`Farthest from ${u + 1} is ${v + 1}: the other end.`, `离 ${u + 1} 最远的是 ${v + 1}：另一个端点。`], graph(pos, ed, { tone: tn({ ok: [s2, v] }) })])
     t.s('done', () => {
       const path: number[] = [], on = new Set<number>()
       for (let x = v; x >= 0; x = from[x]) { path.push(x); on.add(x) }
-      return [[`Diameter = ${d[v]} edges, along ${path.map(x => x + 1).join(' – ')}.`, `直径 = ${d[v]} 条边，路径为 ${path.map(x => x + 1).join(' – ')}。`], graph(pos, ed, { tone: tn({ ok: path }), et: Object.fromEntries(es.map((e, i) => [i, on.has(e[0]) && on.has(e[1]) ? 'ok' as const : undefined])) }), vars({ diameter: d[v] })]
+      return [bug ? [`The program prints d[${v + 1}] = ${d[v]}.`, `程序输出 d[${v + 1}] = ${d[v]}。`] : [`Diameter = ${d[v]} edges, along ${path.map(x => x + 1).join(' – ')}.`, `直径 = ${d[v]} 条边，路径为 ${path.map(x => x + 1).join(' – ')}。`], graph(pos, ed, { tone: tn({ ok: path }), et: Object.fromEntries(es.map((e, i) => [i, on.has(e[0]) && on.has(e[1]) ? 'ok' as const : undefined])) }), vars({ diameter: d[v] })]
     })
     t.out(d[v])
   },
@@ -1123,7 +1199,11 @@ int main() {
   ],
   input: TREEQ, sizes: [8, 11, 14], lab: [10, 1000, 100000, 200000],
   gen: genTreeQ,
-  run(inp, t) {
+  broken: {
+    from: 'return dep[u] < dep[v] ? u : v;', to: 'return dep[u] > dep[v] ? u : v;',
+    why: ['When the loop stops, u and v are on the same chain, and one of them is an ancestor of the other. The LCA is that ancestor — the __shallower__ vertex. Returning the deeper one gives a descendant instead, which is wrong whenever one query vertex is not an ancestor of the other.', '循环结束时 u 和 v 在同一条链上，其中一个是另一个的祖先。LCA 就是这个祖先——也就是__深度较小__的那个。返回较深的那个得到的是后代，只要询问的两点不是祖先与后代的关系，答案就是错的。'],
+  },
+  run(inp, t, bug = false) {
     const { n, es, qs, g, par, order, pos, ed } = readTreeQ(inp, t.on)
     const dep = new Int32Array(n), sz = new Int32Array(n).fill(1), son = new Int32Array(n).fill(-1), top = new Int32Array(n).fill(-1), dfn = new Int32Array(n), out: number[] = []
     const heavy = () => Object.fromEntries(es.map((e, i) => [i, son[e[0]] === e[1] || son[e[1]] === e[0] ? 'ok' as const : 'dim' as const]))
@@ -1147,14 +1227,16 @@ int main() {
     for (const [a, b] of qs) {
       let u = a, v = b
       while (top[u] !== top[v]) {
+        if (!bug && dep[top[u]] !== dep[top[v]]) t.ask(() => [[`lca(${a + 1}, ${b + 1}): ${u + 1} and ${v + 1} are on different chains, with tops ${top[u] + 1} and ${top[v] + 1}. Which one jumps?`, `lca(${a + 1}, ${b + 1})：${u + 1} 和 ${v + 1} 在不同的链上，链顶分别是 ${top[u] + 1} 和 ${top[v] + 1}。谁往上跳？`], [[`${u + 1}`, `${u + 1}`], [`${v + 1}`, `${v + 1}`]], dep[top[u]] < dep[top[v]] ? 1 : 0])
         if (dep[top[u]] < dep[top[v]]) [u, v] = [v, u]
         const from = u
         u = par[top[u]]
         t.s('jump', () => [[`lca(${a + 1}, ${b + 1}): chains differ; ${from + 1}'s chain top ${top[from] + 1} is deeper, jump to its parent ${u + 1}.`, `lca(${a + 1}, ${b + 1})：不在同一条链；${from + 1} 的链顶 ${top[from] + 1} 更深，跳到链顶的父亲 ${u + 1}。`], graph(pos, ed, { tone: { ...chains(), [from]: 'bad', [u]: 'act', [v]: 'act' }, et: heavy(), name: 'colour = chain' })])
       }
-      const ans = dep[u] < dep[v] ? u : v
+      const ans = (bug ? dep[u] > dep[v] : dep[u] < dep[v]) ? u : v
       out.push(ans + 1)
-      t.s('ans', () => [[`lca(${a + 1}, ${b + 1}): ${u + 1} and ${v + 1} share a chain; the shallower one, ${ans + 1}, is the LCA.`, `lca(${a + 1}, ${b + 1})：${u + 1} 和 ${v + 1} 在同一条链上；较浅的 ${ans + 1} 就是 LCA。`], graph(pos, ed, { tone: { ...chains(), [u]: 'act', [v]: 'act', [ans]: 'bad' }, et: heavy(), name: 'colour = chain' })])
+      if (bug) t.s('ans', () => [[`lca(${a + 1}, ${b + 1}): ${u + 1} and ${v + 1} share a chain; the program returns ${ans + 1}.`, `lca(${a + 1}, ${b + 1})：${u + 1} 和 ${v + 1} 在同一条链上；程序返回 ${ans + 1}。`], graph(pos, ed, { tone: { ...chains(), [u]: 'act', [v]: 'act', [ans]: 'bad' }, et: heavy(), name: 'colour = chain' })])
+      else t.s('ans', () => [[`lca(${a + 1}, ${b + 1}): ${u + 1} and ${v + 1} share a chain; the shallower one, ${ans + 1}, is the LCA.`, `lca(${a + 1}, ${b + 1})：${u + 1} 和 ${v + 1} 在同一条链上；较浅的 ${ans + 1} 就是 LCA。`], graph(pos, ed, { tone: { ...chains(), [u]: 'act', [v]: 'act', [ans]: 'bad' }, et: heavy(), name: 'colour = chain' })])
     }
     t.out(out.join('\n'))
   },
@@ -1235,7 +1317,11 @@ int main() {
   input: ['n m, then m lines "u v c": a directed edge u → v with capacity c. Prints the maximum flow from vertex 1 to vertex n (n ≥ 2).', 'n m，随后 m 行 “u v c”：一条容量为 c 的有向边 u → v。输出从顶点 1 到顶点 n 的最大流（n ≥ 2）。'],
   sizes: [5, 6, 8], lab: [10, 100, 1000, 3000],
   gen: (n, r) => fmtGraph(Math.max(2, n), genGraph(Math.max(2, n), edgesFor(n), r).map(([u, v]) => [u, v, r.int(1, 9)])),
-  run(inp, t) {
+  broken: {
+    from: 'int d = dfs(es[id].to, min(f, es[id].cap));', to: 'int d = dfs(es[id].to, es[id].cap);',
+    why: ['f is the bottleneck of the path so far: no edge before this one can carry more than f. Passing on only es[id].cap forgets those edges, so the amount pushed is limited by the __last__ edge alone. Earlier edges are then pushed past their capacity — their remaining capacity goes negative — and the reported flow can exceed what the network can carry.', 'f 是到目前为止这条路径的瓶颈：这条边之前的任何一条边都运不了比 f 更多的流量。只传下去 es[id].cap，就把前面那些边忘了，推的流量只受__最后__一条边的限制。于是前面的边被推得超过了容量——剩余容量变成负数——报告的流量可能超过网络实际能运送的。'],
+  },
+  run(inp, t, bug = false) {
     const { n, m, es: raw } = readGraph(inp, true)
     need(n >= 2, 'n must be at least 2 (the source and the sink differ).', 'n 至少为 2（源点和汇点不同）。')
     for (const e of raw) need(e[2] >= 0, 'Capacities must be non-negative.', '容量必须非负。')
@@ -1258,7 +1344,7 @@ int main() {
         const id = g[u][cur[u]]
         if (cap[id] > 0 && lv[to[id]] === lv[u] + 1) {
           path.push(id)
-          const d = dfs(to[id], Math.min(f, cap[id]))
+          const d = dfs(to[id], bug ? cap[id] : Math.min(f, cap[id]))
           path.pop()
           if (d > 0) { cap[id] -= d; cap[id ^ 1] += d; return d }
         }
@@ -1276,7 +1362,8 @@ int main() {
         t.s('push', () => [[`Push ${got} unit(s) along it. Total flow: ${flow}.`, `沿这条路径推 ${got} 单位流量。总流量：${flow}。`], view(), vars({ flow })])
       }
     }
-    t.s('done', () => [[`The sink is no longer reachable in the residual graph: maximum flow = ${flow}.`, `残量网络中汇点已不可达：最大流 = ${flow}。`], view({}, {}, true), vars({ flow, edges: m })])
+    if (bug) t.s('done', () => [[`The sink is no longer reachable: the program prints ${flow}.`, `汇点已不可达：程序输出 ${flow}。`], view({}, {}, true), vars({ flow, edges: m })])
+    else t.s('done', () => [[`The sink is no longer reachable in the residual graph: maximum flow = ${flow}.`, `残量网络中汇点已不可达：最大流 = ${flow}。`], view({}, {}, true), vars({ flow, edges: m })])
     t.out(flow)
   },
 }
@@ -1341,7 +1428,11 @@ int main() {
     }
     return `${n} ${n} ${es.length}\n${es.join('\n')}\n`
   },
-  run(inp, t) {
+  broken: {
+    from: 'if (!match[v] || dfs(match[v])) {  //@kick', to: 'if (!match[v]) {  //@kick',
+    why: ['Taking only free partners is a greedy matching, and an early choice can block a later vertex: if L1 took R1 while L2 can use only R1, L2 stays alone although L1 could have moved to R2. Asking the current owner to find another partner, `dfs(match[v])`, is exactly the search for an augmenting path.', '只要空闲的对象，就成了贪心匹配，早先的选择可能挡住后来的点：如果 L1 占了 R1，而 L2 只能和 R1 匹配，L2 就会落单，尽管 L1 本可以换到 R2。请当前的占用者另找对象，也就是 `dfs(match[v])`，正是在寻找增广路。'],
+  },
+  run(inp, t, bug = false) {
     const tk = inp.split(/\s+/).filter(Boolean).map(Number), [nl, nr, m] = tk
     need(nl >= 1 && nr >= 1 && m >= 0 && tk.length >= 3 + 2 * m && tk.every(Number.isFinite), 'Expected "nl nr m" and m edges.', '需要 “nl nr m” 和 m 条边。')
     const g: [number, number][][] = Array.from({ length: nl }, () => []), ed: { u: number; v: number }[] = []
@@ -1365,8 +1456,8 @@ int main() {
         vis[v] = 1
         t.s('try', () => [[`L${u + 1} tries R${v + 1}.`, `L${u + 1} 尝试 R${v + 1}。`], ...view({ [u]: 'act', [nl + v]: 'cmp' }, { [e]: 'act' })])
         const owner = match[v]
-        if (owner >= 0) t.s('kick', () => [[`R${v + 1} is taken by L${owner + 1}: can L${owner + 1} move elsewhere?`, `R${v + 1} 已被 L${owner + 1} 占用：L${owner + 1} 能换到别处吗？`], ...view({ [u]: 'act', [nl + v]: 'cmp', [owner]: 'alt' }, { [e]: 'act' })])
-        if (owner < 0 || dfs(owner)) {
+        if (owner >= 0) t.s('kick', () => [bug ? [`R${v + 1} is taken by L${owner + 1}: try the next one.`, `R${v + 1} 已被 L${owner + 1} 占用：试下一个。`] : [`R${v + 1} is taken by L${owner + 1}: can L${owner + 1} move elsewhere?`, `R${v + 1} 已被 L${owner + 1} 占用：L${owner + 1} 能换到别处吗？`], ...view({ [u]: 'act', [nl + v]: 'cmp', [owner]: 'alt' }, { [e]: 'act' })])
+        if (owner < 0 || (!bug && dfs(owner))) {
           match[v] = u; me[v] = e
           t.s('match', () => [[`Match L${u + 1} with R${v + 1}.`, `L${u + 1} 与 R${v + 1} 匹配。`], ...view({ [u]: 'act', [nl + v]: 'act' })])
           return true
@@ -1381,7 +1472,7 @@ int main() {
       if (dfs(u)) ans++
     }
     vis.fill(0)
-    t.s('done', () => [[`No augmenting path remains: maximum matching = ${ans}.`, `不存在增广路了：最大匹配 = ${ans}。`], ...view()])
+    t.s('done', () => [bug ? [`Every left vertex has been tried: the program prints ${ans}.`, `每个左部点都试过了：程序输出 ${ans}。`] : [`No augmenting path remains: maximum matching = ${ans}.`, `不存在增广路了：最大匹配 = ${ans}。`], ...view()])
     t.out(ans)
   },
 }
@@ -1453,7 +1544,11 @@ int main() {
   input: ['n m, then m lines "u v": an undirected edge. Prints the m + 1 vertices of a walk that uses every edge exactly once, or −1 if there is none.', 'n m，随后 m 行 “u v”：一条无向边。输出一条经过每条边恰好一次的路线上的 m + 1 个顶点，不存在则输出 −1。'],
   sizes: [5, 6, 7], lab: [10, 1000, 100000, 200000],
   gen: genTrail,
-  run(inp, t) {
+  broken: {
+    from: 'if ((int)path.size() != m + 1) { puts("-1"); return 0; }', to: 'if ((int)path.size() != m) { puts("-1"); return 0; }',
+    why: ['A walk through m edges visits __m + 1__ vertices: one more than the number of edges, as with fence posts and the gaps between them. When every edge has been used, the path holds m + 1 vertices, so the test `!= m` rejects exactly the walks that succeeded, and the program prints −1 for every graph that has an Euler path.', '走过 m 条边的路线会经过 __m + 1__ 个顶点：比边数多一个，就像栅栏的柱子比空档多一根。当所有边都用上时，path 里恰好有 m + 1 个顶点，所以 `!= m` 拒绝的正是那些成功的路线，凡是存在欧拉路径的图，程序都输出 −1。'],
+  },
+  run(inp, t, bug = false) {
     const { n, m, es } = readGraph(inp), g = adjOf(n, es), pos = lay(t.on, n, es), ed = toEdges(es)
     const odd = span(0, n - 1).filter(i => g[i].length % 2 === 1)
     const used = new Uint8Array(m), cur = new Int32Array(n), path: number[] = [], stack: number[] = []
@@ -1485,7 +1580,8 @@ int main() {
         t.s('stuck', () => [[`No unused edge at ${u + 1}: write it down and step back.`, `顶点 ${u + 1} 已经没有没用过的边：把它记下来，退回一步。`], ...view(u, -1, 'ok')])
       }
     }
-    if (path.length !== m + 1) {
+    if (path.length !== (bug ? m : m + 1)) {
+      if (bug) { t.s('split', () => [[`The path holds ${path.length} vertices, not ${m}: the program prints −1.`, `path 里有 ${path.length} 个顶点，不是 ${m} 个：程序输出 −1。`], ...view(-1)]); t.out(-1); return }
       t.s('split', () => [[`Only ${Math.max(0, path.length - 1)} of the ${m} edges were reached: the rest are in another part of the graph. No Euler path.`, `${m} 条边中只走到了 ${Math.max(0, path.length - 1)} 条：其余的边在图的另一部分。不存在欧拉路径。`], ...view(-1)])
       t.out(-1); return
     }
@@ -1543,7 +1639,11 @@ int main() {
   input: ['n m, then m lines "u v w": an undirected edge of weight w ≥ 1. Prints the length of the shortest walk from 1 to n that is strictly longer than the shortest path (roads may be used more than once), or −1.', 'n m，随后 m 行 “u v w”：一条权值为 w（≥ 1）的无向边。输出从 1 到 n 的、严格长于最短路的最短路线的长度（道路可以重复经过），不存在则输出 −1。'],
   sizes: [5, 6, 8], lab: [10, 1000, 100000, 200000],
   gen: genW,
-  run(inp, t) {
+  broken: {
+    from: 'if (du > d2[u]) continue;', to: 'if (du > d1[u]) continue;',
+    why: ['This is the test of plain Dijkstra, and here it throws away the second distances: an entry with du = d2[u] is larger than d1[u], so it is skipped instead of being extended. But the second-shortest route to n may well run through the second-shortest route to some u, and that route is never followed.', '这是普通 Dijkstra 的判断，在这里它把次短距离都扔掉了：du = d2[u] 的记录比 d1[u] 大，于是被跳过而没有被延伸。可是到 n 的次短路完全可能经过到某个 u 的次短路，而这条路线从未被沿着走下去。'],
+  },
+  run(inp, t, bug = false) {
     const { n, es } = readGraph(inp, true), g = adjOf(n, es), pos = lay(t.on, n, es), ed = toEdges(es, true)
     for (const e of es) need(e[2] >= 0, 'Weights must not be negative.', '边权不能为负。')
     const d1 = new Array<number>(n).fill(INF), d2 = new Array<number>(n).fill(INF)
@@ -1558,10 +1658,11 @@ int main() {
     t.s('init', () => [['d1[1] = 0. Every other distance, and every second distance, is ∞.', 'd1[1] = 0。其余的最短距离和所有的次短距离都是 ∞。'], ...view(-1)])
     while (pq.size) {
       const [du, u] = pq.pop()
-      if (du > d2[u]) { t.s('stale', () => [[`Pop (${du}, ${u + 1}): larger than d2[${u + 1}] = ${d2[u]}, out of date — skip.`, `弹出 (${du}, ${u + 1})：比 d2[${u + 1}] = ${d2[u]} 还大，已经过时——跳过。`], ...view(-1, { [u]: 'dim' })]); continue }
+      if (du > (bug ? d1[u] : d2[u])) { const lim = bug ? d1[u] : d2[u]; t.s('stale', () => [bug ? [`Pop (${du}, ${u + 1}): larger than d1[${u + 1}] = ${lim} — skip.`, `弹出 (${du}, ${u + 1})：比 d1[${u + 1}] = ${lim} 大——跳过。`] : [`Pop (${du}, ${u + 1}): larger than d2[${u + 1}] = ${lim}, out of date — skip.`, `弹出 (${du}, ${u + 1})：比 d2[${u + 1}] = ${lim} 还大，已经过时——跳过。`], ...view(-1, { [u]: 'dim' })]); continue }
       t.s('pop', () => [[`Pop (${du}, ${u + 1}): a ${du === d1[u] ? 'shortest' : 'second-shortest'} distance of vertex ${u + 1}. Extend it along every edge.`, `弹出 (${du}, ${u + 1})：这是顶点 ${u + 1} 的${du === d1[u] ? '最短' : '次短'}距离。沿每条边继续延伸。`], ...view(u)])
       for (const [v, w, e] of g[u]) {
         let nd = du + w
+        if (!bug && nd !== d1[v] && nd < d2[v]) t.ask(() => [[`${u + 1} → ${v + 1} gives a route of length ${nd} to ${v + 1}, where d1 = ${inf(d1[v])} and d2 = ${inf(d2[v])}. Which one does it change first?`, `${u + 1} → ${v + 1} 给出了一条到 ${v + 1}、长度为 ${nd} 的路线，而 d1 = ${inf(d1[v])}，d2 = ${inf(d2[v])}。它首先改变哪一个？`], [['d1, the shortest', 'd1，最短距离'], ['d2, the second-shortest', 'd2，次短距离']], nd < d1[v] ? 0 : 1])
         if (nd < d1[v]) {
           const old = d1[v]
           d1[v] = nd; nd = old; pq.push([d1[v], v])
@@ -1575,7 +1676,7 @@ int main() {
       }
     }
     const ans = d2[n - 1] >= INF ? -1 : d2[n - 1]
-    t.s('done', () => [ans < 0 ? [`d2[${n}] is still ∞: there is no second route.`, `d2[${n}] 仍然是 ∞：不存在第二条路线。`] : [`Shortest: ${d1[n - 1]}. Second-shortest: ${ans}.`, `最短路：${d1[n - 1]}。次短路：${ans}。`], ...view(-1, { [n - 1]: 'ok' })])
+    t.s('done', () => [bug ? [`The heap is empty: the program prints d2[${n}] = ${ans < 0 ? '−1' : ans}.`, `堆已空：程序输出 d2[${n}] = ${ans < 0 ? '−1' : ans}。`] : ans < 0 ? [`d2[${n}] is still ∞: there is no second route.`, `d2[${n}] 仍然是 ∞：不存在第二条路线。`] : [`Shortest: ${d1[n - 1]}. Second-shortest: ${ans}.`, `最短路：${d1[n - 1]}。次短路：${ans}。`], ...view(-1, { [n - 1]: 'ok' })])
     t.out(ans)
   },
 }
@@ -1647,7 +1748,11 @@ int main() {
     }
     return s
   },
-  run(inp, t) {
+  broken: {
+    from: 'g[node(i, !a)].push_back(node(j, b));  //@clause', to: 'g[node(i, a)].push_back(node(j, b));  //@clause',
+    why: ['"x_i = a or x_j = b" forces x_j = b only when the first half __fails__, that is when x_i is not a. The edge must therefore start at the literal x_i = !a. Starting it at x_i = a turns the condition into "if x_i = a then x_j = b", a different rule: some satisfiable inputs are declared impossible, and some assignments printed break a condition.', '“x_i = a 或 x_j = b” 只有在前一半__不成立__时，也就是 x_i 不等于 a 时，才强迫 x_j = b。所以这条边必须从文字 x_i = !a 出发。从 x_i = a 出发，就把条件变成了“如果 x_i = a 那么 x_j = b”，这是另一条规则：一些可以满足的输入被判为无解，输出的一些取值也会违反某个条件。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), m = rd.int()
     need(Number.isInteger(n) && n >= 1 && n <= 1000000 && Number.isInteger(m) && m >= 0, 'Need 1 ≤ n ≤ 1,000,000 and m ≥ 0.', '需要 1 ≤ n ≤ 1,000,000 且 m ≥ 0。')
     const N2 = 2 * n, node = (i: number, v: number) => (v ? i : i + n), es: [number, number, number][] = [], g: number[][] = Array.from({ length: N2 }, () => [])
@@ -1657,13 +1762,14 @@ int main() {
       const [i, a, j, b] = rd.ints(4)
       need(i >= 1 && i <= n && j >= 1 && j <= n && (a === 0 || a === 1) && (b === 0 || b === 1), `Condition ${k + 1} is invalid.`, `第 ${k + 1} 个条件不合法。`)
       cls.push([i, a, j, b])
-      const e1: [number, number] = [node(i - 1, 1 - a), node(j - 1, b)], e2: [number, number] = [node(j - 1, 1 - b), node(i - 1, a)]
+      const e1: [number, number] = [node(i - 1, bug ? a : 1 - a), node(j - 1, b)], e2: [number, number] = [node(j - 1, 1 - b), node(i - 1, a)]
       g[e1[0]].push(e1[1]); g[e2[0]].push(e2[1]); es.push([e1[0], e1[1], 1], [e2[0], e2[1], 1])
     }
     const pos = lay(t.on, N2, es), ed = toEdges(es, false, true)
     for (let k = 0; k < m; k++) {
       const [i, a, j, b] = cls[k]
-      t.s('clause', () => [[`"x${i} = ${a} or x${j} = ${b}" gives two edges: ${name(node(i - 1, 1 - a))} → ${name(node(j - 1, b))} and ${name(node(j - 1, 1 - b))} → ${name(node(i - 1, a))}.`, `“x${i} = ${a} 或 x${j} = ${b}” 给出两条边：${name(node(i - 1, 1 - a))} → ${name(node(j - 1, b))} 和 ${name(node(j - 1, 1 - b))} → ${name(node(i - 1, a))}。`], graph(pos, ed, { label, et: Object.fromEntries(span(0, 2 * m - 1).map(e => [e, e >= 2 * k + 2 ? 'dim' : e >= 2 * k ? 'act' : undefined]).filter(x => x[1])) as Tones })])
+      const s1 = name(node(i - 1, bug ? a : 1 - a))
+      t.s('clause', () => [[`"x${i} = ${a} or x${j} = ${b}" gives two edges: ${s1} → ${name(node(j - 1, b))} and ${name(node(j - 1, 1 - b))} → ${name(node(i - 1, a))}.`, `“x${i} = ${a} 或 x${j} = ${b}” 给出两条边：${s1} → ${name(node(j - 1, b))} 和 ${name(node(j - 1, 1 - b))} → ${name(node(i - 1, a))}。`], graph(pos, ed, { label, et: Object.fromEntries(span(0, 2 * m - 1).map(e => [e, e >= 2 * k + 2 ? 'dim' : e >= 2 * k ? 'act' : undefined]).filter(x => x[1])) as Tones })])
     }
     const dfn = new Int32Array(N2), low = new Int32Array(N2), comp = new Int32Array(N2), onst = new Uint8Array(N2), it = new Int32Array(N2), st: number[] = []
     let idx = 0, cnt = 0
@@ -1762,7 +1868,11 @@ int main() {
   input: ['n (≤ 500), then an n × n table: row i, column j is the weight of giving job j to worker i. Prints the largest total weight of an assignment that gives every worker a different job.', 'n（≤ 500），随后是 n × n 的表格：第 i 行第 j 列是把工作 j 交给工人 i 的权值。每个工人分到互不相同的一项工作，输出最大的总权值。'],
   sizes: [3, 4, 5], lab: [5, 20, 100, 300],
   gen: (n, r) => `${n}\n` + span(1, n).map(() => r.ints(n, 1, n <= 30 ? 9 : 1000).join(' ')).join('\n') + '\n',
-  run(inp, t) {
+  broken: {
+    from: 'if (cur < minv[j]) { minv[j] = cur; way[j] = j0; }', to: 'if (cur < minv[j]) { minv[j] = cur; }',
+    why: ['way[j] records the job from which job j was reached; the final loop walks these links back to job 0 and hands each job on the path to the worker before it. Without them way[] stays 0, the walk back stops after one step, and the new worker simply takes the free job at the end of the path — even when there is no tight edge between them and the workers along the path should have moved. The total weight is then no longer the maximum.', 'way[j] 记录的是工作 j 是从哪项工作到达的；最后的循环沿着这些记录走回 0 号工作，把路径上的每项工作交给它前面的那个工人。没有这些记录，way[] 始终是 0，往回走一步就停了，新工人直接拿走路径末端的那项空闲工作——即使两者之间根本没有相等边，而路径上的工人本该挪动位置。于是总权值不再是最大的。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int()
     need(Number.isInteger(n) && n >= 1 && n <= 500, 'n must be between 1 and 500.', 'n 须在 1 到 500 之间。')
     const w = [new Array<number>(n + 1).fill(0), ...span(1, n).map(() => [0, ...rd.ints(n)])]
@@ -1787,7 +1897,7 @@ int main() {
           if (used[j]) continue
           t.tick()
           const cur = u[i0] + v[j] - w[i0][j]
-          if (cur < minv[j]) { minv[j] = cur; way[j] = j0 }
+          if (cur < minv[j]) { minv[j] = cur; if (!bug) way[j] = j0 }
           if (minv[j] < delta) { delta = minv[j]; j1 = j }
         }
         for (let j = 0; j <= n; j++) if (used[j]) { u[p[j]] -= delta; v[j] += delta } else minv[j] -= delta
@@ -1801,7 +1911,8 @@ int main() {
     let ans = 0
     for (let j = 1; j <= n; j++) ans += w[p[j]][j]
     const res = ans
-    t.s('done', () => [[`Every worker has a job. Total weight ${res} — equal to the sum of all labels, ${u.slice(1).reduce((a, b) => a + b, 0) + v.slice(1).reduce((a, b) => a + b, 0)}, so nothing can be better.`, `每个工人都有了工作。总权值为 ${res}——恰好等于所有顶标之和 ${u.slice(1).reduce((a, b) => a + b, 0) + v.slice(1).reduce((a, b) => a + b, 0)}，所以不可能更好了。`], view(n), vars({ answer: res })])
+    if (bug) t.s('done', () => [[`Every worker has a job: the program prints ${res}.`, `每个工人都有了工作：程序输出 ${res}。`], view(n), vars({ answer: res })])
+    else t.s('done', () => [[`Every worker has a job. Total weight ${res} — equal to the sum of all labels, ${u.slice(1).reduce((a, b) => a + b, 0) + v.slice(1).reduce((a, b) => a + b, 0)}, so nothing can be better.`, `每个工人都有了工作。总权值为 ${res}——恰好等于所有顶标之和 ${u.slice(1).reduce((a, b) => a + b, 0) + v.slice(1).reduce((a, b) => a + b, 0)}，所以不可能更好了。`], view(n), vars({ answer: res })])
     t.out(res)
   },
 }

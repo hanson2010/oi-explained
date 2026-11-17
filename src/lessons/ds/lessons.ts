@@ -50,7 +50,11 @@ int main() {
     if (n > 2 && r.next() < 0.3) { const i = r.int(0, n - 1); s = s.slice(0, i) + r.pick([...'()[]{}']) + s.slice(i + 1) }
     return s + '\n'
   },
-  run(inp, t) {
+  broken: {
+    from: 'puts(st.empty() ? "Yes" : "No");', to: 'puts("Yes");',
+    why: ['Reaching the end of the string without a mismatch is not enough: every opening bracket still __on the stack__ was never closed. "((" passes every check inside the loop, because no closing bracket ever comes, and only the final test of the stack can reject it.', '扫描到字符串末尾、途中没有出错还不够：仍然__留在栈里__的左括号都没有闭合。"((" 能通过循环里的每一次检查，因为根本没有右括号出现，只有最后对栈的检查才能拒绝它。'],
+  },
+  run(inp, t, bug = false) {
     const s = reader(inp).str(), st: string[] = [], pair: Record<string, string> = { '(': ')', '[': ']', '{': '}' }
     need(/^[()[\]{}]+$/.test(s), 'Only the characters ()[]{} are allowed.', '只允许字符 ()[]{}。')
     const chars = s.split('')
@@ -63,8 +67,9 @@ int main() {
       if (pair[o] !== c) { t.s('bad', () => [[`'${c}' does not close '${o}': No.`, `'${c}' 无法与 '${o}' 配对：No。`], ...view(i, 'bad')]); t.out('No'); return }
       t.s('pop', () => [[`'${c}' matches the top '${o}': pop.`, `'${c}' 与栈顶 '${o}' 匹配：出栈。`], ...view(i, 'ok')])
     }
-    t.s('done', () => [st.length ? [`${st.length} bracket(s) never closed: No.`, `还有 ${st.length} 个括号没有闭合：No。`] : ['The stack is empty at the end: Yes.', '结束时栈为空：Yes。'], arr('s', chars, tn({ [st.length ? 'bad' : 'ok']: span(0, chars.length - 1) })), arr('stack', st.length ? st : ['—'])])
-    t.out(st.length ? 'No' : 'Yes')
+    if (!bug) t.ask(() => [[`The string is over and the stack holds ${st.length} bracket${st.length === 1 ? '' : 's'}. What is printed?`, `字符串扫描完了，栈里还有 ${st.length} 个括号。输出什么？`], [['Yes', 'Yes'], ['No', 'No']], st.length ? 1 : 0])
+    t.s('done', () => [bug ? ['The string is over: the program prints Yes.', '字符串扫描完了：程序输出 Yes。'] : st.length ? [`${st.length} bracket(s) never closed: No.`, `还有 ${st.length} 个括号没有闭合：No。`] : ['The stack is empty at the end: Yes.', '结束时栈为空：Yes。'], arr('s', chars, tn({ [st.length && !bug ? 'bad' : 'ok']: span(0, chars.length - 1) })), arr('stack', st.length ? st : ['—'])])
+    t.out(st.length && !bug ? 'No' : 'Yes')
   },
 }
 
@@ -142,8 +147,14 @@ int main() {
   input: ['n, then n lines "l r": the left and right child of node i (0 = none). The root is node 1. Prints the three orders.', 'n，随后 n 行 “l r”：结点 i 的左右孩子（0 表示没有）。根为 1 号结点。输出三种遍历序。'],
   sizes: [5, 7, 10], lab: [10, 1000, 100000, 300000],
   gen: genBin,
-  run(inp, t) {
+  broken: {
+    from: 'pre(l[u]); pre(r[u]);', to: 'pre(r[u]); pre(l[u]);',
+    why: ['Pre-order is root, __left__, right. Recursing into the right subtree first produces root, right, left: a mirror image of the tree read in pre-order. In-order and post-order are unaffected, which is why only the first line of the output is wrong.', '前序是根、__左__、右。先递归右子树，得到的是根、右、左：相当于把树左右镜像后再做前序。中序和后序不受影响，所以输出只有第一行是错的。'],
+  },
+  run(inp, t, bug = false) {
     const { n, l, r } = readBin(inp)
+    const par = new Array<number>(n + 1).fill(0)
+    for (let i = 1; i <= n; i++) for (const c of [l[i], r[i]]) if (c) par[c] = i
     const pos = t.on ? layoutBin(1, i => l[i] || -1, i => r[i] || -1) : []
     const es: GEdge[] = []
     for (let i = 1; i <= n; i++) for (const c of [l[i], r[i]]) if (c) es.push({ u: i, v: c })
@@ -152,6 +163,12 @@ int main() {
     for (const mode of ['pre', 'in', 'post'] as const) {
       const out: number[] = [], seen: Tones = {}
       const visit = (u: number) => {
+        // Which node comes next? Offer the nodes a learner is likely to confuse: children of the last one, and the parent.
+        if (!bug && out.length > 0) t.ask(() => {
+          const last = out[out.length - 1]
+          const cands = [...new Set([u, l[last], r[last], par[u], l[u], r[u]])].filter(v => v && !seen[v]).slice(0, 4).sort((a, b) => a - b)
+          return cands.length < 2 ? undefined : [[`${names[mode][0]}: which node is visited next?`, `${names[mode][1]}：下一个访问哪个结点？`], cands.map(v => [String(v), String(v)] as const), cands.indexOf(u)]
+        })
         out.push(u); seen[u] = 'ok'
         t.s(mode, () => [[`${names[mode][0]}: visit ${u}.`, `${names[mode][1]}：访问 ${u}。`], graph(pos, es, { base: 0, tone: { ...seen, [u]: 'act' } }), arr(names[mode][0].toLowerCase(), out, tn({ act: out.length - 1 }))])
       }
@@ -160,8 +177,9 @@ int main() {
       while (st.length) {
         const top = st[st.length - 1], u = top[0]
         if (!u) { st.pop(); continue }
-        if (top[1] === 0) { if (mode === 'pre') visit(u); top[1] = 1; st.push([l[u], 0]) }
-        else if (top[1] === 1) { if (mode === 'in') visit(u); top[1] = 2; st.push([r[u], 0]) }
+        const flip = bug && mode === 'pre'
+        if (top[1] === 0) { if (mode === 'pre') visit(u); top[1] = 1; st.push([flip ? r[u] : l[u], 0]) }
+        else if (top[1] === 1) { if (mode === 'in') visit(u); top[1] = 2; st.push([flip ? l[u] : r[u], 0]) }
         else { if (mode === 'post') visit(u); st.pop() }
       }
       lines.push(out.join(' '))
@@ -209,18 +227,28 @@ int main() {
   input: ['n, then n positive weights. Prints the minimum weighted path length.', 'n，随后 n 个正整数权值。输出最小带权路径长度。'],
   sizes: [4, 6, 8], lab: [10, 1000, 100000, 300000],
   gen: (n, r) => `${n}\n${r.ints(n, 1, n <= 40 ? 30 : 100000).join(' ')}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'priority_queue<long long, vector<long long>, greater<long long>> q;', to: 'priority_queue<long long> q;',
+    why: ['A plain priority_queue is a __max__-heap: top() is the largest element. The program then merges the two heaviest trees first, so the heaviest weights end up deepest in the tree — the opposite of what the greedy choice requires. The two lightest trees must be merged first, which needs `greater<long long>`.', '不加参数的 priority_queue 是__大__根堆：top() 是最大的元素。于是程序先合并最重的两棵树，最重的权值反而落到了最深处——与贪心选择的要求正好相反。必须先合并最轻的两棵树，这需要 `greater<long long>`。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), w = rd.ints(n), par = new Array<number>(Math.max(1, 2 * n - 1)).fill(-2)
     need(n >= 1 && w.every(x => x > 0), 'Weights must be positive.', '权值必须为正。')
-    const q = new Heap<[number, number]>((a, b) => a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]))
+    const q = new Heap<[number, number]>((a, b) => (bug ? a[0] > b[0] : a[0] < b[0]) || (a[0] === b[0] && a[1] < b[1]))
     const es: GEdge[] = []
     w.forEach((x, i) => { q.push([x, i]); par[i] = -1 })
     const view = (tone: Tones) => graph(layoutForest(par), es, { label: w, tone })
     t.s('init', () => [[`${n} single-node trees go into the min-heap.`, `${n} 棵单结点树进入小根堆。`], view({}), vars({ answer: 0 })])
     let ans = 0, id = n
     while (q.size > 1) {
+      if (!bug && q.size > 2) t.ask(() => {
+        const ws = q.a.map(e => e[0]).sort((x, y) => x - y), k = ws.length
+        const right = `${ws[0]} + ${ws[1]}`, all = [...new Set([right, `${ws[0]} + ${ws[k - 1]}`, `${ws[k - 2]} + ${ws[k - 1]}`])]
+        const rot = k % all.length, opts = [...all.slice(rot), ...all.slice(0, rot)]
+        return opts.length < 2 ? undefined : [['Which two trees are merged next?', '接下来合并哪两棵树？'], opts.map(s => [s, s] as const), opts.indexOf(right)]
+      })
       const a = q.pop(), b = q.pop()
-      t.s('pick', () => [[`The two lightest trees weigh ${a[0]} and ${b[0]}.`, `最轻的两棵树权值为 ${a[0]} 和 ${b[0]}。`], view(tn({ act: [a[1], b[1]] })), vars({ answer: ans })])
+      t.s('pick', () => [bug ? [`The heap gives the trees of weight ${a[0]} and ${b[0]}.`, `堆顶依次给出权值为 ${a[0]} 和 ${b[0]} 的树。`] : [`The two lightest trees weigh ${a[0]} and ${b[0]}.`, `最轻的两棵树权值为 ${a[0]} 和 ${b[0]}。`], view(tn({ act: [a[1], b[1]] })), vars({ answer: ans })])
       ans += a[0] + b[0]
       w.push(a[0] + b[0]); par[id] = -1; par[a[1]] = id; par[b[1]] = id
       es.push({ u: id, v: a[1] }, { u: id, v: b[1] })
@@ -228,7 +256,7 @@ int main() {
       const me = id++
       t.s('merge', () => [[`Merge them under a new node of weight ${a[0] + b[0]}; answer += ${a[0] + b[0]}.`, `合并为权值 ${a[0] + b[0]} 的新结点；答案 += ${a[0] + b[0]}。`], view(tn({ ok: me, cmp: [a[1], b[1]] })), vars({ answer: ans })])
     }
-    t.s('done', () => [[`One tree remains. Weighted path length = ${ans}.`, `只剩一棵树。带权路径长度 = ${ans}。`], view(tn({ ok: span(0, n - 1) })), vars({ answer: ans })])
+    t.s('done', () => [bug ? [`One tree remains: the program prints ${ans}.`, `只剩一棵树：程序输出 ${ans}。`] : [`One tree remains. Weighted path length = ${ans}.`, `只剩一棵树。带权路径长度 = ${ans}。`], view(tn({ ok: span(0, n - 1) })), vars({ answer: ans })])
     t.out(ans)
   },
 }
@@ -286,7 +314,11 @@ int main() {
   input: ['n, then n integers to insert in order. Prints the distinct keys in ascending order.', 'n，随后按顺序插入的 n 个整数。按升序输出互不相同的键值。'],
   sizes: [6, 8, 11], lab: [10, 1000, 100000, 300000],
   gen: (n, r) => `${n}\n${r.shuffle(span(1, n).map(i => i * 3 + r.int(0, 2))).join(' ')}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'if (x < key[u]) insert(lc[u], x);', to: 'if (x < key[u]) insert(rc[u], x);',
+    why: ['The in-order traversal prints the left subtree before the node, so the left subtree is where __smaller__ keys must live. Sending a smaller key into the right subtree breaks the invariant: every key now ends up on the right, the tree is a chain in insertion order, and the in-order traversal simply repeats the input.', '中序遍历先输出左子树再输出结点，所以__更小__的键值必须放在左子树。把更小的键值送进右子树，就破坏了这个性质：所有键值都跑到了右边，树变成一条按插入顺序排列的链，中序遍历只是把输入原样输出。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), xs = rd.ints(n), key = [0], lc = [0], rc = [0]
     let root = 0
     const view = (tone: Tones) => (root ? binView([root], lc, rc, key, { tone }) : null)
@@ -296,14 +328,15 @@ int main() {
       while (u && key[u] !== x) {
         path.push(u)
         const cur = u, left = x < key[u]
-        t.s(left ? 'left' : 'right', () => [[`${x} ${left ? '<' : '>'} ${key[cur]}: go ${left ? 'left' : 'right'}.`, `${x} ${left ? '<' : '>'} ${key[cur]}：往${left ? '左' : '右'}走。`], view(tn({ vis: path, act: cur })), vars({ x })])
-        p = u; u = left ? lc[u] : rc[u]
+        t.s(left ? 'left' : 'right', () => [bug && left ? [`${x} < ${key[cur]}: insert into rc[${key[cur]}].`, `${x} < ${key[cur]}：插入 rc[${key[cur]}]。`] : [`${x} ${left ? '<' : '>'} ${key[cur]}: go ${left ? 'left' : 'right'}.`, `${x} ${left ? '<' : '>'} ${key[cur]}：往${left ? '左' : '右'}走。`], view(tn({ vis: path, act: cur })), vars({ x })])
+        p = u; u = left && !bug ? lc[u] : rc[u]
       }
       if (u) { const cur = u; t.s('right', () => [[`${x} is already in the tree: nothing to do.`, `${x} 已在树中：无需插入。`], view(tn({ vis: path, cmp: cur })), vars({ x })]); continue }
       key.push(x); lc.push(0); rc.push(0)
       const me = key.length - 1
-      if (!p) root = me; else if (x < key[p]) lc[p] = me; else rc[p] = me
-      t.s('new', () => [[p ? `Empty spot: ${x} becomes the ${x < key[p] ? 'left' : 'right'} child of ${key[p]}.` : `The tree is empty: ${x} becomes the root.`, p ? `空位：${x} 成为 ${key[p]} 的${x < key[p] ? '左' : '右'}孩子。` : `树为空：${x} 成为根。`], view(tn({ vis: path, ok: me })), vars({ x })])
+      const asLeft = x < key[p] && !bug
+      if (!p) root = me; else if (asLeft) lc[p] = me; else rc[p] = me
+      t.s('new', () => [[p ? `Empty spot: ${x} becomes the ${asLeft ? 'left' : 'right'} child of ${key[p]}.` : `The tree is empty: ${x} becomes the root.`, p ? `空位：${x} 成为 ${key[p]} 的${asLeft ? '左' : '右'}孩子。` : `树为空：${x} 成为根。`], view(tn({ vis: path, ok: me })), vars({ x })])
     }
     const out: number[] = [], st: number[] = [], seen: Tones = {}
     for (let u = root; u || st.length;) {
@@ -353,7 +386,11 @@ int main() {
   input: ['n k, then n integers. Prints the maximum of every window of length k.', 'n k，随后 n 个整数。输出每个长度为 k 的窗口中的最大值。'],
   sizes: [7, 10, 14], lab: [10, 1000, 100000, 1000000],
   gen: (n, r) => `${n} ${Math.max(1, Math.min(n, n <= 40 ? 3 : Math.floor(n / 10)))}\n${r.ints(n, 1, n <= 40 ? 30 : 1000000).join(' ')}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'q.front() <= i - k', to: 'q.front() < i - k',
+    why: ['The window ending at i is [i − k + 1, i], so an index j has left it as soon as __j ≤ i − k__. With `<` the front survives one step too long: index i − k is still treated as inside, and when it holds the largest value, that value is printed for a window it no longer belongs to.', '以 i 结尾的窗口是 [i − k + 1, i]，所以下标 j 只要满足 __j ≤ i − k__ 就已经离开了窗口。写成 `<` 后，队首会多留一步：下标 i − k 仍被当作在窗口内，当它的值最大时，就会被当作一个它已经不属于的窗口的最大值输出。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), k = rd.int(), a = rd.ints(n), q: number[] = [], out: number[] = []
     need(k >= 1 && k <= n, 'k must satisfy 1 ≤ k ≤ n.', 'k 须满足 1 ≤ k ≤ n。')
     let h = 0
@@ -362,17 +399,17 @@ int main() {
       arr('deque (indices; front on the left)', q.length > h ? q.slice(h) : ['—']), arr('output', out.length ? out : ['—']),
     ] as const
     for (let i = 0; i < n; i++) {
-      if (i % 2 === 1) t.ask(() => {
+      if (i % 2 === 1 && !bug) t.ask(() => {
         const lo = q.length > h && q[h] <= i - k ? h + 1 : h
         let c = 0
         while (q.length - c > lo && a[q[q.length - 1 - c]] <= a[i]) c++
         return c > 3 ? undefined : [[`a[${i}] = ${a[i]} arrives. How many indices are popped from the back of the deque first?`, `a[${i}] = ${a[i]} 到来。在它入队之前，要从队尾弹出几个下标？`], [0, 1, 2, 3].map(x => [String(x), String(x)] as const), c]
       })
-      if (q.length > h && q[h] <= i - k) { const x = q[h++]; t.s('expire', () => [[`Index ${x} has left the window: pop the front.`, `下标 ${x} 已滑出窗口：弹出队首。`], ...view(i, { [x]: 'bad' })]) }
+      if (q.length > h && (bug ? q[h] < i - k : q[h] <= i - k)) { const x = q[h++]; t.s('expire', () => [[`Index ${x} has left the window: pop the front.`, `下标 ${x} 已滑出窗口：弹出队首。`], ...view(i, { [x]: 'bad' })]) }
       while (q.length > h && a[q[q.length - 1]] <= a[i]) { const x = q.pop()!; t.s('popback', () => [[`a[${x}] = ${a[x]} ≤ a[${i}] = ${a[i]}: it can never be a maximum again, pop the back.`, `a[${x}] = ${a[x]} ≤ a[${i}] = ${a[i]}：它不可能再成为最大值，弹出队尾。`], ...view(i, { [x]: 'bad', [i]: 'act' })]) }
       q.push(i)
       t.s('push', () => [[`Push index ${i}.`, `下标 ${i} 入队。`], ...view(i, { [i]: 'act' })])
-      if (i >= k - 1) { out.push(a[q[h]]); t.s('out', () => [[`Window [${i - k + 1}, ${i}]: the maximum is a[${q[h]}] = ${a[q[h]]}.`, `窗口 [${i - k + 1}, ${i}]：最大值是 a[${q[h]}] = ${a[q[h]]}。`], ...view(i, { [q[h]]: 'ok' })]) }
+      if (i >= k - 1) { out.push(a[q[h]]); t.s('out', () => [bug ? [`Window [${i - k + 1}, ${i}]: the program prints a[${q[h]}] = ${a[q[h]]}.`, `窗口 [${i - k + 1}, ${i}]：程序输出 a[${q[h]}] = ${a[q[h]]}。`] : [`Window [${i - k + 1}, ${i}]: the maximum is a[${q[h]}] = ${a[q[h]]}.`, `窗口 [${i - k + 1}, ${i}]：最大值是 a[${q[h]}] = ${a[q[h]]}。`], ...view(i, { [q[h]]: 'ok' })]) }
     }
     t.out(out.join(' '))
   },
@@ -420,7 +457,11 @@ int main() {
     for (let i = 0; i < q; i++) { const l = r.int(1, n), h = r.int(l, n); s += `${l} ${h}\n` }
     return s
   },
-  run(inp, t) {
+  broken: {
+    from: 'st[k][r - (1 << k) + 1]', to: 'st[k][r - (1 << k)]',
+    why: ['The second block has to __end at r__. A block of length 2ᵏ that ends at r starts at r − 2ᵏ + 1; starting it at r − 2ᵏ shifts it one place left, so a[r] itself is never looked at. Whenever the maximum of the range is its last element, the program misses it.', '第二个块必须__恰好在 r 结束__。以 r 结尾、长为 2ᵏ 的块从 r − 2ᵏ + 1 开始；从 r − 2ᵏ 开始就整体左移了一格，a[r] 本身根本没有被看到。只要区间的最大值恰好是最后一个元素，程序就会漏掉它。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), q = rd.int(), st: Int32Array[] = [Int32Array.from([0, ...rd.ints(n)])], out: number[] = []
     const lg = new Int32Array(n + 1)
     for (let i = 2; i <= n; i++) lg[i] = lg[i >> 1] + 1
@@ -437,11 +478,16 @@ int main() {
     for (let c = 0; c < q; c++) {
       const l = rd.int(), r = rd.int()
       need(1 <= l && l <= r && r <= n, 'Queries need 1 ≤ l ≤ r ≤ n.', '查询须满足 1 ≤ l ≤ r ≤ n。')
-      const k = lg[r - l + 1], b = r - (1 << k) + 1, ans = Math.max(st[k][l], st[k][b])
+      const k = lg[r - l + 1], b = r - (1 << k) + (bug ? 0 : 1), ans = Math.max(st[k][l], st[k][b])
+      if (!bug) t.ask(() => {
+        const ks = [k - 1, k, k + 1].filter(x => x >= 0)
+        return [[`Query [${l}, ${r}] has length ${r - l + 1}. Which block length 2ᵏ covers it with two blocks?`, `查询 [${l}, ${r}] 的长度是 ${r - l + 1}。用两个长为 2ᵏ 的块覆盖它，k 取多少？`], ks.map(x => [`k = ${x} (length ${1 << x})`, `k = ${x}（长度 ${1 << x}）`] as const), ks.indexOf(k)]
+      })
       out.push(ans)
-      t.s('query', () => [[`Query [${l}, ${r}]: length ${r - l + 1}, k = ${k}. Blocks [${l}, ${l + (1 << k) - 1}] and [${b}, ${r}] → max(${st[k][l]}, ${st[k][b]}) = ${ans}.`, `查询 [${l}, ${r}]：长度 ${r - l + 1}，k = ${k}。两个块 [${l}, ${l + (1 << k) - 1}] 和 [${b}, ${r}] → max(${st[k][l]}, ${st[k][b]}) = ${ans}。`],
-        arr('a', Array.from(st[0].subarray(1)), tn({ cmp: span(l - 1, l + (1 << k) - 2), alt: span(b - 1, r - 1), ...(b <= l + (1 << k) - 1 ? { ok: span(b - 1, l + (1 << k) - 2) } : {}) }), { l: l - 1, r: r - 1 }, { base: 1 }),
-        view(gt({ cmp: [[k, l - 1]], alt: [[k, b - 1]] })), vars({ k, answer: ans })])
+      const e = b + (1 << k) - 1
+      t.s('query', () => [[`Query [${l}, ${r}]: length ${r - l + 1}, k = ${k}. Blocks [${l}, ${l + (1 << k) - 1}] and [${b}, ${e}] → max(${st[k][l]}, ${st[k][b]}) = ${ans}.`, `查询 [${l}, ${r}]：长度 ${r - l + 1}，k = ${k}。两个块 [${l}, ${l + (1 << k) - 1}] 和 [${b}, ${e}] → max(${st[k][l]}, ${st[k][b]}) = ${ans}。`],
+        arr('a', Array.from(st[0].subarray(1)), tn({ cmp: span(l - 1, l + (1 << k) - 2), alt: span(Math.max(0, b - 1), e - 1), ...(b <= l + (1 << k) - 1 ? { ok: span(Math.max(0, b - 1), l + (1 << k) - 2) } : {}) }), { l: l - 1, r: r - 1 }, { base: 1 }),
+        view(gt({ cmp: [[k, l - 1]], ...(b >= 1 ? { alt: [[k, b - 1]] } : {}) })), vars({ k, answer: ans })])
     }
     t.out(out.join('\n'))
   },
@@ -583,13 +629,17 @@ int main() {
   input: ['n q, the n numbers, then q lines: "1 i v" adds v to a[i]; "2 l r" prints the sum of a[l..r].', 'n q，n 个数，随后 q 行：“1 i v” 给 a[i] 加 v；“2 l r” 输出 a[l..r] 的和。'],
   sizes: [6, 8, 12], lab: [10, 1000, 100000, 300000],
   gen: genRange(true),
-  run(inp, t) {
+  broken: {
+    from: 'for (; i <= n; i += i & -i) c[i] += v;', to: 'for (; i < n; i += i & -i) c[i] += v;',
+    why: ['c[n] is a real block too: it covers (n − lowbit(n), n], and for n = 8 that is the whole array. `i < n` stops one jump early, so c[n] is never updated — it stays 0 — and every prefix sum that passes through c[n] comes out wrong, starting with sum(n).', 'c[n] 也是一个真正的块：它管辖 (n − lowbit(n), n]，当 n = 8 时就是整个数组。`i < n` 让循环少跳了最后一步，于是 c[n] 从未被更新——一直是 0——所有经过 c[n] 的前缀和都错了，首先就是 sum(n)。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), q = rd.int(), a = new Array<number>(n + 1).fill(0), c = new Array<number>(n + 1).fill(0), out: number[] = []
     const bin = (i: number) => i.toString(2).padStart(n.toString(2).length, '0')
     const cover = (i: number) => span(i - (i & -i) + 1, i)
     const add = (i: number, v: number) => {
       a[i] += v
-      for (const i0 = i; i <= n; i += i & -i) {
+      for (const i0 = i; bug ? i < n : i <= n; i += i & -i) {
         c[i] += v
         const k = i
         t.s('add', () => [[`add(${i0}, ${v}): c[${k}] covers (${k - (k & -k)}, ${k}] → c[${k}] = ${c[k]}. Next: ${k} + lowbit ${k & -k} = ${k + (k & -k)}.`, `add(${i0}, ${v})：c[${k}] 管辖 (${k - (k & -k)}, ${k}] → c[${k}] = ${c[k]}。下一个：${k} + lowbit ${k & -k} = ${k + (k & -k)}。`],
@@ -604,6 +654,11 @@ int main() {
         const k = i, ss = s
         t.s('sum', () => [[`sum(${i0}): take c[${k}] = ${c[k]} for (${k - (k & -k)}, ${k}]; running total ${ss}. Next: ${k} − lowbit ${k & -k} = ${k - (k & -k)}.`, `sum(${i0})：取 c[${k}] = ${c[k]}，对应 (${k - (k & -k)}, ${k}]；累计 ${ss}。下一个：${k} − lowbit ${k & -k} = ${k - (k & -k)}。`],
           arr('a', a, tn({ dim: 0, ok: span(k + 1, i0), vis: cover(k) })), arr('c', c, tn({ dim: 0, ok: used, act: k })), vars({ i: `${k} = ${bin(k)}₂`, lowbit: k & -k, s: ss })])
+        const nx = k - (k & -k)
+        if (!bug && nx > 0) t.ask(() => {
+          const opts = [...new Set([nx, k - 1, k + (k & -k)])].filter(x => x >= 1).sort((x, y) => x - y)
+          return opts.length < 2 ? undefined : [[`sum(${i0}) has just used c[${k}]. Which c does it take next?`, `sum(${i0}) 刚用了 c[${k}]。接下来取哪个 c？`], opts.map(x => [`c[${x}]`, `c[${x}]`] as const), opts.indexOf(nx)]
+        })
       }
       return s
     }
@@ -698,7 +753,11 @@ int main() {
   input: ['n q, the n numbers, then q lines: "1 l r v" adds v to a[l..r]; "2 l r" prints the sum of a[l..r].', 'n q，n 个数，随后 q 行：“1 l r v” 给 a[l..r] 加 v；“2 l r” 输出 a[l..r] 的和。'],
   sizes: [4, 6, 8], lab: [10, 1000, 100000, 200000],
   gen: genRange(false),
-  run(inp, t) {
+  broken: {
+    from: 'sum[p] += v * (r - l + 1);', to: 'sum[p] += v * (r - l);',
+    why: ['[l, r] includes both ends, so it holds __r − l + 1__ elements, and each of them gains v. `r - l` is one element short: a leaf (l = r) gains nothing at all, and every larger node gains v too little. Every range update therefore leaves the sums too small.', '[l, r] 两端都包含，所以有 __r − l + 1__ 个元素，每个都加 v。`r - l` 少算了一个：叶子（l = r）一点也没有增加，更大的结点则少加了一个 v。于是每次区间修改之后，和都偏小。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), q = rd.int(), sum = new Array<number>(4 * n).fill(0), tag = new Array<number>(4 * n).fill(0), out: number[] = []
     need(n >= 1, 'n must be at least 1.', 'n 至少为 1。')
     const L: number[] = [], R: number[] = [], es: GEdge[] = []
@@ -706,7 +765,7 @@ int main() {
     let pos: ReturnType<typeof layoutBin> = []
     if (t.on) { shape(1, 1, n); pos = layoutBin(1, i => (L[i] < R[i] ? 2 * i : -1), i => (L[i] < R[i] ? 2 * i + 1 : -1)) }
     const view = (tone: Tones) => graph(pos, es, { label: sum, tone, sub: pos.map((_, p) => (L[p] === undefined ? undefined : `${L[p] === R[p] ? L[p] : L[p] + '–' + R[p]}${tag[p] ? '  +' + tag[p] : ''}`)), name: 'node = sum; caption = range, + lazy tag' })
-    const apply = (p: number, l: number, r: number, v: number) => { sum[p] += v * (r - l + 1); tag[p] += v }
+    const apply = (p: number, l: number, r: number, v: number) => { sum[p] += v * (bug ? r - l : r - l + 1); tag[p] += v }
     const down = (p: number, l: number, r: number) => {
       if (!tag[p]) return
       const m = (l + r) >> 1, v = tag[p]
@@ -721,7 +780,8 @@ int main() {
       t.s('build', () => [[`Build [${l}, ${r}]: ${sum[2 * p]} + ${sum[2 * p + 1]} = ${sum[p]}.`, `建树 [${l}, ${r}]：${sum[2 * p]} + ${sum[2 * p + 1]} = ${sum[p]}。`], view(tn({ act: p, cmp: [2 * p, 2 * p + 1] }))])
     }
     const update = (p: number, l: number, r: number, x: number, y: number, v: number) => {
-      if (x <= l && r <= y) { apply(p, l, r, v); t.s('cover', () => [[`[${l}, ${r}] lies inside [${x}, ${y}]: sum += ${v} × ${r - l + 1}, leave tag +${v}.`, `[${l}, ${r}] 完全在 [${x}, ${y}] 内：sum += ${v} × ${r - l + 1}，留下标记 +${v}。`], view(tn({ ok: p }))]); return }
+      if (!bug) t.ask(() => [[`Adding ${v} to [${x}, ${y}] has reached the node for [${l}, ${r}]. What happens here?`, `给 [${x}, ${y}] 加 ${v} 的修改走到了 [${l}, ${r}] 这个结点。这里会怎样？`], [['update this node and leave a tag', '更新这个结点并留下标记'], ['go down to the children', '继续走到孩子']], x <= l && r <= y ? 0 : 1])
+      if (x <= l && r <= y) { apply(p, l, r, v); t.s('cover', () => [bug ? [`[${l}, ${r}] lies inside [${x}, ${y}]: sum += ${v} × ${r - l}, leave tag +${v}.`, `[${l}, ${r}] 完全在 [${x}, ${y}] 内：sum += ${v} × ${r - l}，留下标记 +${v}。`] : [`[${l}, ${r}] lies inside [${x}, ${y}]: sum += ${v} × ${r - l + 1}, leave tag +${v}.`, `[${l}, ${r}] 完全在 [${x}, ${y}] 内：sum += ${v} × ${r - l + 1}，留下标记 +${v}。`], view(tn({ ok: p }))]); return }
       down(p, l, r)
       const m = (l + r) >> 1
       if (x <= m) update(2 * p, l, m, x, y, v)
@@ -803,7 +863,11 @@ int main() {
     const q = big ? n : 3, ws = Array.from({ length: n }, word)
     return `${n} ${q}\n${ws.join('\n')}\n${Array.from({ length: q }, () => { const w = r.next() < 0.75 ? r.pick(ws) : word(); return w.slice(0, r.int(1, w.length)) }).join('\n')}\n`
   },
-  run(inp, t) {
+  broken: {
+    from: 'if (!ch[u][c]) ch[u][c] = ++tot;', to: 'ch[u][c] = ++tot;',
+    why: ['The whole point of a trie is that words with a common prefix __share__ the nodes of that prefix. Creating a new node for every letter, even when the edge already exists, overwrites the old edge: each word gets a fresh path, the earlier words become unreachable, and a query only ever sees the last word inserted along each path.', '字典树的关键在于：拥有公共前缀的单词__共用__这段前缀的结点。即使边已经存在也新建结点，就把原来的边覆盖了：每个单词都得到一条全新的路径，之前的单词再也走不到，查询只能看到沿每条路径最后插入的那个单词。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), q = rd.int(), words = Array.from({ length: n }, rd.str)
     for (const w of words) need(/^[a-z]+$/.test(w), 'Words must be lowercase letters.', '单词只能由小写字母组成。')
     const cap = words.reduce((s, w) => s + w.length, 1), ch = new Int32Array(cap * 26), cnt = new Int32Array(cap), par = [-1], letter = ['·'], es: GEdge[] = [], out: number[] = []
@@ -813,7 +877,8 @@ int main() {
       let u = 0
       const path = [0]
       for (let i = 0; i < w.length; i++) {
-        const c = w.charCodeAt(i) - 97, fresh = !ch[u * 26 + c]
+        const c = w.charCodeAt(i) - 97, fresh = bug || !ch[u * 26 + c]
+        if (!bug && tot > 0) t.ask(() => [[`Insert "${w}", letter '${w[i]}': what happens at this node?`, `插入 "${w}"，字母 '${w[i]}'：在这个结点上会怎样？`], [[`follow the existing edge '${w[i]}'`, `沿用已有的 '${w[i]}' 边`], ['create a new node', '新建一个结点']], fresh ? 1 : 0])
         if (fresh) { ch[u * 26 + c] = ++tot; par.push(u); letter.push(w[i]); es.push({ u, v: tot }) }
         u = ch[u * 26 + c]; cnt[u]++; path.push(u)
         const cur = u
@@ -892,7 +957,11 @@ int main() {
   input: ['n, then n integers to insert in order. Prints the distinct keys in ascending order.', 'n，随后按顺序插入的 n 个整数。按升序输出互不相同的键值。'],
   sizes: [5, 7, 10], lab: [10, 1000, 100000, 300000],
   gen: (n, r) => `${n}\n${span(1, n).map(i => i * 2 + (n > 30 ? 0 : r.int(0, 1))).join(' ')}\n`,
-  run(inp, t) {
+  broken: {
+    from: '    if (x < key[u]) {', to: '    if (x > key[u]) {',
+    why: ['A treap is still a binary search tree: smaller keys belong in the __left__ subtree, because the in-order traversal visits the left subtree first. With the comparison turned round, larger keys go left. Rotations keep whatever in-order sequence the inserts produce, so the tree is consistently mirrored and the keys come out in descending order.', 'Treap 仍然是一棵二叉搜索树：更小的键值属于__左__子树，因为中序遍历先访问左子树。比较方向反了以后，更大的键值去了左边。旋转会保持插入所形成的中序序列，所以整棵树被一致地镜像了，键值按降序输出。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), xs = rd.ints(n), key = [0], pri = [-1], lc = [0], rc = [0]
     let root = 0, seed = 12345
     // Two-digit priorities read well in the animation; large inputs need the full range to avoid ties.
@@ -909,10 +978,11 @@ int main() {
         return
       }
       if (x === key[u]) return
-      const goLeft = x < key[u]
+      const goLeft = bug ? x > key[u] : x < key[u]
       t.s('down', () => [[`${x} ${goLeft ? '<' : '>'} ${key[u]}: go ${goLeft ? 'left' : 'right'}.`, `${x} ${goLeft ? '<' : '>'} ${key[u]}：往${goLeft ? '左' : '右'}走。`], view(tn({ act: u }))])
       ins(goLeft ? lc[u] : rc[u], x, u, goLeft)
       const v = goLeft ? lc[u] : rc[u]
+      if (!bug) t.ask(() => [[`${key[v]} (priority ${pri[v]}) is now a child of ${key[u]} (priority ${pri[u]}). Is it rotated up?`, `${key[v]}（优先级 ${pri[v]}）现在是 ${key[u]}（优先级 ${pri[u]}）的孩子。要把它旋转上去吗？`], [['yes, rotate', '是，旋转'], ['no, leave it', '否，保持不动']], pri[v] > pri[u] ? 0 : 1])
       if (pri[v] <= pri[u]) return
       if (goLeft) { lc[u] = rc[v]; rc[v] = u } else { rc[u] = lc[v]; lc[v] = u }
       link(p, left, v)
@@ -921,7 +991,7 @@ int main() {
     for (const x of xs) ins(root, x, 0, true)
     const out: number[] = [], st: number[] = []
     for (let u = root; u || st.length;) { while (u) { st.push(u); u = lc[u] } u = st.pop()!; out.push(key[u]); u = rc[u] }
-    t.s('visit', () => [[`In-order traversal gives the keys in sorted order: ${out.slice(0, 12).join(' ')}${out.length > 12 ? ' …' : ''}`, `中序遍历按升序给出所有键值：${out.slice(0, 12).join(' ')}${out.length > 12 ? ' …' : ''}`], view(tn({ ok: span(1, key.length - 1) }))])
+    t.s('visit', () => [bug ? [`In-order traversal: ${out.slice(0, 12).join(' ')}${out.length > 12 ? ' …' : ''}`, `中序遍历：${out.slice(0, 12).join(' ')}${out.length > 12 ? ' …' : ''}`] : [`In-order traversal gives the keys in sorted order: ${out.slice(0, 12).join(' ')}${out.length > 12 ? ' …' : ''}`, `中序遍历按升序给出所有键值：${out.slice(0, 12).join(' ')}${out.length > 12 ? ' …' : ''}`], view(tn({ ok: span(1, key.length - 1) }))])
     t.out(out.join(' '))
   },
 }
@@ -982,7 +1052,11 @@ int main() {
   input: ['n q, the n numbers, then q lines: "1 l r v" adds v to a[l..r]; "2 l r" prints the sum of a[l..r].', 'n q，n 个数，随后 q 行：“1 l r v” 给 a[l..r] 加 v；“2 l r” 输出 a[l..r] 的和。'],
   sizes: [9, 12, 16], lab: [10, 100, 1000, 10000, 40000],
   gen: genRange(false),
-  run(inp, t) {
+  broken: {
+    from: 's += sum[b] + tag[b] * B;', to: 's += sum[b] + tag[b];',
+    why: ['tag[b] = v means "every element of block b is v larger than a[] says". A whole block has B elements, so the tag adds __tag × B__ to its sum. Adding the tag once counts it for a single element: any query that spans a tagged whole block comes out too small.', 'tag[b] = v 的意思是“b 块里的每个元素都比 a[] 中记的大 v”。整块有 B 个元素，所以标记给块的和贡献 __tag × B__。只加一次标记，就只算了一个元素：凡是跨过带标记的整块的查询，结果都偏小。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), q = rd.int(), a = rd.ints(n), B = Math.max(1, Math.floor(Math.sqrt(n))), nb = Math.floor((n - 1) / B) + 1
     const bl = (i: number) => Math.floor(i / B), sum = new Array<number>(nb).fill(0), tag = new Array<number>(nb).fill(0), out: number[] = []
     a.forEach((x, i) => { sum[bl(i)] += x })
@@ -1001,7 +1075,7 @@ int main() {
       } else {
         let s = 0
         for (const i of part) { s += a[i] + tag[bl(i)]; const ss = s; t.s('qpart', () => [[`Sum [${l + 1}, ${r + 1}] — ragged end: a[${i + 1}] + tag = ${a[i] + tag[bl(i)]}; total ${ss}.`, `求和 [${l + 1}, ${r + 1}]——零散部分：a[${i + 1}] + 标记 = ${a[i] + tag[bl(i)]}；累计 ${ss}。`], ...view(tn({ cmp: span(l, r), act: i }), tn({ act: bl(i) })), vars({ s: ss })]) }
-        for (const b of mid) { s += sum[b] + tag[b] * B; const ss = s; t.s('qwhole', () => [[`Whole block ${b}: sum ${sum[b]} + tag ${tag[b]} × ${B}; total ${ss}.`, `整块 ${b}：和 ${sum[b]} + 标记 ${tag[b]} × ${B}；累计 ${ss}。`], ...view(tn({ cmp: span(l, r), ok: span(b * B, b * B + B - 1) }), tn({ ok: b })), vars({ s: ss })]) }
+        for (const b of mid) { s += sum[b] + tag[b] * (bug ? 1 : B); const ss = s; t.s('qwhole', () => [[bug ? `Whole block ${b}: sum ${sum[b]} + tag ${tag[b]}; total ${ss}.` : `Whole block ${b}: sum ${sum[b]} + tag ${tag[b]} × ${B}; total ${ss}.`, bug ? `整块 ${b}：和 ${sum[b]} + 标记 ${tag[b]}；累计 ${ss}。` : `整块 ${b}：和 ${sum[b]} + 标记 ${tag[b]} × ${B}；累计 ${ss}。`], ...view(tn({ cmp: span(l, r), ok: span(b * B, b * B + B - 1) }), tn({ ok: b })), vars({ s: ss })]) }
         out.push(s)
         t.s('ans', () => [[`sum(${l + 1}..${r + 1}) = ${s}.`, `sum(${l + 1}..${r + 1}) = ${s}。`], ...view(tn({ ok: span(l, r) })), vars({ answer: s })])
       }
@@ -1057,7 +1131,11 @@ int main() {
   input: ['n, then n integers. They are pushed one by one, then popped until empty (printing them in ascending order).', 'n，随后 n 个整数。逐个插入堆，再逐个弹出直到堆空（按升序输出）。'],
   sizes: [5, 7, 9], lab: [10, 1000, 100000, 300000],
   gen: (n, r) => `${n}\n${r.ints(n, 1, n <= 40 ? 50 : 1000000).join(' ')}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'if (val[x] > val[y]) swap(x, y);', to: 'if (val[x] < val[y]) swap(x, y);',
+    why: ['The root of a min-heap must be its __smallest__ value, so of the two roots the smaller one stays on top. Swapping when val[x] < val[y] keeps the larger one on top instead: every merge builds a max-heap, and the values are popped from largest to smallest.', '小根堆的根必须是__最小__的值，所以两个根中较小的那个留在上面。在 val[x] < val[y] 时交换，留在上面的反而是较大的那个：每次合并都建成了大根堆，弹出的顺序变成了从大到小。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), val = [0, ...rd.ints(n)], lc = new Array<number>(n + 1).fill(0), rc = new Array<number>(n + 1).fill(0), dist = new Array<number>(n + 1).fill(0), out: number[] = []
     let alive: number[] = []
     const view = (tone: Tones) => {
@@ -1068,10 +1146,11 @@ int main() {
     }
     const merge = (x: number, y: number): number => {
       if (!x || !y) { t.s('base', () => [[`One side is empty: return ${x + y ? 'the heap rooted at ' + val[x + y] : 'nothing'}.`, `有一边为空：返回${x + y ? '以 ' + val[x + y] + ' 为根的堆' : '空'}。`], view(x + y ? tn({ ok: x + y }) : {})]); return x + y }
-      if (val[x] > val[y]) [x, y] = [y, x]
-      t.s('root', () => [[`Merge heaps rooted at ${val[x]} and ${val[y]}: ${val[x]} is smaller and stays on top.`, `合并以 ${val[x]} 和 ${val[y]} 为根的堆：${val[x]} 更小，留在上面。`], view(tn({ ok: x, cmp: y }))])
+      if (bug ? val[x] < val[y] : val[x] > val[y]) [x, y] = [y, x]
+      t.s('root', () => [bug ? [`Merge heaps rooted at ${val[x]} and ${val[y]}: ${val[x]} stays on top.`, `合并以 ${val[x]} 和 ${val[y]} 为根的堆：${val[x]} 留在上面。`] : [`Merge heaps rooted at ${val[x]} and ${val[y]}: ${val[x]} is smaller and stays on top.`, `合并以 ${val[x]} 和 ${val[y]} 为根的堆：${val[x]} 更小，留在上面。`], view(tn({ ok: x, cmp: y }))])
       t.s('rec', () => [[`Merge ${val[y]} into the right subtree of ${val[x]}.`, `把 ${val[y]} 合并进 ${val[x]} 的右子树。`], view(tn({ ok: x, cmp: y, act: rc[x] || x }))])
       rc[x] = merge(rc[x], y)
+      if (!bug) t.ask(() => [[`Back at ${val[x]}: dist(left) = ${dist[lc[x]]}, dist(right) = ${dist[rc[x]]}. Are the children swapped?`, `回到 ${val[x]}：dist(左) = ${dist[lc[x]]}，dist(右) = ${dist[rc[x]]}。要交换左右孩子吗？`], [['yes', '要'], ['no', '不要']], dist[lc[x]] < dist[rc[x]] ? 0 : 1])
       if (dist[lc[x]] < dist[rc[x]]) {
         [lc[x], rc[x]] = [rc[x], lc[x]]
         t.s('swap', () => [[`At ${val[x]}: dist(left) < dist(right) — swap the children.`, `在 ${val[x]} 处：dist(左) < dist(右)——交换左右孩子。`], view(tn({ act: x, cmp: [lc[x], rc[x]].filter(Boolean) }))])
@@ -1090,7 +1169,7 @@ int main() {
       const top = root
       out.push(val[top])
       if (t.on) alive = alive.filter(u => u !== top)
-      t.s('pop', () => [[`Pop the minimum ${val[top]}: merge its two subtrees.`, `弹出最小值 ${val[top]}：合并它的两棵子树。`], view(tn({ act: [lc[top], rc[top]].filter(Boolean) })), arr('output', out, tn({ ok: out.length - 1 }))])
+      t.s('pop', () => [bug ? [`Pop the root ${val[top]}: merge its two subtrees.`, `弹出堆顶 ${val[top]}：合并它的两棵子树。`] : [`Pop the minimum ${val[top]}: merge its two subtrees.`, `弹出最小值 ${val[top]}：合并它的两棵子树。`], view(tn({ act: [lc[top], rc[top]].filter(Boolean) })), arr('output', out, tn({ ok: out.length - 1 }))])
       root = merge(lc[top], rc[top])
     }
     t.out(out.join(' '))
@@ -1155,7 +1234,11 @@ int main() {
     }
     return s
   },
-  run(inp, t) {
+  broken: {
+    from: 'for (int u = nxt[0]; u != 0; u = nxt[u])', to: 'for (int u = 1; u != 0; u = nxt[u])',
+    why: ['The list began as 1, 2, …, n, but after the moves and removals element 1 can be anywhere — or gone. Only the sentinel knows where the list starts: nxt[0] is __always__ the first element. Starting the walk at 1 skips everything in front of it, and if 1 was removed, the walk follows the stale links it still holds.', '链表一开始是 1, 2, …, n，但经过移动和删除之后，1 号元素可能在任何位置——甚至已经不在了。只有哨兵知道链表从哪里开始：nxt[0] __永远__是第一个元素。从 1 开始遍历会跳过它前面的所有元素；如果 1 已被删除，遍历就会沿着它残留的旧指针走。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), q = rd.int()
     need(Number.isInteger(n) && n >= 1 && n <= 1e6, 'n must be between 1 and 1,000,000.', 'n 须在 1 到 1,000,000 之间。')
     const nxt = span(0, n).map(i => (i + 1) % (n + 1)), pre = span(0, n).map(i => (i + n) % (n + 1)), here = new Array<boolean>(n + 1).fill(true)
@@ -1182,8 +1265,8 @@ int main() {
       nxt[x] = c; pre[x] = y; pre[c] = x; nxt[y] = x
       t.s('in', () => [[`Put ${x} after ${y || 'the sentinel'}: ${x} points at ${y || 'the sentinel'} and ${c || 'the sentinel'}, then they point at ${x}.`, `把 ${x} 放到 ${y || '哨兵'} 后面：${x} 指向 ${y || '哨兵'} 和 ${c || '哨兵'}，然后它们再指向 ${x}。`], ...view({ [y]: 'cmp', [c]: 'cmp', [x]: 'act' }), vars({ x, y })])
     }
-    const res = order()
-    t.s('done', () => [['Walk from the sentinel along nxt until it comes round again.', '从哨兵出发沿着 nxt 走，直到回到哨兵。'], arr('the list', res, tn({ ok: span(0, res.length - 1) }))])
+    const res = bug ? (() => { const o: number[] = []; for (let u = 1, guard = 0; u !== 0 && guard <= n; u = nxt[u], guard++) o.push(u); return o })() : order()
+    t.s('done', () => [bug ? ['Walk from element 1 along nxt until the sentinel is reached.', '从 1 号元素出发沿着 nxt 走，直到走到哨兵。'] : ['Walk from the sentinel along nxt until it comes round again.', '从哨兵出发沿着 nxt 走，直到回到哨兵。'], arr('the list', res, tn({ ok: span(0, res.length - 1) }))])
     t.out(res.join(' '))
   },
 }
@@ -1245,7 +1328,11 @@ int main() {
     const side = () => { const a = r.int(0, top - 1), b = Math.min(top, a + r.int(1, n <= 30 ? 4 : top >> 2)); return [a, b] }
     return `${n}\n` + span(1, n).map(() => { const [x1, x2] = side(), [y1, y2] = side(); return `${x1} ${y1} ${x2} ${y2}` }).join('\n') + '\n'
   },
-  run(inp, t) {
+  broken: {
+    from: 'for (int k = lo; k < hi; k++) cnt[k] += e.type;', to: 'for (int k = lo; k <= hi; k++) cnt[k] += e.type;',
+    why: ['cnt[k] stands for the interval from ys[k] to ys[k + 1]. A rectangle from y = e.lo to y = e.hi covers the intervals lo … hi − 1; interval hi starts __at__ its top edge and lies above it. With `<=` that interval is counted as covered too, so a strip above every rectangle is added to the area.', 'cnt[k] 代表从 ys[k] 到 ys[k + 1] 的那一段。一个从 y = e.lo 到 y = e.hi 的矩形覆盖的是第 lo … hi − 1 段；第 hi 段__从__它的上边开始，位于矩形上方。写成 `<=` 后这一段也被当成了被覆盖，于是每个矩形上方都多算了一条带的面积。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int()
     need(Number.isInteger(n) && n >= 1 && n <= 3000, 'n must be between 1 and 3,000.', 'n 须在 1 到 3,000 之间。')
     const rects = span(1, n).map(() => rd.ints(4))
@@ -1279,7 +1366,7 @@ int main() {
       let lo = 0, hi = 0
       while (ys[lo] < e.lo) lo++
       while (ys[hi] < e.hi) hi++
-      for (let k = lo; k < hi; k++) { cnt[k] += e.type; t.tick() }
+      for (let k = lo; k < (bug ? hi + 1 : hi); k++) { if (k < K) cnt[k] += e.type; t.tick() }
       t.s('apply', () => [[`At x = ${e.x} a rectangle ${e.type > 0 ? 'begins' : 'ends'}: y from ${e.lo} to ${e.hi} gets ${e.type > 0 ? '+1' : '−1'}.`, `在 x = ${e.x} 处有一个矩形${e.type > 0 ? '开始' : '结束'}：y 从 ${e.lo} 到 ${e.hi} 的覆盖次数 ${e.type > 0 ? '+1' : '−1'}。`], plane(e.x, e.x), counts(Object.fromEntries(span(lo, hi - 1).map(k => [k, 'act' as Tone]))), vars({ area: total })])
     }
     const res = area
@@ -1345,7 +1432,11 @@ int main() {
     }
     return s
   },
-  run(inp, t) {
+  broken: {
+    from: 'if (val[i] == x) return true;', to: 'if (val[i] % M == x % M) return true;',
+    why: ['Every key in a chain has the same remainder — that is __why__ it is in this chain. Comparing remainders therefore says yes to the first key in the bucket, whatever it is: a question about a key that was never inserted is answered Y as soon as another key shares its bucket, and such a key is then not inserted either. Sharing a bucket does not make two keys equal; the keys themselves must be compared.', '同一条链里的每个关键字余数都相同——这正是它们__在这条链里__的原因。所以比较余数，对桶里的第一个关键字就会回答“是”，不管它是什么：一个从未插入的关键字，只要有别的关键字和它同桶，询问它就会得到 Y，插入它时也会被跳过。同在一个桶里并不意味着两个关键字相等；必须比较关键字本身。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), M = rd.int(), q = rd.int()
     need(Number.isInteger(M) && M >= 1 && M <= 1e6, 'M must be between 1 and 1,000,000.', 'M 须在 1 到 1,000,000 之间。')
     const head = new Int32Array(M), nxt = [0], val = [0], out: string[] = []
@@ -1361,9 +1452,9 @@ int main() {
       const h = x % M
       t.s('hash', () => [[`${op === 1 ? 'Insert' : 'Look for'} ${x}: ${x} mod ${M} = ${h}, so it belongs to bucket ${h}.`, `${op === 1 ? '插入' : '查找'} ${x}：${x} mod ${M} = ${h}，它属于 ${h} 号桶。`], table(h, 0, 'act'), vars({ x, bucket: h })])
       let at = 0, len = 0
-      for (let i = head[h]; i; i = nxt[i]) { t.tick(); len++; if (val[i] === x) { at = i; break } }
+      for (let i = head[h]; i; i = nxt[i]) { t.tick(); len++; if (bug ? val[i] % M === h : val[i] === x) { at = i; break } }
       const steps = len
-      if (at) t.s('hit', () => [[`Walk the chain of bucket ${h}: ${x} is there, after ${steps} comparison${steps === 1 ? '' : 's'}.`, `沿着 ${h} 号桶的链走：比较 ${steps} 次后找到了 ${x}。`], table(h, at, 'ok'), vars({ x, bucket: h })])
+      if (at) t.s('hit', () => [bug ? [`Walk the chain of bucket ${h}: ${val[at]} % ${M} == ${x} % ${M}, so the search succeeds.`, `沿着 ${h} 号桶的链走：${val[at]} % ${M} == ${x} % ${M}，于是查找成功。`] : [`Walk the chain of bucket ${h}: ${x} is there, after ${steps} comparison${steps === 1 ? '' : 's'}.`, `沿着 ${h} 号桶的链走：比较 ${steps} 次后找到了 ${x}。`], table(h, at, 'ok'), vars({ x, bucket: h })])
       else t.s('miss', () => [[steps ? `Walk the chain of bucket ${h}: ${steps} key${steps === 1 ? '' : 's'}, none is ${x}.` : `Bucket ${h} is empty.`, steps ? `沿着 ${h} 号桶的链走：共 ${steps} 个关键字，都不是 ${x}。` : `${h} 号桶是空的。`], table(h, 0, 'act'), vars({ x, bucket: h })])
       if (op === 2) { out.push(at ? 'Y' : 'N'); t.s('query', () => [[`Answer: ${at ? 'Y' : 'N'}.`, `回答：${at ? 'Y' : 'N'}。`], table(h, at, 'ok'), arr('answers', out)]); continue }
       if (at) continue
@@ -1438,7 +1529,11 @@ int main() {
     for (let i = 0; i < q; i++) { const l = r.int(1, n), h = r.int(l, n); s += `${l} ${h} ${r.int(1, h - l + 1)}\n` }
     return s
   },
-  run(inp, t) {
+  broken: {
+    from: 'c = cnt[lc[v]] - cnt[lc[u]];', to: 'c = cnt[lc[v]];',
+    why: ['Version r holds a[1..r], not a[l..r]. Only the __difference__ between version r and version l − 1 counts the values of the range. Using cnt[lc[v]] alone also counts the values of a[1..l − 1] in the left half, so for any l > 1 the walk can turn left when the k-th smallest of the range lies to the right.', '第 r 个版本包含的是 a[1..r]，而不是 a[l..r]。只有第 r 个版本与第 l − 1 个版本的__差__，才是这个区间里的数的个数。只用 cnt[lc[v]]，就把 a[1..l − 1] 中落在左半边的数也算了进去，所以只要 l > 1，区间第 k 小明明在右边时，查找也可能往左走。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), q = rd.int(), a = [0, ...rd.ints(n)]
     need(Number.isInteger(n) && n >= 1 && n <= 200000, 'n must be between 1 and 200,000.', 'n 须在 1 到 200,000 之间。')
     const b = [...new Set(a.slice(1))].sort((x, y) => x - y), m = b.length
@@ -1465,8 +1560,9 @@ int main() {
       const range = () => arr('a', a.slice(1), tn({ dim: [...span(0, l - 2), ...span(r, n - 1)], cmp: span(l - 1, r - 1) }), undefined, { base: 1 })
       let u = root[l - 1], v = root[r], lo = 1, hi = m, k = k0
       while (lo < hi) {
-        const mid = (lo + hi) >> 1, c = cnt[lc[v]] - cnt[lc[u]], left = k <= c, kk = k, a0 = lo, a1 = hi
-        t.s(left ? 'goleft' : 'goright', () => [[`Ranks ${a0}–${a1}: version ${r} minus version ${l - 1} has ${c} value${c === 1 ? '' : 's'} in the left half. k = ${kk} ${left ? '≤' : '>'} ${c}: go ${left ? 'left' : `right, looking for number ${kk - c}`}.`, `排名 ${a0}–${a1}：第 ${r} 个版本减去第 ${l - 1} 个版本，左半边有 ${c} 个数。k = ${kk} ${left ? '≤' : '>'} ${c}：${left ? '往左走' : `往右走，改为找第 ${kk - c} 小`}。`], range(), ranks(a0, a1), vars({ l, r, k: kk, 'in the left half': c })])
+        const mid = (lo + hi) >> 1, c = cnt[lc[v]] - (bug ? 0 : cnt[lc[u]]), left = k <= c, kk = k, a0 = lo, a1 = hi
+        if (!bug) t.ask(() => [[`Ranks ${a0}–${a1}: a[${l}..${r}] has ${c} value${c === 1 ? '' : 's'} in the left half, and we want number ${kk}. Which way?`, `排名 ${a0}–${a1}：a[${l}..${r}] 在左半边有 ${c} 个数，要找的是第 ${kk} 小。往哪边走？`], [['left', '往左'], ['right', '往右']], left ? 0 : 1])
+        t.s(left ? 'goleft' : 'goright', () => [bug ? [`Ranks ${a0}–${a1}: version ${r} has ${c} value${c === 1 ? '' : 's'} in the left half. k = ${kk} ${left ? '≤' : '>'} ${c}: go ${left ? 'left' : `right, looking for number ${kk - c}`}.`, `排名 ${a0}–${a1}：第 ${r} 个版本左半边有 ${c} 个数。k = ${kk} ${left ? '≤' : '>'} ${c}：${left ? '往左走' : `往右走，改为找第 ${kk - c} 小`}。`] : [`Ranks ${a0}–${a1}: version ${r} minus version ${l - 1} has ${c} value${c === 1 ? '' : 's'} in the left half. k = ${kk} ${left ? '≤' : '>'} ${c}: go ${left ? 'left' : `right, looking for number ${kk - c}`}.`, `排名 ${a0}–${a1}：第 ${r} 个版本减去第 ${l - 1} 个版本，左半边有 ${c} 个数。k = ${kk} ${left ? '≤' : '>'} ${c}：${left ? '往左走' : `往右走，改为找第 ${kk - c} 小`}。`], range(), ranks(a0, a1), vars({ l, r, k: kk, 'in the left half': c })])
         if (left) { u = lc[u]; v = lc[v]; hi = mid } else { u = rc[u]; v = rc[v]; lo = mid + 1; k -= c }
       }
       out.push(b[lo - 1])
@@ -1535,7 +1631,11 @@ int main() {
     const a = r.shuffle(span(1, n)), b = r.shuffle(span(1, n)), c = r.shuffle(span(1, n))
     return `${n}\n` + span(0, n - 1).map(i => `${a[i]} ${b[i]} ${c[i]}`).join('\n') + '\n'
   },
-  run(inp, t) {
+  broken: {
+    from: 'for (int x = l; x < i; x++) add(p[x].c, -1);', to: 'for (int x = l; x <= mid; x++) add(p[x].c, -1);',
+    why: ['Only the left points that were actually fed into the tree — p[l..i − 1] — must be taken out again. The points from i to mid had a larger b than every right point and __were never added__, so subtracting them drives their counts below zero. The tree is shared by every later call, which then counts too few pairs.', '只有真正放进了树状数组的左半的点——p[l..i − 1]——才需要再取出来。从 i 到 mid 的点，b 比右半所有的点都大，__从来没有被加进去__，减去它们会让计数变成负数。树状数组被之后的所有调用共用，它们于是会少数一些数对。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int()
     need(Number.isInteger(n) && n >= 1 && n <= 100000, 'n must be between 1 and 100,000.', 'n 须在 1 到 100,000 之间。')
     let p = span(1, n).map(() => rd.ints(3))
@@ -1571,7 +1671,7 @@ int main() {
         t.s('ask', () => [[`Right point ${j} (b = ${p[j][1]}, c = ${p[j][2]}): ${got} value${got === 1 ? '' : 's'} below ${p[j][2]} in the tree, so ${got} new pair${got === 1 ? '' : 's'}.`, `右半的点 ${j}（b = ${p[j][1]}，c = ${p[j][2]}）：树状数组中比 ${p[j][2]} 小的有 ${got} 个，新增 ${got} 对。`], ...view(l, mid, r, { [j]: 'act' }), vars({ pairs: total })])
         tmp[k++] = p[j]
       }
-      for (let x = l; x < i; x++) { add(p[x][2], -1); held[p[x][2]] = 0 }
+      for (let x = l; x < (bug ? mid + 1 : i); x++) { add(p[x][2], -1); held[p[x][2]] = 0 }
       while (i <= mid) tmp[k++] = p[i++]
       for (let x = l; x <= r; x++) p[x] = tmp[x]
       t.s('merge', () => [[`Empty the tree and merge positions ${l}–${r} into order of b.`, `清空树状数组，并把位置 ${l}–${r} 按 b 归并成有序。`], ...view(l, r, r), vars({ pairs: ans })])

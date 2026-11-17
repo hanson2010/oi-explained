@@ -2,6 +2,7 @@ import { assemble } from '../assemble'
 import { FIRST } from './first'
 import lessons from './lessons'
 import { BASIC } from './stories'
+import { PRACTICE } from './practice'
 import { REAL, TEXT } from './text'
 
-export default assemble(lessons, TEXT, REAL, BASIC, FIRST)
+export default assemble(lessons, TEXT, REAL, BASIC, FIRST, PRACTICE)

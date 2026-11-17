@@ -12,7 +12,8 @@ Each category has a folder in `src/lessons/` (`basic`, `sort`, `search`, `ds`, `
 | `text.ts` | `TEXT[id]`: `problem`, `why`, `pitfalls` (two or more). `REAL[id]`: where the problem shows up outside contests. | `Prose`, `L` |
 | `stories.ts` | `story` (four or more cards) and `flow` (the flowchart). | `Extras` |
 | `first.ts` | Optional: the earlier version and the `label` of the lesson's own version. | `Variant` |
-| `index.ts` | Joins the files. Change it only when a category gets its first `first.ts`. | |
+| `practice.ts` | Optional: `PRACTICE[id]`, one to five problems on AcWing, Luogu and Codeforces, in that order, easiest first within a judge. Run `npm run check:practice` after a change. | `Practice` |
+| `index.ts` | Joins the files. Change it only when a category gets its first `first.ts` or `practice.ts`. | |
 
 Outside the folder:
 
@@ -29,6 +30,7 @@ A new category also needs an entry in `load.ts`, `all.ts` and `order.ts`, in `Ca
 - `run(inp, t)` is the same algorithm in TypeScript. It calls `t.s(tag, () => [message, ...views])` at each step worth showing and `t.out(answer)` once at the end. The output must match the C++ program's token for token.
 - Build views only inside the function passed to `t.s`. The data lab runs `run` with recording off on large data, and anything built outside that function costs time there.
 - `t.ask(() => [question, options, answer])`, called just before a `t.s`, makes the player quiz the learner about that step. Give two to four options that differ, computed from the data; return `undefined` when the answer would be a tie or obvious.
+- Ask only where the step makes a decision worth predicting: which branch is taken, which value is chosen, what an update becomes. A single comparison or a sum the learner can read off the screen is not worth a question. Never ask on the first step, and vary the position of the right answer among the options.
 - Use `t.tick()` for work too fine to show as a step, so the lab's operation count stays honest.
 - Check the input with `need(condition, english, chinese)`. Learners edit the input by hand.
 - `gen(n, r)` produces a valid input of magnitude `n` from the seeded generator `r` only; never use `Math.random`.
@@ -48,7 +50,7 @@ Only when the program is the same method before one optimisation. The rule and t
 
 ## A broken version
 
-Optional: `broken: { from, to, why }` in `lessons.ts`. `from` is a piece of the listing that occurs exactly once, `to` replaces it, and the change stays within one line. `run(inp, t, bug = false)` then implements both: with `bug` it does what the broken listing does, describes each step neutrally (it must not give the mistake away), and asks no questions. Choose a mistake that prints a wrong answer on small inputs, always terminates, and is defined behaviour in C++ — no out-of-range access, no overflow — because the tests compile the broken listing and compare it with the broken animation. A mistake that only makes the program slow does not qualify.
+Required: `broken: { from, to, why }` in `lessons.ts`. `from` is a piece of the listing that occurs exactly once, `to` replaces it, and the change stays within one line. `run(inp, t, bug = false)` then implements both: with `bug` it does what the broken listing does, describes each step neutrally (it must not give the mistake away), and asks no questions. Choose a mistake that prints a wrong answer on small inputs, always terminates, and is defined behaviour in C++ — no out-of-range access, no overflow — because the tests compile the broken listing and compare it with the broken animation. A mistake that only makes the program slow does not qualify, and neither does one that never shows on the smallest size of `sizes`: the Find the bug tab needs a failing input there. Prefer a mistake learners really make (an off-by-one, a missing case, the wrong order of two updates) and write `why` about the idea it breaks.
 
 ## The oracle
 

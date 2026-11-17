@@ -3,6 +3,7 @@ import { FIRST } from './first'
 import lessons from './lessons'
 import { GRAPH1 } from './stories1'
 import { GRAPH2 } from './stories2'
+import { PRACTICE } from './practice'
 import { REAL, TEXT } from './text'
 
-export default assemble(lessons, TEXT, REAL, { ...GRAPH1, ...GRAPH2 }, FIRST)
+export default assemble(lessons, TEXT, REAL, { ...GRAPH1, ...GRAPH2 }, FIRST, PRACTICE)

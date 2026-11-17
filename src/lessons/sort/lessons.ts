@@ -45,12 +45,16 @@ int main() {
     ['early', ['Best case O(n) on already sorted input.', '对已经有序的输入，最好情况为 O(n)。']],
   ],
   input: fmtIn, sizes: [6, 9, 12], lab: QUAD, gen,
-  run(inp, t) {
+  broken: {
+    from: 'j < n - 1 - i', to: 'j < n - 2 - i',
+    why: ['In pass i the unsorted part is a[0..n−1−i], and its __last pair__ is a[n−2−i] and a[n−1−i]. With `j < n - 2 - i` that pair is never compared, so the largest value stops one place short of the end of the pass — and on [2, 1] no pair is compared at all, the pass sees no swap, and the program stops.', '第 i 趟时，未排序的部分是 a[0..n−1−i]，它的__最后一对__是 a[n−2−i] 和 a[n−1−i]。写成 `j < n - 2 - i` 后这一对永远不会被比较，于是最大值停在了离终点差一格的地方——对 [2, 1] 来说一对都不比较，这一趟“没有交换”，程序就结束了。'],
+  },
+  run(inp, t, bug = false) {
     const { n, a, ids } = read(inp)
     for (let i = 0; i < n - 1; i++) {
       let swapped = false
-      const done = span(n - i, n - 1)
-      for (let j = 0; j < n - 1 - i; j++) {
+      const done = bug ? [] : span(n - i, n - 1)
+      for (let j = 0; j < n - (bug ? 2 : 1) - i; j++) {
         t.s('cmp', () => [[`Compare a[${j}] = ${a[j]} and a[${j + 1}] = ${a[j + 1]}.`, `比较 a[${j}] = ${a[j]} 与 a[${j + 1}] = ${a[j + 1]}。`], bars(a, ids, tn({ ok: done, cmp: [j, j + 1] }), { j }), vars({ pass: i + 1 })])
         if (a[j] > a[j + 1]) {
           swap(a, j, j + 1); swap(ids, j, j + 1); swapped = true
@@ -58,11 +62,11 @@ int main() {
         }
       }
       if (!swapped) {
-        t.s('early', () => [['No swap in this pass: the array is sorted.', '这一趟没有交换：数组已经有序。'], bars(a, ids, tn({ ok: span(0, n - 1) }))])
+        t.s('early', () => [bug ? ['No swap in this pass: the program stops.', '这一趟没有交换：程序结束。'] : ['No swap in this pass: the array is sorted.', '这一趟没有交换：数组已经有序。'], bars(a, ids, bug ? {} : tn({ ok: span(0, n - 1) }))])
         break
       }
     }
-    t.s('done', () => [['Sorted.', '排序完成。'], bars(a, ids, tn({ ok: span(0, n - 1) }))])
+    t.s('done', () => [bug ? ['The program prints the array.', '程序输出数组。'] : ['Sorted.', '排序完成。'], bars(a, ids, bug ? {} : tn({ ok: span(0, n - 1) }))])
     t.out(a.join(' '))
   },
 }
@@ -99,21 +103,25 @@ int main() {
     ['swap', ['One swap per round puts the minimum in its final place.', '每轮只交换一次，把最小值放到最终位置。']],
   ],
   input: fmtIn, sizes: [6, 9, 12], lab: QUAD, gen,
-  run(inp, t) {
+  broken: {
+    from: 'if (a[j] < a[k]) k = j;', to: 'if (a[j] < a[i]) k = j;',
+    why: ['k is meant to point at the smallest value __seen so far__, so each new a[j] must beat a[k]. Comparing with a[i] instead, which never changes during the scan, makes k the __last__ value smaller than a[i], not the smallest: in [5, 1, 3] the round picks 3 and leaves 1 where it is.', 'k 应当指向__到目前为止__最小的值，所以每个新的 a[j] 都要和 a[k] 比。改成和扫描过程中始终不变的 a[i] 比之后，k 指向的是__最后一个__比 a[i] 小的值，而不是最小的：对 [5, 1, 3]，这一轮选中的是 3，1 留在了原处。'],
+  },
+  run(inp, t, bug = false) {
     const { n, a, ids } = read(inp)
     for (let i = 0; i < n - 1; i++) {
       let k = i
       const done = span(0, i - 1)
       t.s('start', () => [[`Round ${i + 1}: look for the minimum of a[${i}..${n - 1}].`, `第 ${i + 1} 轮：在 a[${i}..${n - 1}] 中找最小值。`], bars(a, ids, tn({ ok: done, act: k }), { i, k })])
       for (let j = i + 1; j < n; j++) {
-        const better = a[j] < a[k]
+        const w = bug ? i : k, better = a[j] < a[w]
         if (better) k = j
-        t.s('scan', () => [better ? [`a[${j}] = ${a[j]} is smaller: k = ${j}.`, `a[${j}] = ${a[j]} 更小：k = ${j}。`] : [`a[${j}] = ${a[j]} is not smaller than a[${k}] = ${a[k]}.`, `a[${j}] = ${a[j]} 不比 a[${k}] = ${a[k]} 小。`], bars(a, ids, tn({ ok: done, cmp: j, act: k }), { i, j, k })])
+        t.s('scan', () => [better ? [`a[${j}] = ${a[j]} < a[${w}] = ${a[w]}: k = ${j}.`, `a[${j}] = ${a[j]} < a[${w}] = ${a[w]}：k = ${j}。`] : [`a[${j}] = ${a[j]} is not smaller than a[${w}] = ${a[w]}.`, `a[${j}] = ${a[j]} 不比 a[${w}] = ${a[w]} 小。`], bars(a, ids, tn({ ok: bug ? [] : done, cmp: j, act: k }), { i, j, k })])
       }
       swap(a, i, k); swap(ids, i, k)
-      t.s('swap', () => [[`Swap the minimum ${a[i]} into position ${i}.`, `把最小值 ${a[i]} 交换到位置 ${i}。`], bars(a, ids, tn({ ok: span(0, i) }), { i })])
+      t.s('swap', () => [bug ? [`Swap a[${k}] into position ${i}.`, `把 a[${k}] 交换到位置 ${i}。`] : [`Swap the minimum ${a[i]} into position ${i}.`, `把最小值 ${a[i]} 交换到位置 ${i}。`], bars(a, ids, bug ? tn({ act: i }) : tn({ ok: span(0, i) }), { i })])
     }
-    t.s('done', () => [['Sorted.', '排序完成。'], bars(a, ids, tn({ ok: span(0, n - 1) }))])
+    t.s('done', () => [bug ? ['The program prints the array.', '程序输出数组。'] : ['Sorted.', '排序完成。'], bars(a, ids, bug ? {} : tn({ ok: span(0, n - 1) }))])
     t.out(a.join(' '))
   },
 }
@@ -151,21 +159,25 @@ int main() {
     ['put', ['j stopped at the last element ≤ x, so x belongs right after it.', 'j 停在最后一个 ≤ x 的元素处，x 应放在它后面。']],
   ],
   input: fmtIn, sizes: [6, 9, 12], lab: QUAD, gen,
-  run(inp, t) {
+  broken: {
+    from: 'while (j >= 0 && a[j] > x) {', to: 'while (j > 0 && a[j] > x) {',
+    why: ['j has to be allowed to reach 0, the __first__ element of the sorted part. With `j > 0` the loop stops before looking at a[0], so a value smaller than everything before it can never get past a[0]: it lands in position 1, and the smallest value of [3, 1] stays second.', 'j 必须能走到 0，也就是已排序部分的__第一个__元素。写成 `j > 0` 后，循环在看 a[0] 之前就停了，于是一个比前面所有元素都小的值永远越不过 a[0]：它落在位置 1，[3, 1] 中最小的值仍然排在第二。'],
+  },
+  run(inp, t, bug = false) {
     const { n, a, ids } = read(inp)
     for (let i = 1; i < n; i++) {
       const x = a[i], xid = ids[i]
       let j = i - 1
       t.s('take', () => [[`Take x = a[${i}] = ${x}; a[0..${i - 1}] is sorted.`, `取出 x = a[${i}] = ${x}；a[0..${i - 1}] 已有序。`], bars(a, ids, tn({ ok: span(0, i - 1), act: i }), { i }), vars({ x })])
-      while (j >= 0 && a[j] > x) {
+      while (j >= (bug ? 1 : 0) && a[j] > x) {
         // Swapping x leftward is equivalent to shifting and keeps the animation continuous.
         a[j + 1] = a[j]; ids[j + 1] = ids[j]; a[j] = x; ids[j] = xid
         t.s('shift', () => [[`${a[j + 1]} > ${x}: shift it right.`, `${a[j + 1]} > ${x}：右移一格。`], bars(a, ids, tn({ ok: span(0, i), cmp: j + 1, act: j }), { j }), vars({ x })])
         j--
       }
-      t.s('put', () => [[`x = ${x} settles at position ${j + 1}.`, `x = ${x} 落在位置 ${j + 1}。`], bars(a, ids, tn({ ok: span(0, i), act: j + 1 })), vars({ x })])
+      t.s('put', () => [[`x = ${x} settles at position ${j + 1}.`, `x = ${x} 落在位置 ${j + 1}。`], bars(a, ids, bug ? tn({ act: j + 1 }) : tn({ ok: span(0, i), act: j + 1 })), vars({ x })])
     }
-    t.s('done', () => [['Sorted.', '排序完成。'], bars(a, ids, tn({ ok: span(0, n - 1) }))])
+    t.s('done', () => [bug ? ['The program prints the array.', '程序输出数组。'] : ['Sorted.', '排序完成。'], bars(a, ids, bug ? {} : tn({ ok: span(0, n - 1) }))])
     t.out(a.join(' '))
   },
 }
@@ -201,7 +213,11 @@ int main() {
   input: ['n k, then n integers in [0, k].', 'n k，随后 n 个 [0, k] 范围内的整数。'],
   sizes: [8, 12, 18], lab: [10, 1000, 100000, 500000],
   gen: (n, r) => { const k = n <= 40 ? 9 : 1000; return `${n} ${k}\n${r.ints(n, 0, k).join(' ')}\n` },
-  run(inp, t) {
+  broken: {
+    from: 'for (int v = 0; v <= k; v++)', to: 'for (int v = 0; v < k; v++)',
+    why: ['The values lie in [0, k] — __both ends included__ — so cnt has k + 1 tallies to read. `v < k` skips the last one: every copy of the largest possible value k is counted but never printed, and the output is shorter than the input.', '数值在 [0, k] 中——__两端都包含__——所以 cnt 有 k + 1 个计数要读。`v < k` 跳过了最后一个：最大可能值 k 的每一个都被计了数，却从未输出，输出比输入少了几个数。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), k = rd.int()
     need(k >= 0 && k <= 2e6, 'k must be between 0 and 2,000,000.', 'k 须在 0 到 2,000,000 之间。')
     const a = rd.ints(n), cnt = new Array<number>(k + 1).fill(0), out: number[] = []
@@ -210,7 +226,7 @@ int main() {
       cnt[x]++
       t.s('count', () => [[`a[${i}] = ${x}: cnt[${x}] becomes ${cnt[x]}.`, `a[${i}] = ${x}：cnt[${x}] 变为 ${cnt[x]}。`], arr('a', a, tn({ dim: span(0, i - 1), act: i })), arr('cnt', cnt, tn({ act: x }))])
     })
-    for (let v = 0; v <= k; v++) while (cnt[v] > 0) {
+    for (let v = 0; v <= (bug ? k - 1 : k); v++) while (cnt[v] > 0) {
       cnt[v]--; out.push(v)
       t.s('emit', () => [[`Output ${v}; ${cnt[v]} more of it left.`, `输出 ${v}；它还剩 ${cnt[v]} 个。`], arr('cnt', cnt, tn({ act: v, dim: span(0, v - 1) })), arr('output', out, tn({ ok: out.length - 1 }))])
     }
@@ -260,7 +276,11 @@ int main() {
     ['copy', ['The merge cannot be done in place, hence the auxiliary array.', '归并无法原地完成，所以需要辅助数组。']],
   ],
   input: fmtIn, sizes: [6, 8, 12], lab: NLOGN, gen,
-  run(inp, t) {
+  broken: {
+    from: 'for (k = l; k <= r; k++) a[k] = tmp[k];', to: 'for (k = l; k < r; k++) a[k] = tmp[k];',
+    why: ['The merged run occupies tmp[l..r], __r included__. Copying with `k < r` leaves a[r] holding its old value, the last element of the unmerged right half. After such a merge the largest value of the range can be lost while another value appears twice.', '归并好的结果在 tmp[l..r] 中，__包括 r__。用 `k < r` 拷贝时，a[r] 保留了原来的值，也就是未归并的右半段的最后一个元素。这样归并之后，这一段中最大的值可能丢失，而另一个值出现了两次。'],
+  },
+  run(inp, t, bug = false) {
     const { n, a } = read(inp), tmp = new Array<number>(n).fill(0)
     const blank = (l: number, k: number, r: number) => tmp.map((x, i) => (i >= l && i < k ? x : '')).slice(0, Math.max(r + 1, n))
     const go = (l: number, r: number) => {
@@ -275,7 +295,7 @@ int main() {
       ] as const
       while (i <= mid && j <= r) {
         const left = a[i] <= a[j], pick = left ? i : j
-        if (k === l) t.ask(() => [[`Merging: the fronts are ${a[i]} (left run) and ${a[j]} (right run). Which is taken?`, `归并：两段的队首分别是 ${a[i]}（左段）和 ${a[j]}（右段）。取哪一个？`], [[`${a[i]} from the left`, `左段的 ${a[i]}`], [`${a[j]} from the right`, `右段的 ${a[j]}`]], left ? 0 : 1])
+        if (k === l && !bug) t.ask(() => [[`Merging: the fronts are ${a[i]} (left run) and ${a[j]} (right run). Which is taken?`, `归并：两段的队首分别是 ${a[i]}（左段）和 ${a[j]}（右段）。取哪一个？`], [[`${a[i]} from the left`, `左段的 ${a[i]}`], [`${a[j]} from the right`, `右段的 ${a[j]}`]], left ? 0 : 1])
         tmp[k] = a[pick]
         t.s('take', () => [[`${a[i]} ${left ? '≤' : '>'} ${a[j]}: take ${a[pick]} from the ${left ? 'left' : 'right'} run.`, `${a[i]} ${left ? '≤' : '>'} ${a[j]}：从${left ? '左' : '右'}段取出 ${a[pick]}。`], ...view(pick)])
         if (left) i++; else j++
@@ -288,8 +308,8 @@ int main() {
         if (i <= mid) i++; else j++
         k++
       }
-      for (k = l; k <= r; k++) a[k] = tmp[k]
-      t.s('copy', () => [[`Copy back: a[${l}..${r}] is now sorted.`, `拷贝回原数组：a[${l}..${r}] 已有序。`], arr('a', a, tn({ dim: [...span(0, l - 1), ...span(r + 1, n - 1)], ok: span(l, r) }))])
+      for (k = l; k <= (bug ? r - 1 : r); k++) a[k] = tmp[k]
+      t.s('copy', () => [bug ? [`Copy tmp[${l}..${r - 1}] back into a.`, `把 tmp[${l}..${r - 1}] 拷贝回 a。`] : [`Copy back: a[${l}..${r}] is now sorted.`, `拷贝回原数组：a[${l}..${r}] 已有序。`], arr('a', a, tn({ dim: [...span(0, l - 1), ...span(r + 1, n - 1)], ok: span(l, bug ? r - 1 : r) }))])
     }
     go(0, n - 1)
     t.out(a.join(' '))
@@ -339,7 +359,11 @@ int main() {
     ['rec', ['After the loop j < i: the parts are [l, j] and [i, r].', '循环结束后 j < i：两部分是 [l, j] 和 [i, r]。']],
   ],
   input: fmtIn, sizes: [7, 9, 12], lab: NLOGN, gen,
-  run(inp, t) {
+  broken: {
+    from: 'if (l < j) qsort(l, j);', to: 'if (l < j) qsort(l, j - 1);',
+    why: ['After the partition, [l, j] holds the values ≤ pivot, but __not in order__, and a[j] is simply the last of them — not a value known to be in its final place. Recursing on [l, j − 1] leaves a[j] out of the sorting, so it can stay in the wrong spot. Unlike a partition that puts the pivot itself at a fixed index, this one has to recurse on all of [l, j].', '划分之后，[l, j] 中都是 ≤ 基准的值，但它们__并没有排好序__，a[j] 只是其中最后一个——并不是已知处在最终位置的值。对 [l, j − 1] 递归就把 a[j] 排除在排序之外，它可能就留在了错误的位置。这种划分不会把基准本身放到固定位置，所以必须对整个 [l, j] 递归。'],
+  },
+  run(inp, t, bug = false) {
     const { n, a, ids } = read(inp)
     const fixed = new Set<number>()
     const go = (l: number, r: number) => {
@@ -350,6 +374,7 @@ int main() {
       while (i <= j) {
         while (a[i] < p) { i++; t.s('left', () => [[`a[${i - 1}] < ${p}: move i right.`, `a[${i - 1}] < ${p}：i 右移。`], bars(a, ids, tone({ [i]: 'cmp', [j]: 'cmp' }), { i, j }), vars({ pivot: p })]) }
         while (a[j] > p) { j--; t.s('right', () => [[`a[${j + 1}] > ${p}: move j left.`, `a[${j + 1}] > ${p}：j 左移。`], bars(a, ids, tone({ [i]: 'cmp', [j]: 'cmp' }), { i, j }), vars({ pivot: p })]) }
+        if (!bug) t.ask(() => [[`Both scans have stopped: i = ${i}, j = ${j}. What happens next?`, `两个扫描都停下了：i = ${i}，j = ${j}。接下来会怎样？`], [[i === j ? 'step both pointers past a[i]' : 'swap a[i] and a[j]', i === j ? '两个指针越过 a[i]' : '交换 a[i] 与 a[j]'], ['the partition is finished', '划分结束']], i <= j ? 0 : 1])
         if (i <= j) {
           swap(a, i, j); swap(ids, i, j)
           t.s('swap', () => [[i === j ? `i = j = ${i}: nothing to swap, step past it.` : `Swap a[${i}] and a[${j}], then step both pointers.`, i === j ? `i = j = ${i}：无需交换，直接越过。` : `交换 a[${i}] 与 a[${j}]，两个指针各走一步。`], bars(a, ids, tone({ [i]: 'act', [j]: 'act' }), { i, j }), vars({ pivot: p })])
@@ -359,12 +384,13 @@ int main() {
       for (let k = j + 1; k < i; k++) fixed.add(k)
       if (l >= j) fixed.add(l)
       if (i >= r) fixed.add(r)
-      t.s('rec', () => [[`Done: [${l}, ${j}] ≤ ${p} ≤ [${i}, ${r}]. Recurse on each side.`, `划分完成：[${l}, ${j}] ≤ ${p} ≤ [${i}, ${r}]。分别递归两侧。`], bars(a, ids, tone(tn({ cmp: span(l, j), alt: span(i, r) }))), vars({ pivot: p })])
-      if (l < j) go(l, j)
+      if (bug) fixed.clear()
+      t.s('rec', () => [bug ? [`The loop ends with j = ${j}, i = ${i}. Recurse on [${l}, ${j - 1}] and [${i}, ${r}].`, `循环结束时 j = ${j}，i = ${i}。递归处理 [${l}, ${j - 1}] 和 [${i}, ${r}]。`] : [`Done: [${l}, ${j}] ≤ ${p} ≤ [${i}, ${r}]. Recurse on each side.`, `划分完成：[${l}, ${j}] ≤ ${p} ≤ [${i}, ${r}]。分别递归两侧。`], bars(a, ids, tone(tn({ cmp: span(l, j), alt: span(i, r) }))), vars({ pivot: p })])
+      if (l < j) go(l, bug ? j - 1 : j)
       if (i < r) go(i, r)
     }
     go(0, n - 1)
-    t.s('done', () => [['Sorted.', '排序完成。'], bars(a, ids, tn({ ok: span(0, n - 1) }))])
+    t.s('done', () => [bug ? ['The program prints the array.', '程序输出数组。'] : ['Sorted.', '排序完成。'], bars(a, ids, bug ? {} : tn({ ok: span(0, n - 1) }))])
     t.out(a.join(' '))
   },
 }
@@ -413,7 +439,11 @@ int main() {
     ['extract', ['The maximum moves to its final position at the end of the array.', '最大值被放到数组末尾，即它的最终位置。']],
   ],
   input: fmtIn, sizes: [6, 9, 12], lab: NLOGN, gen,
-  run(inp, t) {
+  broken: {
+    from: 'if (c < size && a[c + 1] > a[c]) c++;', to: 'if (c < size && a[c + 1] < a[c]) c++;',
+    why: ['After the swap the child moves up and becomes the parent of its sibling, so it must be the __larger__ child. Picking the smaller one puts a value above a sibling that is bigger than it: the heap property breaks, the root is no longer the maximum, and values are extracted in the wrong order.', '交换之后，这个孩子升上来，成了它兄弟的父结点，所以必须选__较大__的孩子。选了较小的那个，就会把一个值放到比它更大的兄弟上面：堆性质被破坏，堆顶不再是最大值，取出的顺序也就错了。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), a = [0, ...rd.ints(n)]
     const pos = t.on ? layoutBin(1, i => (2 * i <= n ? 2 * i : -1), i => (2 * i + 1 <= n ? 2 * i + 1 : -1)) : []
     const es = span(2, n).map(i => ({ u: i >> 1, v: i }))
@@ -425,9 +455,10 @@ int main() {
     const down = (i: number) => {
       while (2 * i <= size) {
         let c = 2 * i
-        if (c < size && a[c + 1] > a[c]) c++
+        if (!bug && c < size && a[c] !== a[c + 1]) t.ask(() => [[`Node ${i} (${a[i]}) has children node ${2 * i} (${a[2 * i]}) and node ${2 * i + 1} (${a[2 * i + 1]}). Which child is it compared with?`, `结点 ${i}（${a[i]}）的孩子是结点 ${2 * i}（${a[2 * i]}）和结点 ${2 * i + 1}（${a[2 * i + 1]}）。它和哪个孩子比较？`], [[`node ${2 * i} (${a[2 * i]})`, `结点 ${2 * i}（${a[2 * i]}）`], [`node ${2 * i + 1} (${a[2 * i + 1]})`, `结点 ${2 * i + 1}（${a[2 * i + 1]}）`]], a[2 * i + 1] > a[2 * i] ? 1 : 0])
+        if (c < size && (bug ? a[c + 1] < a[c] : a[c + 1] > a[c])) c++
         const ii = i, cc = c
-        t.s('child', () => [[`Node ${ii} (${a[ii]}): its larger child is node ${cc} (${a[cc]}).`, `结点 ${ii}（${a[ii]}）：较大的孩子是结点 ${cc}（${a[cc]}）。`], ...view(tn({ act: ii, cmp: cc }))])
+        t.s('child', () => [bug ? [`Node ${ii} (${a[ii]}) is compared with child node ${cc} (${a[cc]}).`, `结点 ${ii}（${a[ii]}）与孩子结点 ${cc}（${a[cc]}）比较。`] : [`Node ${ii} (${a[ii]}): its larger child is node ${cc} (${a[cc]}).`, `结点 ${ii}（${a[ii]}）：较大的孩子是结点 ${cc}（${a[cc]}）。`], ...view(tn({ act: ii, cmp: cc }))])
         if (a[i] >= a[c]) { t.s('stop', () => [[`${a[ii]} ≥ ${a[cc]}: the heap property holds, stop.`, `${a[ii]} ≥ ${a[cc]}：满足堆性质，停止。`], ...view(tn({ ok: ii }))]); break }
         swap(a, i, c)
         t.s('swap', () => [[`${a[cc]} < ${a[ii]}: swap, continue from node ${cc}.`, `${a[cc]} < ${a[ii]}：交换，并从结点 ${cc} 继续。`], ...view(tn({ act: cc, cmp: ii }))])
@@ -438,11 +469,11 @@ int main() {
     for (; size > 1;) {
       swap(a, 1, size)
       const s = size--
-      t.s('extract', () => [[`Move the maximum ${a[s]} to position ${s}; the heap shrinks to ${s - 1}.`, `把最大值 ${a[s]} 放到位置 ${s}；堆缩小为 ${s - 1}。`], ...view(tn({ act: 1 }))])
+      t.s('extract', () => [bug ? [`Move the root ${a[s]} to position ${s}; the heap shrinks to ${s - 1}.`, `把堆顶 ${a[s]} 放到位置 ${s}；堆缩小为 ${s - 1}。`] : [`Move the maximum ${a[s]} to position ${s}; the heap shrinks to ${s - 1}.`, `把最大值 ${a[s]} 放到位置 ${s}；堆缩小为 ${s - 1}。`], ...view(tn({ act: 1 }))])
       down(1)
     }
     size = 0
-    t.s('done', () => [['Sorted.', '排序完成。'], ...view({})])
+    t.s('done', () => [bug ? ['The program prints the array.', '程序输出数组。'] : ['Sorted.', '排序完成。'], ...view({})])
     t.out(a.slice(1).join(' '))
   },
 }
@@ -484,7 +515,11 @@ int main() {
   input: ['n, then n non-negative integers.', 'n，随后 n 个非负整数。'],
   sizes: [6, 8, 10], lab: [10, 1000, 100000, 300000],
   gen: (n, r) => `${n}\n${r.ints(n, 0, n <= 40 ? 999 : 999999).join(' ')}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'for (int i = n - 1; i >= 0; i--) b[--cnt[a[i] / e % 10]] = a[i];', to: 'for (int i = 0; i < n; i++) b[--cnt[a[i] / e % 10]] = a[i];',
+    why: ['cnt[d] points one past the __end__ of bucket d and moves backwards as the bucket fills. Walking the array forwards therefore puts the first element of each bucket in its last slot: the order within a bucket is reversed. That is exactly the order the lower digits had set up, so the pass is no longer stable and the next digit cannot rely on it — 21 and 25 come out as 25, 21.', 'cnt[d] 指向桶 d __末尾__的后一位，桶每装一个就往前退一格。所以从前往后遍历数组时，每个桶里的第一个元素被放到了桶的最后一格：桶内的顺序被颠倒了。而这个顺序正是低位排出来的结果，于是这一趟不再稳定，下一位也就无法依靠它——21 和 25 会被排成 25、21。'],
+  },
+  run(inp, t, bug = false) {
     const { n, a } = read(inp), b = new Array<number>(n).fill(0)
     for (const x of a) need(Number.isInteger(x) && x >= 0, 'Values must be non-negative integers.', '数值须为非负整数。')
     const mx = Math.max(...a.slice(0, 1), a.reduce((m, x) => Math.max(m, x), 0))
@@ -497,14 +532,19 @@ int main() {
       }
       for (let d = 1; d < 10; d++) cnt[d] += cnt[d - 1]
       t.s('prefix', () => [['Prefix sums: cnt[d] = where bucket d ends.', '求前缀和：cnt[d] = 桶 d 的结束位置。'], arr('a', shown()), arr('cnt (bucket ends)', cnt, tn({ cmp: span(0, 9) })), vars({ place: e })])
-      const filled = new Set<number>()
-      for (let i = n - 1; i >= 0; i--) {
-        const p = --cnt[dg(a[i])]
+      const filled = new Set<number>(), ends = cnt.slice()
+      for (let s = 0; s < n; s++) {
+        const i = bug ? s : n - 1 - s, d = dg(a[i])
+        if (!bug && s > 0) t.ask(() => {
+          const opts = [...new Set([d ? ends[d - 1] : 0, cnt[d] - 1, cnt[d]])].filter(x => x < n).sort((x, y) => x - y)
+          return opts.length < 2 ? undefined : [[`${a[i]} has digit ${d}, and cnt[${d}] = ${cnt[d]}. Which slot of b does it go to?`, `${a[i]} 的这一位是 ${d}，cnt[${d}] = ${cnt[d]}。它放到 b 的哪个位置？`], opts.map(x => [`slot ${x}`, `位置 ${x}`] as const), opts.indexOf(cnt[d] - 1)]
+        })
+        const p = --cnt[d]
         b[p] = a[i]; filled.add(p)
-        t.s('place', () => [[`${a[i]} (digit ${dg(a[i])}) goes to slot ${p}.`, `${a[i]}（数字 ${dg(a[i])}）放到位置 ${p}。`], arr('a', shown(), tn({ act: i, dim: span(i + 1, n - 1) })), arr('cnt (bucket ends)', cnt, tn({ act: dg(a[i]) })), arr('b', b.map((x, k) => (filled.has(k) ? x : '')), tn({ ok: [...filled], act: p })), vars({ place: e })])
+        t.s('place', () => [[`${a[i]} (digit ${d}) goes to slot ${p}.`, `${a[i]}（数字 ${d}）放到位置 ${p}。`], arr('a', shown(), tn({ act: i, dim: bug ? span(0, i - 1) : span(i + 1, n - 1) })), arr('cnt (bucket ends)', cnt, tn({ act: d })), arr('b', b.map((x, k) => (filled.has(k) ? x : '')), tn({ ok: [...filled], act: p })), vars({ place: e })])
       }
       for (let i = 0; i < n; i++) a[i] = b[i]
-      t.s('copy', () => [[`Sorted by the last ${String(e).length} digit(s).`, `已按最低 ${String(e).length} 位排好序。`], arr('a', a, tn({ ok: span(0, n - 1) })), vars({ place: e })])
+      t.s('copy', () => [bug ? [`Copy b back into a after the pass for place ${e}.`, `按 ${e} 位处理完一趟后，把 b 拷贝回 a。`] : [`Sorted by the last ${String(e).length} digit(s).`, `已按最低 ${String(e).length} 位排好序。`], arr('a', a, bug ? {} : tn({ ok: span(0, n - 1) })), vars({ place: e })])
     }
     t.out(a.join(' '))
   },

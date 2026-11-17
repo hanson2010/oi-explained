@@ -15,6 +15,7 @@ export function ProfilePage() {
   const starred = META.filter(l => p.fav[l.id])
   const pct = META.length ? Math.round((100 * done.length) / META.length) : 0
   const due = dueNow(p, Date.now(), META.map(l => l.id)).map(id => META.find(l => l.id === id)!)
+  const solved = Object.keys(p.solved).length
   const quiz = Object.values(p.quiz).reduce((a, q) => ({ right: a.right + q.right, total: a.total + q.total }), { right: 0, total: 0 })
 
   const exportP = () => {
@@ -51,6 +52,7 @@ export function ProfilePage() {
         <section className="card">
           <div className="ring" style={{ ['--pct' as string]: pct }}><b>{pct}%</b><span>{done.length} / {META.length}</span></div>
           {quiz.total > 0 && <p className="muted small">{ui('quizStat')}: <b>{quiz.right} / {quiz.total}</b></p>}
+          {solved > 0 && <p className="muted small">{ui('practiceSolved')}: <b>{solved}</b></p>}
           {bars(Object.keys(LEVELS) as Level[], k => META.filter(l => l.level === k), k => tr(LEVELS[k].name), k => 'lv-' + k)}
         </section>
         <section className="card">

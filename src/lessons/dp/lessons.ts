@@ -55,6 +55,10 @@ int main() {
         t.s('try', () => [[ok ? `a[${j}] = ${a[j]} ${lt} ${a[i]}: can extend, f[${j}] + 1 = ${f[j] + 1}${better ? ' — new best.' : ', no improvement.'}` : `a[${j}] = ${a[j]} ${ge} ${a[i]}: cannot come before ${a[i]}.`, ok ? `a[${j}] = ${a[j]} ${lt} ${a[i]}：可以接上，f[${j}] + 1 = ${f[j] + 1}${better ? '——更优。' : '，没有更优。'}` : `a[${j}] = ${a[j]} ${ge} ${a[i]}：不能排在 ${a[i]} 前面。`],
           arr('a', a, tn({ dim: span(i + 1, n - 1), act: i, [ok ? 'cmp' : 'bad']: j }), { i, j }), arr('f', f, tn({ dim: span(i + 1, n - 1), act: i, cmp: j }))])
       }
+      if (!bug && i > 0) t.ask(() => {
+        const opts = [...new Set([f[i] - 1, f[i], f[i] + 1])].filter(x => x >= 1)
+        return [[`Every earlier element has been tried. What is f[${i}]?`, `前面的元素都试过了。f[${i}] 是多少？`], opts.map(x => [String(x), String(x)] as const), opts.indexOf(f[i])]
+      })
       if (f[i] > ans) { ans = f[i]; best = i }
       t.s('fix', () => [[`f[${i}] = ${f[i]}. Best so far: ${ans}.`, `f[${i}] = ${f[i]}。目前最优：${ans}。`], arr('a', a, tn({ dim: span(i + 1, n - 1), ok: i })), arr('f', f, tn({ dim: span(i + 1, n - 1), ok: i })), vars({ answer: ans })])
     }
@@ -163,16 +167,20 @@ int main() {
   input: ['n, then the n pile sizes. Prints the minimum total cost of merging adjacent piles into one.', 'n，随后 n 堆石子的数量。输出把相邻石子堆合并成一堆的最小总代价。'],
   sizes: [4, 5, 6], lab: [10, 50, 100, 200, 300],
   gen: (n, r) => `${n}\n${r.ints(n, 1, 9).join(' ')}\n`,
-  run(inp, t) {
+  broken: {
+    from: 's[r] - s[l - 1]', to: 's[r] - s[l]',
+    why: ['The last merge combines __all__ the piles l..r, and their total is everything up to r minus everything before l: s[r] − s[l − 1]. `s[r] - s[l]` also subtracts pile l, so the cost of every merge leaves out the leftmost pile of its interval, and the minimum comes out too small.', '最后一次合并把第 l..r 堆__全部__合在一起，它们的总数是“到 r 为止的总和”减去“l 之前的总和”：s[r] − s[l − 1]。`s[r] - s[l]` 把第 l 堆也减掉了，于是每次合并的代价都漏掉了区间最左边那一堆，得到的最小值偏小。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), a = [0, ...rd.ints(n)], s = [0]
     need(n >= 1 && n <= 400, 'n must be between 1 and 400.', 'n 须在 1 到 400 之间。')
     for (let i = 1; i <= n; i++) s.push(s[i - 1] + a[i])
     const f = Array.from({ length: n + 2 }, () => new Float64Array(n + 2)), hd = span(1, n)
     const view = (len: number, l: number, tone: Record<string, Tone>) => grid('f[l][r]', hd.map(i => hd.map(j => (j < i ? '' : j - i + 1 < len || (j - i + 1 === len && i <= l) ? inf(f[i][j]) : '·'))), tone, { rows: hd.map(i => 'l=' + i), cols: hd.map(i => 'r=' + i) })
     for (let len = 2; len <= n; len++) for (let l = 1; l + len - 1 <= n; l++) {
-      const r = l + len - 1, sum = s[r] - s[l - 1]
+      const r = l + len - 1, sum = s[r] - s[bug ? l : l - 1]
       f[l][r] = INF
-      t.s('range', () => [[`Interval [${l}, ${r}] (length ${len}); merging it last costs sum = ${sum}.`, `区间 [${l}, ${r}]（长度 ${len}）；最后一次合并的代价是 sum = ${sum}。`], arr('piles', a, tn({ dim: 0, act: span(l, r) })), view(len, l, gt({ act: [[l - 1, r - 1]] }))])
+      t.s('range', () => [bug ? [`Interval [${l}, ${r}] (length ${len}); sum = s[${r}] − s[${l}] = ${sum}.`, `区间 [${l}, ${r}]（长度 ${len}）；sum = s[${r}] − s[${l}] = ${sum}。`] : [`Interval [${l}, ${r}] (length ${len}); merging it last costs sum = ${sum}.`, `区间 [${l}, ${r}]（长度 ${len}）；最后一次合并的代价是 sum = ${sum}。`], arr('piles', a, tn({ dim: 0, act: span(l, r) })), view(len, l, gt({ act: [[l - 1, r - 1]] }))])
       for (let k = l; k < r; k++) {
         const c = f[l][k] + f[k + 1][r] + sum, better = c < f[l][r]
         if (better) f[l][r] = c
@@ -180,7 +188,7 @@ int main() {
           arr('piles', a, tn({ dim: 0, cmp: span(l, k), alt: span(k + 1, r) })), view(len, l, gt({ cmp: [[l - 1, k - 1]], alt: [[k, r - 1]], act: [[l - 1, r - 1]] }))])
       }
     }
-    t.s('done', () => [[`Minimum total cost: ${f[1][n]}.`, `最小总代价：${f[1][n]}。`], arr('piles', a, tn({ dim: 0 })), view(n + 1, n, gt({ ok: [[0, n - 1]] })), vars({ answer: f[1][n] })])
+    t.s('done', () => [bug ? [`The program prints f[1][${n}] = ${f[1][n]}.`, `程序输出 f[1][${n}] = ${f[1][n]}。`] : [`Minimum total cost: ${f[1][n]}.`, `最小总代价：${f[1][n]}。`], arr('piles', a, tn({ dim: 0 })), view(n + 1, n, gt({ ok: [[0, n - 1]] })), vars({ answer: f[1][n] })])
     t.out(f[1][n])
   },
 }
@@ -220,15 +228,25 @@ int main() {
   input: ['Two strings, one per line. Prints the length of their longest common subsequence. (n is the length of each.)', '两个字符串，每行一个。输出它们的最长公共子序列的长度。（n 为每个串的长度。）'],
   sizes: [4, 5, 7], lab: [10, 100, 1000, 2000],
   gen: (n, r) => { const s = () => Array.from({ length: n }, () => r.pick([...'ABCD'])).join(''); return `${s()}\n${s()}\n` },
-  run(inp, t) {
+  broken: {
+    from: 'f[i][j] = f[i - 1][j - 1] + 1;', to: 'f[i][j] = f[i - 1][j] + 1;',
+    why: ['When a[i] and b[j] are paired, __both__ are used up, so the rest of the subsequence must come from the shorter prefixes of both strings: f[i − 1][j − 1]. f[i − 1][j] still contains b[j], so b[j] can be paired again with an earlier character of a and counted twice: "AA" and "A" get 2 instead of 1.', 'a[i] 和 b[j] 配对之后，__两个__字符都用掉了，所以子序列的其余部分只能来自两个串各自更短的前缀：f[i − 1][j − 1]。f[i − 1][j] 里仍然包含 b[j]，于是 b[j] 可能再和 a 中更早的字符配对，被数了两次："AA" 和 "A" 得到 2 而不是 1。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), a = rd.str(), b = rd.str(), n = a.length, m = b.length
     need(n * m <= 3e7, 'The strings are too long for an n × m table.', '字符串太长，放不下 n × m 的表。')
     const f = Array.from({ length: n + 1 }, () => new Int32Array(m + 1))
     const view = (i: number, j: number, tone: Record<string, Tone>) => grid('f[i][j]', f.map((row, x) => Array.from(row, (v, y) => (x < i || (x === i && y <= j) || x === 0 || y === 0 ? v : ''))), tone, { rows: ['∅', ...a], cols: ['∅', ...b] })
     for (let i = 1; i <= n; i++) for (let j = 1; j <= m; j++) {
       if (a[i - 1] === b[j - 1]) {
-        f[i][j] = f[i - 1][j - 1] + 1
-        t.s('match', () => [[`a[${i}] = b[${j}] = '${a[i - 1]}': f[${i}][${j}] = f[${i - 1}][${j - 1}] + 1 = ${f[i][j]}.`, `a[${i}] = b[${j}] = '${a[i - 1]}'：f[${i}][${j}] = f[${i - 1}][${j - 1}] + 1 = ${f[i][j]}。`], view(i, j, gt({ cmp: [[i - 1, j - 1]], ok: [[i, j]] }))])
+        if (!bug && i + j > 2) t.ask(() => {
+          const all = [[`f[${i - 1}][${j - 1}] (up-left)`, `f[${i - 1}][${j - 1}]（左上）`], [`f[${i - 1}][${j}] (up)`, `f[${i - 1}][${j}]（上）`], [`f[${i}][${j - 1}] (left)`, `f[${i}][${j - 1}]（左）`]] as [string, string][]
+          const rot = (i + j) % 3, opts = [...all.slice(rot), ...all.slice(0, rot)]
+          return [[`a[${i}] = b[${j}] = '${a[i - 1]}': pair them. f[${i}][${j}] is 1 more than which cell?`, `a[${i}] = b[${j}] = '${a[i - 1]}'：把它们配对。f[${i}][${j}] 比哪一格多 1？`], opts, opts.indexOf(all[0])]
+        })
+        const di = bug ? 0 : 1
+        f[i][j] = f[i - 1][j - di] + 1
+        t.s('match', () => [[`a[${i}] = b[${j}] = '${a[i - 1]}': f[${i}][${j}] = f[${i - 1}][${j - di}] + 1 = ${f[i][j]}.`, `a[${i}] = b[${j}] = '${a[i - 1]}'：f[${i}][${j}] = f[${i - 1}][${j - di}] + 1 = ${f[i][j]}。`], view(i, j, gt({ cmp: [[i - 1, j - di]], ok: [[i, j]] }))])
       } else {
         f[i][j] = Math.max(f[i - 1][j], f[i][j - 1])
         t.s('skip', () => [[`'${a[i - 1]}' ≠ '${b[j - 1]}': f[${i}][${j}] = max(${f[i - 1][j]}, ${f[i][j - 1]}) = ${f[i][j]}.`, `'${a[i - 1]}' ≠ '${b[j - 1]}'：f[${i}][${j}] = max(${f[i - 1][j]}, ${f[i][j - 1]}) = ${f[i][j]}。`], view(i, j, gt({ cmp: [[i - 1, j], [i, j - 1]], act: [[i, j]] }))])
@@ -240,6 +258,7 @@ int main() {
       for (let i = n, j = m; i > 0 && j > 0;) {
         if (a[i - 1] === b[j - 1]) { cells.push([i, j]); pick.push(a[i - 1]); i--; j-- } else if (f[i - 1][j] >= f[i][j - 1]) i--; else j--
       }
+      if (bug) return [[`The program prints f[${n}][${m}] = ${f[n][m]}.`, `程序输出 f[${n}][${m}] = ${f[n][m]}。`], view(n, m, gt({ ok: [[n, m]] })), vars({ answer: f[n][m] })]
       return [[`LCS length ${f[n][m]}${pick.length ? `, e.g. "${pick.reverse().join('')}"` : ''}.`, `LCS 长度为 ${f[n][m]}${pick.length ? `，例如 "${pick.join('')}"` : ''}。`], view(n, m, gt({ ok: cells })), vars({ answer: f[n][m] })]
     })
     t.out(f[n][m])
@@ -292,7 +311,11 @@ int main() {
   input: ['n, the n weights, then n − 1 tree edges "u v". Prints the maximum total weight of pairwise non-adjacent vertices.', 'n，n 个权值，随后 n − 1 条树边 “u v”。输出互不相邻的顶点的最大权值和。'],
   sizes: [6, 8, 11], lab: [10, 1000, 100000, 300000],
   gen: (n, r) => `${n}\n${r.ints(n, 1, 9).join(' ')}\n` + genTree(n, r).map(([u, v]) => `${u + 1} ${v + 1}`).join('\n') + '\n',
-  run(inp, t) {
+  broken: {
+    from: 'f[u][1] += f[v][0];  //@child', to: 'f[u][1] += max(f[v][0], f[v][1]);  //@child',
+    why: ['f[u][1] is the best with u __chosen__, and then no child may be chosen: only f[v][0] is allowed. Taking the better of the two lets a child be chosen next to its chosen parent, so the program adds up weights of adjacent vertices and reports more than any valid choice can reach.', 'f[u][1] 是__选了__ u 时的最优值，这时任何孩子都不能再选：只能用 f[v][0]。取两者中较大的一个，就允许孩子和被选的父亲同时被选，于是程序把相邻顶点的权值也加在了一起，报告的值超过了任何合法选法能达到的值。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), w = rd.ints(n), es: E[] = []
     for (let i = 0; i < n - 1; i++) { const u = rd.int() - 1, v = rd.int() - 1; need(u >= 0 && u < n && v >= 0 && v < n, 'Vertex out of range.', '顶点编号越界。'); es.push([u, v, 1]) }
     const par = parentsOf(n, es, 0), g = adjOf(n, es)
@@ -306,12 +329,14 @@ int main() {
       f1[u] = w[u]; ready[u] = 1
       t.s('init', () => [[`Vertex ${u + 1}: f[${u + 1}][1] starts at its weight ${w[u]}, f[${u + 1}][0] at 0.`, `顶点 ${u + 1}：f[${u + 1}][1] 初值为权值 ${w[u]}，f[${u + 1}][0] 初值为 0。`], view(tn({ act: u }))])
       for (const [v] of g[u]) if (v !== par[u]) {
-        f0[u] += Math.max(f0[v], f1[v]); f1[u] += f0[v]
-        t.s('child', () => [[`Child ${v + 1} (${f0[v]}/${f1[v]}): f[${u + 1}][0] += max = ${Math.max(f0[v], f1[v])}; f[${u + 1}][1] += f[${v + 1}][0] = ${f0[v]}.`, `孩子 ${v + 1}（${f0[v]}/${f1[v]}）：f[${u + 1}][0] += max = ${Math.max(f0[v], f1[v])}；f[${u + 1}][1] += f[${v + 1}][0] = ${f0[v]}。`], view(tn({ act: u, cmp: v }))])
+        if (!bug && f0[v] !== f1[v]) t.ask(() => [[`Child ${v + 1} reports ${f0[v]} without itself and ${f1[v]} with itself. If ${u + 1} is chosen, how much does this child add to f[${u + 1}][1]?`, `孩子 ${v + 1} 汇报：不选它时 ${f0[v]}，选它时 ${f1[v]}。如果选了 ${u + 1}，这个孩子给 f[${u + 1}][1] 加多少？`], [f0[v], f1[v]].sort((x, y) => x - y).map(x => [String(x), String(x)] as const), f0[v] < f1[v] ? 0 : 1])
+        f0[u] += Math.max(f0[v], f1[v]); f1[u] += bug ? Math.max(f0[v], f1[v]) : f0[v]
+        t.s('child', () => [bug ? [`Child ${v + 1} (${f0[v]}/${f1[v]}): f[${u + 1}][0] += max = ${Math.max(f0[v], f1[v])}; f[${u + 1}][1] += max = ${Math.max(f0[v], f1[v])}.`, `孩子 ${v + 1}（${f0[v]}/${f1[v]}）：f[${u + 1}][0] += max = ${Math.max(f0[v], f1[v])}；f[${u + 1}][1] += max = ${Math.max(f0[v], f1[v])}。`] : [`Child ${v + 1} (${f0[v]}/${f1[v]}): f[${u + 1}][0] += max = ${Math.max(f0[v], f1[v])}; f[${u + 1}][1] += f[${v + 1}][0] = ${f0[v]}.`, `孩子 ${v + 1}（${f0[v]}/${f1[v]}）：f[${u + 1}][0] += max = ${Math.max(f0[v], f1[v])}；f[${u + 1}][1] += f[${v + 1}][0] = ${f0[v]}。`], view(tn({ act: u, cmp: v }))])
       }
     }
     const ans = Math.max(f0[0], f1[0])
     t.s('done', () => {
+      if (bug) return [[`The program prints max(${f0[0]}, ${f1[0]}) = ${ans}.`, `程序输出 max(${f0[0]}, ${f1[0]}) = ${ans}。`], view({}), vars({ answer: ans })]
       const pick: number[] = [], st: [number, boolean][] = [[0, f1[0] > f0[0]]]
       while (st.length) { const [u, take] = st.pop()!; if (take) pick.push(u); for (const [v] of g[u]) if (v !== par[u]) st.push([v, !take && f1[v] > f0[v]]) }
       return [[`Answer max(${f0[0]}, ${f1[0]}) = ${ans}; one optimal choice is highlighted.`, `答案 max(${f0[0]}, ${f1[0]}) = ${ans}；图中标出了一种最优选法。`], view(tn({ ok: pick })), vars({ answer: ans })]
@@ -367,7 +392,11 @@ int main() {
     for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) d[i][j] = d[j][i] = r.int(1, 9)
     return `${n}\n${d.map(x => x.join(' ')).join('\n')}\n`
   },
-  run(inp, t) {
+  broken: {
+    from: 'f[(1 << n) - 1][i] + d[i][0]', to: 'f[(1 << n) - 1][i]',
+    why: ['f[full][i] is a route that has visited every city and __stands at city i__. A tour has to come back to where it started, so the edge from i to city 0 still has to be paid. Without + d[i][0] the program reports the shortest path through all cities, not the shortest tour.', 'f[全集][i] 表示已经访问过所有城市、__停在城市 i__ 的路线。回路必须回到出发的地方，所以从 i 回到城市 0 的那条边还要算上。少了 + d[i][0]，程序报告的是经过所有城市的最短路径，而不是最短回路。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int()
     need(n >= 1 && n <= 17, 'n must be between 1 and 17.', 'n 须在 1 到 17 之间。')
     const d = Array.from({ length: n }, () => rd.ints(n)), full = (1 << n) - 1, f = new Int32Array((full + 1) * n).fill(INF)
@@ -388,8 +417,9 @@ int main() {
       }
     }
     let ans = INF, last = 0
-    for (let i = 0; i < n; i++) if (f[full * n + i] + d[i][0] < ans) { ans = f[full * n + i] + d[i][0]; last = i }
-    t.s('close', () => [[`All cities visited. Best closing edge is from city ${last}: ${f[full * n + last]} + ${d[last][0]} = ${ans}.`, `所有城市都已访问。最优的收尾是从城市 ${last} 返回：${f[full * n + last]} + ${d[last][0]} = ${ans}。`], view(gt({ cmp: span(0, n - 1).map(i => at(full, i)), ok: [at(full, last)] })), vars({ answer: ans })])
+    const back = (i: number) => (bug ? 0 : d[i][0])
+    for (let i = 0; i < n; i++) if (f[full * n + i] + back(i) < ans) { ans = f[full * n + i] + back(i); last = i }
+    t.s('close', () => [bug ? [`All cities visited. The smallest f[${bin(full)}][i] is at city ${last}: ${ans}.`, `所有城市都已访问。最小的 f[${bin(full)}][i] 在城市 ${last}：${ans}。`] : [`All cities visited. Best closing edge is from city ${last}: ${f[full * n + last]} + ${d[last][0]} = ${ans}.`, `所有城市都已访问。最优的收尾是从城市 ${last} 返回：${f[full * n + last]} + ${d[last][0]} = ${ans}。`], view(gt({ cmp: span(0, n - 1).map(i => at(full, i)), ok: [at(full, last)] })), vars({ answer: ans })])
     t.out(ans)
   },
 }
@@ -464,7 +494,11 @@ int main() {
     }
     return fmtGraph(n, es)
   },
-  run(inp, t) {
+  broken: {
+    from: 'power(deg[u], MOD - 2)', to: 'power(deg[u], MOD - 1)',
+    why: ['By Fermat\'s little theorem a^(p−1) ≡ 1, so the inverse of a is a^(p−2) — __one less__. Raising deg(u) to p − 1 multiplies by 1: the sum of the choices is never divided, and every vertex with more than one way out gets the total of its choices instead of their average.', '由费马小定理，a^(p−1) ≡ 1，所以 a 的逆元是 a^(p−2)——指数__少一__。把 deg(u) 升到 p − 1 次方，等于乘以 1：各种选择之和从来没有被除，凡是有不止一条出边的顶点，得到的都是各种选择的总和而不是平均值。'],
+  },
+  run(inp, t, bug = false) {
     const { n, m, es } = readGraph(inp, true)
     need(n <= 200000, 'n must be at most 200,000.', 'n 不能超过 200,000。')
     const deg = new Int32Array(n), todo = new Int32Array(n), rg: [number, number, number][][] = Array.from({ length: n }, () => [])
@@ -483,14 +517,20 @@ int main() {
         et[e] = 'vis'
         t.s('edge', () => [[`Edge ${u + 1} → ${v + 1}: this choice costs ${w} + f[${v + 1}] = ${+(w + real[v]).toFixed(2)}. Sum of the choices at ${u + 1} so far: ${+rsum[u].toFixed(2)}.`, `边 ${u + 1} → ${v + 1}：这种选择的代价是 ${w} + f[${v + 1}] = ${+(w + real[v]).toFixed(2)}。顶点 ${u + 1} 目前各种选择之和：${+rsum[u].toFixed(2)}。`], view({ [u]: 'cmp', [v]: 'act' }, { [e]: 'act' })])
         if (--todo[u] === 0) {
-          f[u] = mulM(sum[u], powM(deg[u], MOD998 - 2)); real[u] = rsum[u] / deg[u]; known[u] = 1
+          if (!bug && deg[u] > 1) t.ask(() => {
+            const avg: [string, string] = [`${+(rsum[u] / deg[u]).toFixed(2)}, their average`, `${+(rsum[u] / deg[u]).toFixed(2)}，它们的平均值`], tot: [string, string] = [`${+rsum[u].toFixed(2)}, their sum`, `${+rsum[u].toFixed(2)}，它们的和`]
+            return [[`All ${deg[u]} choices at ${u + 1} add up to ${+rsum[u].toFixed(2)}. What is f[${u + 1}]?`, `顶点 ${u + 1} 的 ${deg[u]} 种选择加起来是 ${+rsum[u].toFixed(2)}。f[${u + 1}] 是多少？`], u % 2 ? [tot, avg] : [avg, tot], u % 2 ? 1 : 0]
+          })
+          f[u] = mulM(sum[u], powM(deg[u], MOD998 - (bug ? 1 : 2))); real[u] = bug ? rsum[u] : rsum[u] / deg[u]; known[u] = 1
           q.push(u)
-          t.s('avg', () => [[`All ${deg[u]} edge${deg[u] === 1 ? '' : 's'} out of ${u + 1} are done: f[${u + 1}] = ${+rsum[u].toFixed(2)} / ${deg[u]} = ${+real[u].toFixed(2)}.`, `顶点 ${u + 1} 的 ${deg[u]} 条出边都处理完了：f[${u + 1}] = ${+rsum[u].toFixed(2)} / ${deg[u]} = ${+real[u].toFixed(2)}。`], view({ [u]: 'act' }), vars({ [`f[${u + 1}] mod p`]: f[u] })])
+          if (bug) t.s('avg', () => [[`All ${deg[u]} edge${deg[u] === 1 ? '' : 's'} out of ${u + 1} are done: f[${u + 1}] = ${+rsum[u].toFixed(2)} × ${deg[u]}^(p−1) = ${+real[u].toFixed(2)}.`, `顶点 ${u + 1} 的 ${deg[u]} 条出边都处理完了：f[${u + 1}] = ${+rsum[u].toFixed(2)} × ${deg[u]}^(p−1) = ${+real[u].toFixed(2)}。`], view({ [u]: 'act' }), vars({ [`f[${u + 1}] mod p`]: f[u] })])
+          else t.s('avg', () => [[`All ${deg[u]} edge${deg[u] === 1 ? '' : 's'} out of ${u + 1} are done: f[${u + 1}] = ${+rsum[u].toFixed(2)} / ${deg[u]} = ${+real[u].toFixed(2)}.`, `顶点 ${u + 1} 的 ${deg[u]} 条出边都处理完了：f[${u + 1}] = ${+rsum[u].toFixed(2)} / ${deg[u]} = ${+real[u].toFixed(2)}。`], view({ [u]: 'act' }), vars({ [`f[${u + 1}] mod p`]: f[u] })])
         }
       }
     }
     t.tick(m)
-    t.s('done', () => [[`The expected length from 1 is ${+real[0].toFixed(4)}; as a fraction modulo 998244353 it is ${f[0]}.`, `从 1 出发的期望长度是 ${+real[0].toFixed(4)}；写成分数并对 998244353 取模就是 ${f[0]}。`], view({ 0: 'act' }), vars({ answer: f[0] })])
+    if (bug) t.s('done', () => [[`The program prints f[1] = ${f[0]}.`, `程序输出 f[1] = ${f[0]}。`], view({ 0: 'act' }), vars({ answer: f[0] })])
+    else t.s('done', () => [[`The expected length from 1 is ${+real[0].toFixed(4)}; as a fraction modulo 998244353 it is ${f[0]}.`, `从 1 出发的期望长度是 ${+real[0].toFixed(4)}；写成分数并对 998244353 取模就是 ${f[0]}。`], view({ 0: 'act' }), vars({ answer: f[0] })])
     t.out(f[0])
   },
 }

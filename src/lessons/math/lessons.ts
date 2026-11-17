@@ -33,18 +33,26 @@ int main() {
   input: ['Two non-negative integers a b. Prints gcd(a, b). (In the generator, n is the number of decimal digits.)', '两个非负整数 a b。输出 gcd(a, b)。（生成器中 n 表示十进制位数。）'],
   sizes: [2, 3, 5], lab: [3, 6, 9, 12, 15],
   gen: (n, r) => { const g = n >= 3 ? r.int(2, 9) : 1, d = Math.min(n, 15) - (g > 1 ? 1 : 0); return `${rndNum(d, r) * g} ${rndNum(Math.max(1, d - r.int(0, 1)), r) * g}\n` },
-  run(inp, t) {
+  broken: {
+    from: 'a = b; b = r;', to: 'b = r; a = b;',
+    why: ['The pair (a, b) must become (b, r) — __both__ new values are computed from the old pair. Assigning b first destroys the old b before a can take it, so a receives r as well, and the pair becomes (r, r). The next step then divides r by itself, the remainder is 0, and the program prints 0.', '这一对数 (a, b) 要变成 (b, r)——两个新值__都__由原来的那一对算出。先给 b 赋值，就在 a 拿到原来的 b 之前把它覆盖了，于是 a 得到的也是 r，这一对数变成了 (r, r)。下一步 r 除以它自己，余数是 0，程序输出 0。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp)
     let a = rd.int(), b = rd.int()
     need(Number.isSafeInteger(a) && Number.isSafeInteger(b) && a >= 0 && b >= 0, 'Expected two non-negative integers below 2^53.', '需要两个小于 2^53 的非负整数。')
     const rows: (string | number)[][] = []
     while (b) {
       const r = a % b
+      if (!bug && rows.length > 0) t.ask(() => {
+        const opts = [...new Set([r, a - b, Math.floor(a / b)])].filter(x => x >= 0).sort((x, y) => x - y)
+        return opts.length < 2 ? undefined : [[`Next pair: gcd(${a}, ${b}) = gcd(${b}, ?)`, `下一对：gcd(${a}, ${b}) = gcd(${b}, ?)`], opts.map(x => [String(x), String(x)] as const), opts.indexOf(r)]
+      })
       rows.push([a, b, Math.floor(a / b), r])
       t.s('mod', () => [[`${a} = ${Math.floor(a / b)} × ${b} + ${r}, so gcd(${a}, ${b}) = gcd(${b}, ${r}).`, `${a} = ${Math.floor(a / b)} × ${b} + ${r}，所以 gcd(${a}, ${b}) = gcd(${b}, ${r})。`], grid('steps', rows, gt({ act: [[rows.length - 1, 3]] }), { cols: ['a', 'b', 'a / b', 'a mod b'] })])
-      a = b; b = r
+      if (bug) { b = r; a = b } else { a = b; b = r }
     }
-    t.s('done', () => [[`The remainder is 0: the gcd is ${a}.`, `余数为 0：最大公约数是 ${a}。`], grid('steps', rows.length ? rows : [[a, 0, '', '']], rows.length ? gt({ ok: [[rows.length - 1, 1]] }) : {}, { cols: ['a', 'b', 'a / b', 'a mod b'] }), vars({ gcd: a })])
+    t.s('done', () => [[bug ? `b is 0: the program prints a = ${a}.` : `The remainder is 0: the gcd is ${a}.`, bug ? `b 为 0：程序输出 a = ${a}。` : `余数为 0：最大公约数是 ${a}。`], grid('steps', rows.length ? rows : [[a, 0, '', '']], rows.length ? gt({ ok: [[rows.length - 1, 1]] }) : {}, { cols: ['a', 'b', 'a / b', 'a mod b'] }), vars({ gcd: a })])
     t.out(a)
   },
 }
@@ -85,7 +93,11 @@ int main() {
   input: ['Two positive integers a b. Prints x, y and g with a·x + b·y = g = gcd(a, b). (n is the number of decimal digits.)', '两个正整数 a b。输出满足 a·x + b·y = g = gcd(a, b) 的 x、y 和 g。（n 表示十进制位数。）'],
   sizes: [2, 3, 4], lab: [2, 4, 6, 8, 9],
   gen: (n, r) => `${rndNum(Math.min(n, 9), r)} ${rndNum(Math.max(1, Math.min(n, 9) - r.int(0, 1)), r)}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'long long g = exgcd(b, a % b, y, x);  //@down', to: 'long long g = exgcd(b, a % b, x, y);  //@down',
+    why: ['The inner call solves b·x′ + (a mod b)·y′ = g, and the outer pair needs __x = y′__. Passing (y, x) swapped is what puts y′ into x and x′ into y. Passed in order, x gets x′ and y gets y′, so the update y −= ⌊a/b⌋·x computes y′ − ⌊a/b⌋·x′ instead: the printed x and y no longer satisfy a·x + b·y = g.', '内层调用解的是 b·x′ + (a mod b)·y′ = g，而外层需要的是 __x = y′__。把 (y, x) 交换着传进去，正是为了让 y′ 写进 x、x′ 写进 y。按原顺序传入，x 得到 x′、y 得到 y′，于是 y −= ⌊a/b⌋·x 算出的是 y′ − ⌊a/b⌋·x′：输出的 x 和 y 不再满足 a·x + b·y = g。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), a0 = rd.int(), b0 = rd.int()
     need(Number.isInteger(a0) && Number.isInteger(b0) && a0 >= 0 && b0 >= 0 && a0 <= 1e9 && b0 <= 1e9, 'Expected two integers between 0 and 10^9.', '需要两个 0 到 10^9 之间的整数。')
     const rows: (string | number)[][] = []
@@ -102,11 +114,16 @@ int main() {
     t.s('base', () => [[`b = 0: gcd = ${g}, with x = 1, y = 0 (${g}·1 + 0·0 = ${g}).`, `b = 0：gcd = ${g}，取 x = 1，y = 0（${g}·1 + 0·0 = ${g}）。`], view(gt({ ok: [[rows.length - 1, 3], [rows.length - 1, 4]] }))])
     for (let k = rows.length - 2; k >= 0; k--) {
       const q = rows[k][2] as number, px = x, py = y
-      x = py; y = px - q * py
+      if (!bug && px !== py) t.ask(() => {
+        const opts = [px, py].sort((u, v) => u - v)
+        return [[`Back in exgcd(${rows[k][0]}, ${rows[k][1]}): the call below returned x′ = ${px}, y′ = ${py}. What is x here?`, `回到 exgcd(${rows[k][0]}, ${rows[k][1]})：下层返回 x′ = ${px}，y′ = ${py}。这里的 x 是多少？`], opts.map(v => [String(v), String(v)] as const), opts.indexOf(py)]
+      })
+      if (bug) { x = px; y = py - q * px } else { x = py; y = px - q * py }
       rows[k][3] = x; rows[k][4] = y
-      t.s('up', () => [[`Back in exgcd(${rows[k][0]}, ${rows[k][1]}): x = y′ = ${py}, y = x′ − ${q}·y′ = ${px} − ${q}·${py} = ${y}. Check: ${rows[k][0]}·(${x}) + ${rows[k][1]}·(${y}) = ${g}.`, `回到 exgcd(${rows[k][0]}, ${rows[k][1]})：x = y′ = ${py}，y = x′ − ${q}·y′ = ${px} − ${q}·${py} = ${y}。验证：${rows[k][0]}·(${x}) + ${rows[k][1]}·(${y}) = ${g}。`], view(gt({ cmp: [[k + 1, 3], [k + 1, 4]], act: [[k, 3], [k, 4]] }))])
+      if (bug) t.s('up', () => [[`Back in exgcd(${rows[k][0]}, ${rows[k][1]}): x = ${x}, y = ${py} − ${q}·${px} = ${y}.`, `回到 exgcd(${rows[k][0]}, ${rows[k][1]})：x = ${x}，y = ${py} − ${q}·${px} = ${y}。`], view(gt({ cmp: [[k + 1, 3], [k + 1, 4]], act: [[k, 3], [k, 4]] }))])
+      else t.s('up', () => [[`Back in exgcd(${rows[k][0]}, ${rows[k][1]}): x = y′ = ${py}, y = x′ − ${q}·y′ = ${px} − ${q}·${py} = ${y}. Check: ${rows[k][0]}·(${x}) + ${rows[k][1]}·(${y}) = ${g}.`, `回到 exgcd(${rows[k][0]}, ${rows[k][1]})：x = y′ = ${py}，y = x′ − ${q}·y′ = ${px} − ${q}·${py} = ${y}。验证：${rows[k][0]}·(${x}) + ${rows[k][1]}·(${y}) = ${g}。`], view(gt({ cmp: [[k + 1, 3], [k + 1, 4]], act: [[k, 3], [k, 4]] }))])
     }
-    t.s('done', () => [[`${a0}·(${x}) + ${b0}·(${y}) = ${g}.`, `${a0}·(${x}) + ${b0}·(${y}) = ${g}。`], view(gt({ ok: [[0, 3], [0, 4]] })), vars({ x, y, gcd: g })])
+    t.s('done', () => [bug ? [`The program prints x = ${x}, y = ${y}, g = ${g}.`, `程序输出 x = ${x}，y = ${y}，g = ${g}。`] : [`${a0}·(${x}) + ${b0}·(${y}) = ${g}.`, `${a0}·(${x}) + ${b0}·(${y}) = ${g}。`], view(gt({ ok: [[0, 3], [0, 4]] })), vars({ x, y, gcd: g })])
     t.out(`${x} ${y} ${g}`)
   },
 }
@@ -156,7 +173,11 @@ int main() {
   input: ['n — prints the number of primes ≤ n.', 'n —— 输出不超过 n 的素数个数。'],
   sizes: [30, 50, 100], lab: [100, 10000, 1000000, 3000000],
   gen: n => `${n}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'j <= n; j += i)', to: 'j < n; j += i)',
+    why: ['The count covers the numbers up to n, __n included__, so n itself has to be crossed out if it is composite. With `j < n` the multiples stop one short: n is never crossed out by any prime, and a composite n is counted as a prime.', '要统计的是不超过 n 的数，__包括 n 本身__，所以如果 n 是合数，它也必须被划掉。写成 `j < n` 后倍数少走了一步：没有任何素数会划掉 n，于是合数 n 被当成素数数了进去。'],
+  },
+  run(inp, t, bug = false) {
     const n = reader(inp).int()
     need(n >= 1 && n <= 2e7, 'n must be between 1 and 20,000,000.', 'n 须在 1 到 20,000,000 之间。')
     const comp = new Uint8Array(n + 1), isP = new Uint8Array(n + 1)
@@ -166,7 +187,11 @@ int main() {
       if (comp[i]) continue
       cnt++; isP[i] = 1
       t.s('prime', () => [[`${i} was never crossed out: it is prime.${i * i > n ? '' : ` Cross out its multiples from ${i}² = ${i * i}.`}`, `${i} 没有被划掉：它是素数。${i * i > n ? '' : `从 ${i}² = ${i * i} 开始划掉它的倍数。`}`], view({ [i]: 'act' }), vars({ primes: cnt })])
-      for (let j = i * i; j <= n; j += i) {
+      if (!bug && i * i <= n && i > 2) t.ask(() => {
+        const opts = [...new Set([2 * i, i * i, i * (i + 1)])].sort((x, y) => x - y)
+        return [[`${i} is prime. Which multiple of ${i} is the first one it crosses out?`, `${i} 是素数。它划掉的第一个倍数是多少？`], opts.map(x => [String(x), String(x)] as const), opts.indexOf(i * i)]
+      })
+      for (let j = i * i; bug ? j < n : j <= n; j += i) {
         const again = comp[j] === 1
         comp[j] = 1
         t.s('cross', () => [[`${j} = ${j / i} × ${i}: cross it out${again ? ' (already crossed by a smaller prime).' : '.'}`, `${j} = ${j / i} × ${i}：划掉${again ? '（已被更小的素数划过）。' : '。'}`], view({ [i]: 'act', [j]: again ? 'cmp' : 'bad' }), vars({ primes: cnt })])
@@ -214,14 +239,18 @@ int main() {
   input: ['n — prints the number of primes ≤ n.', 'n —— 输出不超过 n 的素数个数。'],
   sizes: [20, 30, 50], lab: [100, 10000, 1000000, 3000000],
   gen: n => `${n}\n`,
-  run(inp, t) {
+  broken: {
+    from: '1LL * i * prime[k] <= n', to: '1LL * i * prime[k] < n',
+    why: ['Every composite m ≤ n is crossed out exactly once, when i = m / (its smallest prime factor) — and that includes m = n. With `<` the product i × prime[k] may never equal n, so a composite n is never crossed out, is later found unmarked, and is counted as a prime.', '每个不超过 n 的合数 m 都恰好在 i = m /（它的最小素因子）时被划掉一次——m = n 也不例外。写成 `<` 后，乘积 i × prime[k] 永远不会等于 n，于是合数 n 从未被划掉，之后走到它时发现它未被标记，就把它当成素数数了进去。'],
+  },
+  run(inp, t, bug = false) {
     const n = reader(inp).int()
     need(n >= 1 && n <= 2e7, 'n must be between 1 and 20,000,000.', 'n 须在 1 到 20,000,000 之间。')
     const comp = new Uint8Array(n + 1), prime: number[] = []
     const view = (hi: Tones) => [numGrid(n, i => hi[i] ?? (i === 1 || comp[i] ? 'dim' : prime.includes(i) ? 'ok' : undefined), 'green = prime, faded = crossed out'), arr('primes', prime.slice(0, 20))] as const
     for (let i = 2; i <= n; i++) {
       if (!comp[i]) { prime.push(i); t.s('prime', () => [[`${i} is unmarked: prime.`, `${i} 未被标记：是素数。`], ...view({ [i]: 'act' })]) }
-      for (let k = 0; k < prime.length && i * prime[k] <= n; k++) {
+      for (let k = 0; k < prime.length && (bug ? i * prime[k] < n : i * prime[k] <= n); k++) {
         const p = prime[k]
         comp[i * p] = 1
         t.s('cross', () => [[`i = ${i}: cross out ${i} × ${p} = ${i * p} (smallest prime factor ${p}).`, `i = ${i}：划掉 ${i} × ${p} = ${i * p}（最小素因子为 ${p}）。`], ...view({ [i]: 'act', [p]: 'cmp', [i * p]: 'bad' })])
@@ -231,7 +260,8 @@ int main() {
         }
       }
     }
-    t.s('done', () => [[`${prime.length} prime(s) up to ${n}; every composite was crossed out exactly once.`, `不超过 ${n} 的素数共 ${prime.length} 个；每个合数恰好被划掉一次。`], ...view({})])
+    if (bug) t.s('done', () => [[`The program counts ${prime.length} prime(s).`, `程序数出 ${prime.length} 个素数。`], ...view({})])
+    else t.s('done', () => [[`${prime.length} prime(s) up to ${n}; every composite was crossed out exactly once.`, `不超过 ${n} 的素数共 ${prime.length} 个；每个合数恰好被划掉一次。`], ...view({})])
     t.out(prime.length)
   },
 }
@@ -270,7 +300,11 @@ int main() {
   input: ['n — prints row n of the triangle, C(n, 0) … C(n, n), modulo 1 000 000 007.', 'n —— 输出杨辉三角第 n 行 C(n, 0) … C(n, n)，对 1 000 000 007 取模。'],
   sizes: [5, 6, 8], lab: [10, 100, 1000, 2000],
   gen: n => `${n}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'for (int j = 1; j <= i; j++)', to: 'for (int j = 1; j < i; j++)',
+    why: ['Row i has i + 1 entries, C(i, 0) … C(i, i), and the right edge C(i, i) = 1 is produced by the sum c[i − 1][i − 1] + c[i − 1][i] = 1 + 0. With `j < i` that last cell is never computed and stays 0. Every row loses its right edge, and since each row is built from the one above, the zero spreads inward.', '第 i 行有 i + 1 项：C(i, 0) … C(i, i)，右边界 C(i, i) = 1 正是由 c[i − 1][i − 1] + c[i − 1][i] = 1 + 0 算出来的。写成 `j < i` 后，最后这一格从未被计算，一直是 0。每一行都丢了右边界，而每一行又由上一行算出，于是这个 0 一路向里扩散。'],
+  },
+  run(inp, t, bug = false) {
     const n = reader(inp).int()
     need(n >= 0 && n <= 3000, 'n must be between 0 and 3000.', 'n 须在 0 到 3000 之间。')
     const c = Array.from({ length: n + 1 }, (_, i) => new Int32Array(i + 2))
@@ -278,7 +312,7 @@ int main() {
     for (let i = 0; i <= n; i++) {
       c[i][0] = 1
       t.s('edge', () => [[`C(${i}, 0) = 1.`, `C(${i}, 0) = 1。`], view(i, 0, gt({ ok: [[i, 0]] }))])
-      for (let j = 1; j <= i; j++) {
+      for (let j = 1; bug ? j < i : j <= i; j++) {
         c[i][j] = (c[i - 1][j - 1] + c[i - 1][j]) % MOD
         t.s('add', () => [[`C(${i}, ${j}) = C(${i - 1}, ${j - 1}) + C(${i - 1}, ${j}) = ${c[i - 1][j - 1]} + ${c[i - 1][j]} = ${c[i][j]}.`, `C(${i}, ${j}) = C(${i - 1}, ${j - 1}) + C(${i - 1}, ${j}) = ${c[i - 1][j - 1]} + ${c[i - 1][j]} = ${c[i][j]}。`], view(i, j, gt({ cmp: [[i - 1, j - 1], [i - 1, j]], act: [[i, j]] }))])
       }
@@ -288,6 +322,15 @@ int main() {
   },
 }
 
+/** printf("%.2f"): exact ties (x · 8 an odd integer) round to even, and a negative zero keeps its sign. toFixed rounds ties away from zero. */
+const printf2 = (x: number) => {
+  const m = Math.abs(x) * 8
+  if (Number.isInteger(m) && m % 2 === 1) {
+    const lo = Math.floor(Math.abs(x) * 100), h = lo % 2 === 0 ? lo : lo + 1
+    return (x < 0 ? '-' : '') + (h / 100).toFixed(2)
+  }
+  return Object.is(x, -0) ? '-0.00' : x.toFixed(2)
+}
 const fmt = (x: number) => { const s = (Math.abs(x) < 5e-10 ? 0 : x).toFixed(2); return s.replace(/\.?0+$/, '') || '0' }
 const gauss: Lesson = {
   id: 'gauss', title: ['Gaussian elimination', '高斯消元法'], level: 'S', cat: 'math', diff: 7,
@@ -337,7 +380,11 @@ int main() {
     for (let i = 0; i < n; i++) { const a = r.ints(n, -9, 9); rows.push([...a, a.reduce((s, v, j) => s + v * x[j], 0)].join(' ')) }
     return `${n}\n${rows.join('\n')}\n`
   },
-  run(inp, t) {
+  broken: {
+    from: 'for (int j = n; j >= c; j--) a[i][j] -= a[i][c] * a[c][j];  //@elim', to: 'for (int j = c; j <= n; j++) a[i][j] -= a[i][c] * a[c][j];  //@elim',
+    why: ['The multiplier a[i][c] is read at every step of the loop, and the first step of an upward loop is j = c, which __overwrites a[i][c] itself__ with 0. From then on the multiplier is 0 and nothing else in row i changes: the column is cleared but the row is not reduced, so the solution comes out wrong. Running j downward changes a[i][c] last.', '乘数 a[i][c] 在循环的每一步都要用到，而从小到大循环的第一步就是 j = c，它__把 a[i][c] 自己__改成了 0。从这以后乘数就是 0，第 i 行的其余部分都没有变化：这一列是消成 0 了，这一行却没有真正被消元，于是解是错的。让 j 从大到小循环，a[i][c] 就会最后才被改动。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int()
     need(n >= 1 && n <= 300, 'n must be between 1 and 300.', 'n 须在 1 到 300 之间。')
     const a = Array.from({ length: n }, () => rd.ints(n + 1))
@@ -347,6 +394,11 @@ int main() {
     for (let c = 0; c < n; c++) {
       let p = c
       for (let i = c + 1; i < n; i++) if (Math.abs(a[i][c]) > Math.abs(a[p][c])) p = i
+      if (!bug && c > 0 && n - c >= 2 && span(c, n - 1).filter(i => Math.abs(a[i][c]) === Math.abs(a[p][c])).length === 1) t.ask(() => {
+        const opts = span(c, Math.min(n - 1, c + 3))
+        if (!opts.includes(p)) opts[opts.length - 1] = p
+        return [[`Column ${c + 1}: which row becomes the pivot row?`, `第 ${c + 1} 列：哪一行成为主元行？`], opts.map(i => [`row ${i + 1} (${fmt(a[i][c])})`, `第 ${i + 1} 行（${fmt(a[i][c])}）`] as const), opts.indexOf(p)]
+      })
       if (Math.abs(a[p][c]) < 1e-9) { t.s('none', () => [[`Column ${c + 1} has no non-zero pivot: no unique solution.`, `第 ${c + 1} 列找不到非零主元：没有唯一解。`], view(gt({ bad: span(c, n - 1).map(i => [i, c] as [number, number]) }))]); t.out('No Solution'); return }
       ;[a[c], a[p]] = [a[p], a[c]]
       t.s('pivot', () => [[p === c ? `Column ${c + 1}: row ${c + 1} already holds the largest pivot ${fmt(a[c][c])}.` : `Column ${c + 1}: the largest pivot ${fmt(a[c][c])} is in row ${p + 1} — swap rows ${c + 1} and ${p + 1}.`, p === c ? `第 ${c + 1} 列：第 ${c + 1} 行的主元 ${fmt(a[c][c])} 已是最大。` : `第 ${c + 1} 列：最大的主元 ${fmt(a[c][c])} 在第 ${p + 1} 行——交换第 ${c + 1} 行和第 ${p + 1} 行。`], view({ ...gt({ cmp: row(p) }), ...gt({ vis: row(c), act: [[c, c]] }) })])
@@ -356,12 +408,13 @@ int main() {
       for (let i = 0; i < n; i++) {
         if (i === c) continue
         const k = a[i][c]
-        for (let j = n; j >= c; j--) a[i][j] -= k * a[c][j]
+        if (bug) for (let j = c; j <= n; j++) a[i][j] -= a[i][c] * a[c][j]
+        else for (let j = n; j >= c; j--) a[i][j] -= k * a[c][j]
         t.s('elim', () => [[`Row ${i + 1} −= ${fmt(k)} × row ${c + 1}: the entry in column ${c + 1} becomes 0.`, `第 ${i + 1} 行 −= ${fmt(k)} × 第 ${c + 1} 行：第 ${c + 1} 列的元素变为 0。`], view({ ...gt({ vis: row(c), cmp: row(i) }), ...gt({ ok: [[c, c]], act: [[i, c]] }) })])
       }
     }
-    t.s('done', () => [['The left part is the identity: the last column is the solution.', '左边已是单位阵：最后一列就是解。'], view(gt({ ok: span(0, n - 1).map(i => [i, n] as [number, number]) }))])
-    t.out(a.map(r => r[n].toFixed(2)).join('\n'))
+    t.s('done', () => [bug ? ['The program prints the last column.', '程序输出最后一列。'] : ['The left part is the identity: the last column is the solution.', '左边已是单位阵：最后一列就是解。'], view(gt({ ok: span(0, n - 1).map(i => [i, n] as [number, number]) }))])
+    t.out(a.map(r => printf2(r[n])).join('\n'))
   },
 }
 
@@ -405,7 +458,11 @@ int main() {
   input: ['m and the m allowed numbers of stones to take; then k and the k pile sizes. Players alternate taking an allowed number from one pile; whoever cannot move loses. Prints First or Second. (n is the largest pile.)', 'm 以及每次允许取走的 m 种石子数；然后是 k 以及 k 堆石子的数量。双方轮流从某一堆取走允许的数量；无法行动者输。输出 First 或 Second。（n 为最大的一堆。）'],
   sizes: [6, 9, 12], lab: [10, 1000, 100000, 500000],
   gen: (n, r) => { const mv = r.pick([[1, 2], [1, 3], [1, 3, 4], [2, 3], [1, 2, 3]]); return `${mv.length}\n${mv.join(' ')}\n3\n${n} ${r.int(1, n)} ${r.int(1, n)}\n` },
-  run(inp, t) {
+  broken: {
+    from: 'res ^= sg[pile[i]];  //@xor', to: 'res += sg[pile[i]];  //@xor',
+    why: ['Independent games combine like Nim piles, and Nim piles combine by __XOR__, not by addition: two piles with the same SG value cancel, because the second player can copy every move. With `+`, any non-zero SG value makes the total non-zero, so positions such as SG values 1, 2 and 3 — XOR 0, a loss for the player to move — are reported as First.', '独立的游戏像 Nim 的各堆那样组合，而 Nim 的各堆是用__异或__而不是加法组合的：两堆 SG 值相同的石子会互相抵消，因为后手可以模仿先手的每一步。用 `+` 的话，只要有一个 SG 值非零，总和就非零，于是像 SG 值为 1、2、3 这样的局面——异或为 0，先手必败——被报告为 First。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), m = rd.int(), mv = rd.ints(m), k = rd.int(), pile = rd.ints(k)
     need(m >= 1 && m <= 100 && mv.every(x => Number.isInteger(x) && x >= 1), 'Give between 1 and 100 positive moves.', '需要 1 到 100 个正整数着法。')
     need(pile.every(x => Number.isInteger(x) && x >= 0 && x <= 2e6), 'Pile sizes must be between 0 and 2,000,000.', '每堆石子数须在 0 到 2,000,000 之间。')
@@ -414,16 +471,24 @@ int main() {
       seen.fill(0)
       const from: number[] = []
       for (const d of mv) if (x >= d) { seen[sg[x - d]] = 1; from.push(x - d) }
+      if (!bug && from.length && x > 1) t.ask(() => {
+        const vals = [...new Set(from.map(y => sg[y]))].sort((u, v) => u - v)
+        let mex = 0
+        while (vals.includes(mex)) mex++
+        const opts = [...new Set([mex, Math.max(...vals) + 1, 0, 1])].slice(0, 4).sort((u, v) => u - v)
+        return opts.length < 2 ? undefined : [[`From ${x} the reachable positions have SG values {${vals.join(', ')}}. What is SG(${x})?`, `从 ${x} 能到达的局面的 SG 值是 {${vals.join(', ')}}。SG(${x}) 是多少？`], opts.map(v => [String(v), String(v)] as const), opts.indexOf(mex)]
+      })
       while (seen[sg[x]]) sg[x]++
       t.s('mex', () => [[from.length ? `x = ${x}: reachable ${from.map(y => `${y} (SG ${sg[y]})`).join(', ')} → mex = ${sg[x]}.` : `x = ${x}: no move possible → SG = 0.`, from.length ? `x = ${x}：能到达 ${from.map(y => `${y}（SG ${sg[y]}）`).join('、')} → mex = ${sg[x]}。` : `x = ${x}：无法行动 → SG = 0。`], arr('SG(x)', Array.from(sg.subarray(0, Math.min(mx, 40) + 1), (v, i) => (i <= x ? v : '')), tn({ cmp: from, act: x })), vars({ moves: mv.join(', ') })])
     }
     let res = 0
     pile.forEach((p, i) => {
       const before = res
-      res ^= sg[p]
-      t.s('xor', () => [[`Pile ${i + 1} has ${p} stones: SG = ${sg[p]}; ${before} xor ${sg[p]} = ${res}.`, `第 ${i + 1} 堆有 ${p} 个石子：SG = ${sg[p]}；${before} xor ${sg[p]} = ${res}。`], arr('piles', pile, tn({ dim: span(0, i - 1), act: i })), arr('SG of each pile', pile.map(x => sg[x]), tn({ dim: span(0, i - 1), act: i })), vars({ xor: res })])
+      res = bug ? res + sg[p] : res ^ sg[p]
+      const op = bug ? '+' : 'xor'
+      t.s('xor', () => [[`Pile ${i + 1} has ${p} stones: SG = ${sg[p]}; ${before} ${op} ${sg[p]} = ${res}.`, `第 ${i + 1} 堆有 ${p} 个石子：SG = ${sg[p]}；${before} ${op} ${sg[p]} = ${res}。`], arr('piles', pile, tn({ dim: span(0, i - 1), act: i })), arr('SG of each pile', pile.map(x => sg[x]), tn({ dim: span(0, i - 1), act: i })), vars({ xor: res })])
     })
-    t.s('done', () => [res ? [`XOR = ${res} ≠ 0: the first player wins.`, `异或 = ${res} ≠ 0：先手必胜。`] : ['XOR = 0: the second player wins.', '异或 = 0：后手必胜。'], arr('piles', pile), arr('SG of each pile', pile.map(x => sg[x])), vars({ xor: res })])
+    t.s('done', () => [bug ? [`res = ${res}: the program prints ${res ? 'First' : 'Second'}.`, `res = ${res}：程序输出 ${res ? 'First' : 'Second'}。`] : res ? [`XOR = ${res} ≠ 0: the first player wins.`, `异或 = ${res} ≠ 0：先手必胜。`] : ['XOR = 0: the second player wins.', '异或 = 0：后手必胜。'], arr('piles', pile), arr('SG of each pile', pile.map(x => sg[x])), vars({ xor: res })])
     t.out(res ? 'First' : 'Second')
   },
 }
@@ -478,7 +543,11 @@ int main() {
   input: ['n, then n points "x y" with integer coordinates. Prints the number of hull vertices and twice the hull area.', 'n，随后 n 个整数坐标的点 “x y”。输出凸包的顶点数和凸包面积的两倍。'],
   sizes: [6, 9, 12], lab: [10, 1000, 100000, 300000],
   gen: (n, r) => `${n}\n` + span(1, n).map(() => `${r.int(0, n <= 30 ? 12 : 1000000)} ${r.int(0, n <= 30 ? 9 : 1000000)}`).join('\n') + '\n',
-  run(inp, t) {
+  broken: {
+    from: 'for (int i = n - 2, t = k + 1; i >= 0; i--) {', to: 'for (int i = n - 2, t = 2; i >= 0; i--) {',
+    why: ['When the upper sweep starts, the stack already holds the finished lower hull, ending at the rightmost point. t = k + 1 lets the upper sweep pop __only its own points__. With t = 2 it may pop into the lower hull: as soon as the next point lies on the line through the last two lower-hull points, the rightmost point — a true corner of the hull — is popped and lost.', '上凸壳开始扫描时，栈里已经是建好的下凸壳，最后一个是最右边的点。t = k + 1 让上凸壳的扫描__只能弹出它自己压入的点__。写成 t = 2 后，它可能弹进下凸壳里去：只要下一个点落在下凸壳最后两点所在的直线上，最右边的点——凸包真正的一个顶点——就被弹掉丢失了。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n0 = rd.int()
     need(n0 >= 1, 'n must be at least 1.', 'n 至少为 1。')
     let pts = Array.from({ length: n0 }, () => [rd.int(), rd.int()] as [number, number])
@@ -510,12 +579,12 @@ int main() {
       t.s(pushTag, () => [[`${name[0]}: push (${pts[i]}).`, `${name[1]}：压入 (${pts[i]})。`], view({ [i]: 'act' })])
     }
     for (let i = 0; i < n; i++) sweep(i, 2, 'pop', 'push', ['Lower hull', '下凸壳'])
-    const floor = h.length + 1
+    const floor = bug ? 2 : h.length + 1
     for (let i = n - 2; i >= 0; i--) sweep(i, floor, 'upop', 'upush', ['Upper hull', '上凸壳'])
     if (n > 1) h.pop()
     let area2 = 0
     for (let i = 0; i < h.length; i++) { const a = pts[h[i]], b = pts[h[(i + 1) % h.length]]; area2 += a[0] * b[1] - a[1] * b[0] }
-    t.s('done', () => [[`The hull has ${h.length} vertex/vertices; twice its area is ${area2}.`, `凸包有 ${h.length} 个顶点；面积的两倍是 ${area2}。`], view({}, true), vars({ vertices: h.length, 'area × 2': area2 })])
+    t.s('done', () => [bug ? [`The stack holds ${h.length} point(s); twice the area of that polygon is ${area2}.`, `栈里有 ${h.length} 个点；这个多边形面积的两倍是 ${area2}。`] : [`The hull has ${h.length} vertex/vertices; twice its area is ${area2}.`, `凸包有 ${h.length} 个顶点；面积的两倍是 ${area2}。`], view({}, true), vars({ vertices: h.length, 'area × 2': area2 })])
     t.out(`${h.length} ${area2}`)
   },
 }
@@ -568,7 +637,11 @@ int main() {
     const perm = r.shuffle(span(1, n))
     return `${n}\n` + genTree(n, r).map(([u, v]) => `${perm[u]} ${perm[v]}`).join('\n') + '\n'
   },
-  run(inp, t) {
+  broken: {
+    from: 'priority_queue<int, vector<int>, greater<int>> leaves;', to: 'priority_queue<int> leaves;',
+    why: ['The Prüfer sequence is defined by always removing the leaf with the __smallest__ label, and that rule is what makes the sequence unique and reversible. A plain priority_queue is a max-heap, so the program removes the largest leaf each time and writes down a different sequence.', 'Prüfer 序列的定义是：每次删去编号__最小__的叶子，正是这条规则让序列唯一、可以还原。不加参数的 priority_queue 是大根堆，于是程序每次删去的是编号最大的叶子，写出来的是另一个序列。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), es: E[] = []
     need(n >= 1, 'n must be at least 1.', 'n 至少为 1。')
     for (let i = 0; i < n - 1; i++) { const u = rd.int() - 1, v = rd.int() - 1; need(u >= 0 && u < n && v >= 0 && v < n, 'Vertex out of range.', '顶点编号越界。'); es.push([u, v, 1]) }
@@ -576,17 +649,23 @@ int main() {
     const g: [number, number][][] = Array.from({ length: n }, () => []), deg = new Int32Array(n), gone = new Uint8Array(n), out: number[] = [], et: Tones = {}
     es.forEach(([u, v], i) => { g[u].push([v, i]); g[v].push([u, i]); deg[u]++; deg[v]++ })
     const pos = t.on ? layoutTree(n, es, 0) : [], ed = es.map(([u, v]) => ({ u, v }))
-    const leaves = new Heap<number>((a, b) => a < b)
+    const leaves = new Heap<number>((a, b) => (bug ? a > b : a < b))
     for (let i = 0; i < n; i++) if (deg[i] === 1) leaves.push(i)
     const view = (hi: Tones) => { const tone: Tones = {}; for (let i = 0; i < n; i++) if (gone[i]) tone[i] = 'dim'; else if (deg[i] === 1) tone[i] = 'cmp'; return [graph(pos, ed, { tone: { ...tone, ...hi }, et, name: 'blue = current leaves' }), arr('Prüfer sequence', out.length ? out : ['—'], out.length ? tn({ act: out.length - 1 }) : {})] as const }
     t.s('init', () => [[`Leaves: ${leaves.a.slice().sort((a, b) => a - b).map(x => x + 1).join(', ') || 'none'}.`, `叶子：${leaves.a.slice().sort((a, b) => a - b).map(x => x + 1).join('、') || '无'}。`], ...view({})])
     for (let k = 0; k < n - 2; k++) {
+      if (!bug && k > 0 && leaves.size >= 2) t.ask(() => {
+        const ls = leaves.a.slice().sort((x, y) => x - y), all = [...new Set([...ls.slice(0, 3), ls[ls.length - 1]])]
+        const rot = k % all.length, opts = [...all.slice(rot), ...all.slice(0, rot)]
+        return [['Which leaf is removed next?', '下一个删去的是哪个叶子？'], opts.map(x => [`vertex ${x + 1}`, `顶点 ${x + 1}`] as const), opts.indexOf(ls[0])]
+      })
       const u = leaves.pop()
       gone[u] = 1
       for (const [v, e] of g[u]) {
         if (gone[v]) continue
         out.push(v + 1); et[e] = 'dim'
-        t.s('leaf', () => [[`Smallest leaf is ${u + 1}; its neighbour ${v + 1} goes into the sequence, then ${u + 1} is deleted.`, `最小的叶子是 ${u + 1}；把它的邻居 ${v + 1} 写入序列，然后删去 ${u + 1}。`], ...view({ [u]: 'bad', [v]: 'act' })])
+        if (bug) t.s('leaf', () => [[`The heap gives leaf ${u + 1}; its neighbour ${v + 1} goes into the sequence, then ${u + 1} is deleted.`, `堆给出叶子 ${u + 1}；把它的邻居 ${v + 1} 写入序列，然后删去 ${u + 1}。`], ...view({ [u]: 'bad', [v]: 'act' })])
+        else t.s('leaf', () => [[`Smallest leaf is ${u + 1}; its neighbour ${v + 1} goes into the sequence, then ${u + 1} is deleted.`, `最小的叶子是 ${u + 1}；把它的邻居 ${v + 1} 写入序列，然后删去 ${u + 1}。`], ...view({ [u]: 'bad', [v]: 'act' })])
         if (--deg[v] === 1) { leaves.push(v); t.s('newleaf', () => [[`${v + 1} has become a leaf.`, `${v + 1} 变成了叶子。`], ...view({ [v]: 'ok' })]) }
       }
     }
@@ -626,7 +705,11 @@ int main() {
   input: ['n (2 ≤ n ≤ 10¹⁴). Prints its prime factors in non-decreasing order, each as often as it occurs. (In the generator, n is the number of digits.)', 'n（2 ≤ n ≤ 10¹⁴）。按从小到大的顺序输出它的质因数，重复的质因数重复输出。（生成器中 n 表示位数。）'],
   sizes: [2, 3, 4], lab: [4, 8, 11, 14],
   gen: (n, r) => `${n <= 1 ? r.int(2, 9) : n <= 8 ? r.int(10 ** (n - 1), 10 ** n - 1) : Math.floor(10 ** (n - 1) * (1 + 9 * r.next()))}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'while (n % p == 0) {', to: 'if (n % p == 0) {',
+    why: ['A prime can occur __several times__: 8 = 2 · 2 · 2. `if` divides by p only once and then moves on to p + 1, so the remaining copies of p are never taken out. They stay inside n — the program prints 8 as "2 4", with a composite number at the end.', '一个质数可能__出现好几次__：8 = 2 · 2 · 2。`if` 只除一次 p 就去试 p + 1 了，剩下的那几个 p 再也没有被除掉。它们留在 n 里——程序把 8 输出成 “2 4”，最后还跟着一个合数。'],
+  },
+  run(inp, t, bug = false) {
     const N = reader(inp).int(), fs: number[] = []
     need(Number.isInteger(N) && N >= 2 && N <= 1e14, 'n must be an integer between 2 and 10¹⁴.', 'n 须为 2 到 10¹⁴ 之间的整数。')
     let n = N
@@ -638,6 +721,8 @@ int main() {
         n /= p; fs.push(p)
         const now = n
         t.s('take', () => [[`${p} divides ${old}: take the factor ${p}, leaving ${old} ÷ ${p} = ${now}.`, `${p} 能整除 ${old}：取出质因数 ${p}，剩下 ${old} ÷ ${p} = ${now}。`], arr(`prime factors of ${N} found so far`, fs, tn({ act: fs.length - 1 })), vars({ n: now, p })])
+        if (bug) break
+        if (now > 1) t.ask(() => [[`${now} is left. Is ${p} tried again before moving on to ${p + 1}?`, `还剩 ${now}。在去试 ${p + 1} 之前，还要再试一次 ${p} 吗？`], [[`yes: ${p} divides ${now}`, `要：${p} 能整除 ${now}`], [`no: ${p} does not divide ${now}`, `不要：${p} 不能整除 ${now}`]], now % p === 0 ? 0 : 1])
       }
     }
     const rest = n
@@ -695,16 +780,21 @@ int main() {
     while (!isPrimeN(p)) p = p >= hi ? lo : p + 1
     return `${r.int(1, Math.max(1, p - 1))} ${r.int(1, Math.max(1, p - 1))} ${p}\n`
   },
-  run(inp, t) {
+  broken: {
+    from: 'long long inv = power(b, p - 2, p);  //@fermat', to: 'long long inv = power(b, p - 1, p);  //@fermat',
+    why: ['Fermat\'s little theorem says b^(p − 1) ≡ 1. That is exactly why b^(p − 1) is __useless__ as an inverse: multiplying by it multiplies by 1. The inverse is the power one lower, b^(p − 2), because b · b^(p − 2) = b^(p − 1) ≡ 1. With p − 1 the program prints a mod p and never divides at all.', '费马小定理说 b^(p − 1) ≡ 1。正因为如此，b^(p − 1) 作为逆元__毫无用处__：乘以它就是乘以 1。逆元是低一次的幂 b^(p − 2)，因为 b · b^(p − 2) = b^(p − 1) ≡ 1。用 p − 1 时，程序输出的是 a mod p，根本没有做除法。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), a = rd.int(), b = rd.int(), p = rd.int()
     need(Number.isInteger(p) && p >= 2 && p < 2 ** 31 && isPrimeN(p), 'p must be a prime below 2³¹.', 'p 必须是小于 2³¹ 的质数。')
     need(Number.isInteger(a) && a >= 0 && Number.isInteger(b) && b > 0 && b % p !== 0, 'Need a ≥ 0, b > 0 and b not divisible by p.', '需要 a ≥ 0、b > 0，且 b 不是 p 的倍数。')
-    const P = BigInt(p), e = p - 2, bits = e.toString(2).split('').map(Number), n = bits.length
+    const P = BigInt(p), e = p - (bug ? 1 : 2), bits = e.toString(2).split('').map(Number), n = bits.length
     // For a small p, the whole multiplication table row of b: every remainder appears once.
     const row = (hit?: number) => p <= 23 && grid(`${b} · x mod ${p}: every remainder 1 … ${p - 1} appears exactly once`, [span(1, p - 1), span(1, p - 1).map(x => (b % p) * x % p)], gt({ ok: hit === undefined ? [] : [[0, hit - 1], [1, hit - 1]] }), { rows: ['x', `${b} · x`] })
     let base = BigInt(b % p), res = 1n, k = 0
     const view = (tone: 'act' | 'cmp') => arr(`exponent p − 2 = ${e} in binary (bit k is at the right end)`, bits, tn({ dim: span(n - k, n - 1), [tone]: n - 1 - k }), undefined, { base: 0 })
-    t.s('fermat', () => [[`Dividing by ${b} modulo ${p} means multiplying by its inverse, and by Fermat the inverse is ${b}^(${p} − 2) = ${b}^${e} mod ${p}.`, `模 ${p} 意义下除以 ${b}，就是乘以它的逆元；由费马小定理，逆元是 ${b}^(${p} − 2) = ${b}^${e} mod ${p}。`], row(), vars({ a, b, p })])
+    if (bug) t.s('fermat', () => [[`The program computes inv = ${b}^(${p} − 1) = ${b}^${e} mod ${p}.`, `程序计算 inv = ${b}^(${p} − 1) = ${b}^${e} mod ${p}。`], row(), vars({ a, b, p })])
+    else t.s('fermat', () => [[`Dividing by ${b} modulo ${p} means multiplying by its inverse, and by Fermat the inverse is ${b}^(${p} − 2) = ${b}^${e} mod ${p}.`, `模 ${p} 意义下除以 ${b}，就是乘以它的逆元；由费马小定理，逆元是 ${b}^(${p} − 2) = ${b}^${e} mod ${p}。`], row(), vars({ a, b, p })])
     for (let x = e; x > 0; x = Math.floor(x / 2)) {
       if (x % 2 === 1) {
         const old = res
@@ -717,7 +807,8 @@ int main() {
       k++
     }
     const inv = Number(res), ans = Number(BigInt(a % p) * res % P)
-    t.s('done', () => [[`The inverse of ${b} is ${inv}: ${b} × ${inv} mod ${p} = 1. So a / b = ${a} × ${inv} mod ${p} = ${ans}.`, `${b} 的逆元是 ${inv}：${b} × ${inv} mod ${p} = 1。所以 a / b = ${a} × ${inv} mod ${p} = ${ans}。`], row(inv), vars({ inverse: inv, answer: ans })])
+    if (bug) t.s('done', () => [[`inv = ${inv}. The program prints ${a} × ${inv} mod ${p} = ${ans}.`, `inv = ${inv}。程序输出 ${a} × ${inv} mod ${p} = ${ans}。`], row(), vars({ inverse: inv, answer: ans })])
+    else t.s('done', () => [[`The inverse of ${b} is ${inv}: ${b} × ${inv} mod ${p} = 1. So a / b = ${a} × ${inv} mod ${p} = ${ans}.`, `${b} 的逆元是 ${inv}：${b} × ${inv} mod ${p} = 1。所以 a / b = ${a} × ${inv} mod ${p} = ${ans}。`], row(inv), vars({ inverse: inv, answer: ans })])
     t.out(ans)
   },
 }
@@ -770,7 +861,11 @@ int main() {
     const ms = r.shuffle(n <= 4 ? [2, 3, 5, 7, 11] : PRIMES.slice(0, 13)).slice(0, n)
     return `${ms.length}\n` + ms.map(m => `${m} ${r.int(0, m - 1)}`).join('\n') + '\n'
   },
-  run(inp, t) {
+  broken: {
+    from: 'long long t = ((r - x) % m * (inv % m) % m + m) % m;  //@step', to: 'long long t = (r - x) % m * (inv % m) % m;  //@step',
+    why: ['In C++ the remainder of a negative number is __negative__: (−7) % 5 = −2. Both r − x and inv can be negative, so t may come out below 0. x + M · t still satisfies every condition, but it is no longer the smallest non-negative solution — it may even be negative. The final "+ m) % m" is what turns any remainder into one between 0 and m − 1.', '在 C++ 中，负数的余数是__负的__：(−7) % 5 = −2。r − x 和 inv 都可能是负数，所以 t 可能小于 0。x + M · t 仍然满足所有条件，但它不再是最小的非负解——甚至可能是负数。最后的 “+ m) % m” 正是把任何余数变到 0 到 m − 1 之间的那一步。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), k = rd.int(), cs = span(1, k).map(() => rd.ints(2))
     let prod = 1
     for (const [m, r] of cs) {
@@ -782,16 +877,18 @@ int main() {
     let M = 1, x = 0
     const table = (i: number, tone: Tone) => grid('conditions', cs.map(([m, r], j) => [`x ≡ ${r} (mod ${m})`, j < i || (j === i && tone === 'ok') ? x % m : '']), Object.fromEntries(cs.flatMap((c, j) => (j < i || (j === i && tone === 'ok') ? [[`${j},0`, 'ok' as Tone], [`${j},1`, 'ok' as Tone]] : j === i ? [[`${j},0`, tone]] : []))), { cols: ['condition', 'current x mod m'] })
     for (let i = 0; i < k; i++) {
-      const [m, r] = cs[i], inv = ((egcd(M % m, m)[1] % m) + m) % m, x0 = x, M0 = M
+      // The broken version keeps the coefficient exactly as exgcd returns it, possibly negative, as the C++ does.
+      const [m, r] = cs[i], inv = bug ? egcd(M % m, m)[1] : ((egcd(M % m, m)[1] % m) + m) % m, x0 = x, M0 = M
       t.s('inv', () => [[`Next: x ≡ ${r} (mod ${m}). So far x = ${x0}, and x + ${M0} · t fits all earlier conditions. The inverse of ${M0} modulo ${m} is ${inv}.`, `下一个条件：x ≡ ${r} (mod ${m})。目前 x = ${x0}，而 x + ${M0} · t 满足之前的所有条件。${M0} 模 ${m} 的逆元是 ${inv}。`], table(i, 'act'), vars({ x: x0, M: M0 })])
-      const tt = ((((r - x) % m) * inv) % m + m) % m
+      const tt = bug ? (((r - x) % m) * (inv % m)) % m : ((((r - x) % m) * inv) % m + m) % m
       t.s('step', () => [[`Need ${x0} + ${M0} · t ≡ ${r} (mod ${m}): t = (${r} − ${x0}) · ${inv} mod ${m} = ${tt}.`, `需要 ${x0} + ${M0} · t ≡ ${r} (mod ${m})：t = (${r} − ${x0}) · ${inv} mod ${m} = ${tt}。`], table(i, 'act'), vars({ x: x0, M: M0, t: tt })])
       x += M * tt; M *= m
       const x1 = x, M1 = M
       t.s('merge', () => [[`x = ${x0} + ${M0} · ${tt} = ${x1}. It now fits ${i + 1} condition${i ? 's' : ''}, and so does every x + ${M1} · t.`, `x = ${x0} + ${M0} · ${tt} = ${x1}。它现在满足前 ${i + 1} 个条件，所有的 x + ${M1} · t 也是如此。`], table(i, 'ok'), vars({ x: x1, M: M1 })])
     }
     const res = x
-    t.s('done', () => [[`The smallest solution is ${res}; all solutions are ${res} + ${M} · t.`, `最小的解是 ${res}；全部的解是 ${res} + ${M} · t。`], table(k, 'ok'), vars({ answer: res })])
+    if (bug) t.s('done', () => [[`The program prints x = ${res}.`, `程序输出 x = ${res}。`], table(k, 'ok'), vars({ answer: res })])
+    else t.s('done', () => [[`The smallest solution is ${res}; all solutions are ${res} + ${M} · t.`, `最小的解是 ${res}；全部的解是 ${res} + ${M} · t。`], table(k, 'ok'), vars({ answer: res })])
     t.out(res)
   },
 }
@@ -847,7 +944,11 @@ int main() {
     const p = n < 13 ? 13 : n < 31 ? 31 : 1000000007, q = n <= 30 ? 3 : 1000
     return `${q} ${p}\n${n} ${r.int(1, n - 1)}\n` + span(2, q).map(() => { const m = r.int(1, n); return `${m} ${r.int(0, 19) === 0 ? m + 1 : r.int(0, m)}` }).join('\n') + '\n'
   },
-  run(inp, t) {
+  broken: {
+    from: 'inv[i - 1] = inv[i] * i % p;  //@down', to: 'inv[i - 1] = inv[i] * (i - 1) % p;  //@down',
+    why: ['i! = (i − 1)! · i, so 1 / (i − 1)! = (1 / i!) · __i__: multiplying by i cancels the one factor that i! has and (i − 1)! does not. Multiplying by i − 1 cancels the wrong factor; worse, at i = 1 it multiplies by 0, so inv[0] becomes 0, and every C(n, 0) and C(n, n) comes out 0.', 'i! = (i − 1)! · i，所以 1 / (i − 1)! = (1 / i!) · __i__：乘以 i，正好约掉 i! 比 (i − 1)! 多出的那个因子。乘以 i − 1 约掉的是另一个因子；更糟的是，i = 1 时乘的是 0，于是 inv[0] 变成 0，所有的 C(n, 0) 和 C(n, n) 都算成了 0。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), q = rd.int(), p = rd.int()
     need(Number.isInteger(p) && p >= 2 && p < 2 ** 31 && isPrimeN(p), 'p must be a prime below 2³¹.', 'p 必须是小于 2³¹ 的质数。')
     const ask = span(1, q).map(() => rd.ints(2)), top = Math.max(0, ...ask.map(x => x[0]))
@@ -866,8 +967,13 @@ int main() {
     inv[top] = res
     t.s('last', () => [[`inv[${top}] = fact[${top}]^(p − 2) = ${fact[top]}^${p - 2} mod ${p} = ${inv[top]}. Check: ${fact[top]} · ${inv[top]} mod ${p} = 1.`, `inv[${top}] = fact[${top}]^(p − 2) = ${fact[top]}^${p - 2} mod ${p} = ${inv[top]}。检验：${fact[top]} · ${inv[top]} mod ${p} = 1。`], ...view(top, top, tn({ cmp: top }), tn({ act: top }))])
     for (let i = top; i >= 1; i--) {
-      inv[i - 1] = mul(inv[i], i)
-      t.s('down', () => [[`inv[${i - 1}] = inv[${i}] · ${i} = ${inv[i]} · ${i} mod ${p} = ${inv[i - 1]}.`, `inv[${i - 1}] = inv[${i}] · ${i} = ${inv[i]} · ${i} mod ${p} = ${inv[i - 1]}。`], ...view(top, i - 1, {}, tn({ cmp: i, act: i - 1 }))])
+      if (!bug && i >= 2) t.ask(() => {
+        const all = [i - 1, i, i + 1], rot = i % 3, opts = [...all.slice(rot), ...all.slice(0, rot)]
+        return [[`inv[${i}] = 1 / ${i}! is known. inv[${i - 1}] = 1 / ${i - 1}! is inv[${i}] multiplied by what?`, `已知 inv[${i}] = 1 / ${i}!。inv[${i - 1}] = 1 / ${i - 1}! 等于 inv[${i}] 乘以多少？`], opts.map(x => [String(x), String(x)] as const), opts.indexOf(i)]
+      })
+      const f = bug ? i - 1 : i
+      inv[i - 1] = mul(inv[i], f)
+      t.s('down', () => [[`inv[${i - 1}] = inv[${i}] · ${f} = ${inv[i]} · ${f} mod ${p} = ${inv[i - 1]}.`, `inv[${i - 1}] = inv[${i}] · ${f} = ${inv[i]} · ${f} mod ${p} = ${inv[i - 1]}。`], ...view(top, i - 1, {}, tn({ cmp: i, act: i - 1 }))])
     }
     for (const [n, k] of ask) {
       const c = k < 0 || k > n ? 0 : mul(mul(fact[n], inv[k]), inv[n - k])
@@ -926,7 +1032,11 @@ int main() {
     const ps = r.shuffle(PRIMES.slice(0, n <= 6 ? 6 : 20)).slice(0, Math.min(n, 20)).sort((a, b) => a - b)
     return `${n <= 6 ? r.int(30, 200) : r.int(1000000000, 1000000000000)} ${ps.length}\n${ps.join(' ')}\n`
   },
-  run(inp, t) {
+  broken: {
+    from: 'else ans -= n / prod;  //@sub', to: 'else ans += n / prod;  //@sub',
+    why: ['Adding every intersection counts a number divisible by two of the primes three times — once for each prime and once for the pair — instead of once. The signs __alternate__ precisely to undo that: a number divisible by exactly j of the primes appears in C(j, 1) − C(j, 2) + C(j, 3) − … = 1 terms. Without the minus sign the program counts far too many.', '把所有交集都加上，一个能被两个质数整除的数会被数三次——两个质数各一次，这一对再一次——而不是一次。符号__交替__正是为了抵消这一点：恰好能被其中 j 个质数整除的数，出现在 C(j, 1) − C(j, 2) + C(j, 3) − … = 1 项中。去掉减号后，程序数出的个数大大偏多。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), k = rd.int()
     need(Number.isInteger(n) && n >= 1 && n <= 1e15 && Number.isInteger(k) && k >= 1 && k <= 20, 'Need 1 ≤ n ≤ 10¹⁵ and 1 ≤ k ≤ 20.', '需要 1 ≤ n ≤ 10¹⁵ 且 1 ≤ k ≤ 20。')
     const p = rd.ints(k), rows: (string | number)[][] = []
@@ -942,13 +1052,16 @@ int main() {
         prod *= p[i]
       }
       const cnt = Math.floor(n / prod), odd = bits % 2 === 1
-      ans += odd ? cnt : -cnt
-      if (t.on) rows.push([`{${group.join(', ')}}`, prod > n ? `> ${n}` : prod, odd ? '+' : '−', cnt, ans])
+      if (!bug && mask > 1) t.ask(() => [[`The group {${group.join(', ')}} has ${bits} prime${bits === 1 ? '' : 's'}. Is its term added or subtracted?`, `组合 {${group.join(', ')}} 有 ${bits} 个质数。这一项是加还是减？`], [['added', '加上'], ['subtracted', '减去']], odd ? 0 : 1])
+      ans += odd || bug ? cnt : -cnt
+      if (t.on) rows.push([`{${group.join(', ')}}`, prod > n ? `> ${n}` : prod, odd || bug ? '+' : '−', cnt, ans])
       const total = ans
-      t.s(odd ? 'add' : 'sub', () => [[`${group.length === 1 ? `Multiples of ${group[0]}` : `Multiples of all of ${group.join(', ')}`} up to ${n}: ${cnt}. ${bits} prime${bits === 1 ? '' : 's'} — ${odd ? 'odd, add' : 'even, subtract'}. Total ${total}.`, `不超过 ${n} 的数中，${group.length === 1 ? `${group[0]} 的倍数` : `同时是 ${group.join('、')} 的倍数的数`}有 ${cnt} 个。共 ${bits} 个质数——${odd ? '奇数个，加上' : '偶数个，减去'}。合计 ${total}。`], table(odd ? 'ok' : 'bad'), vars({ n, mask: mask.toString(2).padStart(k, '0'), total })])
+      if (bug) t.s(odd ? 'add' : 'sub', () => [[`${group.length === 1 ? `Multiples of ${group[0]}` : `Multiples of all of ${group.join(', ')}`} up to ${n}: ${cnt}. Add them. Total ${total}.`, `不超过 ${n} 的数中，${group.length === 1 ? `${group[0]} 的倍数` : `同时是 ${group.join('、')} 的倍数的数`}有 ${cnt} 个。加上。合计 ${total}。`], table('ok'), vars({ n, mask: mask.toString(2).padStart(k, '0'), total })])
+      else t.s(odd ? 'add' : 'sub', () => [[`${group.length === 1 ? `Multiples of ${group[0]}` : `Multiples of all of ${group.join(', ')}`} up to ${n}: ${cnt}. ${bits} prime${bits === 1 ? '' : 's'} — ${odd ? 'odd, add' : 'even, subtract'}. Total ${total}.`, `不超过 ${n} 的数中，${group.length === 1 ? `${group[0]} 的倍数` : `同时是 ${group.join('、')} 的倍数的数`}有 ${cnt} 个。共 ${bits} 个质数——${odd ? '奇数个，加上' : '偶数个，减去'}。合计 ${total}。`], table(odd ? 'ok' : 'bad'), vars({ n, mask: mask.toString(2).padStart(k, '0'), total })])
     }
     const res = ans
-    t.s('done', () => [[`${res} of the numbers 1 … ${n} are divisible by at least one of ${p.join(', ')}.`, `1 … ${n} 中有 ${res} 个数至少能被 ${p.join('、')} 中的一个整除。`], vars({ answer: res })])
+    if (bug) t.s('done', () => [[`The program prints ${res}.`, `程序输出 ${res}。`], vars({ answer: res })])
+    else t.s('done', () => [[`${res} of the numbers 1 … ${n} are divisible by at least one of ${p.join(', ')}.`, `1 … ${n} 中有 ${res} 个数至少能被 ${p.join('、')} 中的一个整除。`], vars({ answer: res })])
     t.out(res)
   },
 }
@@ -1007,7 +1120,11 @@ int main() {
     for (let i = 1; i < n; i++) b = b * 2 + r.int(0, 1)
     return `${b}\n`
   },
-  run(inp, t) {
+  broken: {
+    from: 'printf("%lld\\n", res.a[0][1]);  //@done', to: 'printf("%lld\\n", res.a[0][0]);  //@done',
+    why: ['Mⁿ = [[F(n + 1), F(n)], [F(n), F(n − 1)]]: the top-left entry is __one step ahead__. F(n) sits off the diagonal, in a[0][1] (or a[1][0]). Printing a[0][0] gives F(n + 1) — for n = 5 the program prints 8 instead of 5.', 'Mⁿ = [[F(n + 1), F(n)], [F(n), F(n − 1)]]：左上角那一项__多走了一步__。F(n) 在对角线之外，在 a[0][1]（或 a[1][0]）。输出 a[0][0] 得到的是 F(n + 1)——n = 5 时程序输出 8 而不是 5。'],
+  },
+  run(inp, t, bug = false) {
     const N = reader(inp).int()
     need(Number.isInteger(N) && N >= 0 && N <= 1e15, 'n must be between 0 and 10¹⁵.', 'n 须在 0 到 10¹⁵ 之间。')
     const bits = N.toString(2).split('').map(Number), len = bits.length
@@ -1025,8 +1142,9 @@ int main() {
       t.s('sq', () => [[`Square m: it is now M^${2 ** (k + 1)}, ready for bit ${k + 1}.`, `把 m 平方：它现在是 M^${2 ** (k + 1)}，为第 ${k + 1} 位做准备。`], bar('cmp'), show2('res', res), show2(`m = M^${2 ** (k + 1)}`, m0, 'cmp')])
       k++
     }
-    const ans = res[1]
-    t.s('done', () => [[`res = M^${N} = [[F(n+1), F(n)], [F(n), F(n−1)]], so F(${N}) = ${ans}.`, `res = M^${N} = [[F(n+1), F(n)], [F(n), F(n−1)]]，所以 F(${N}) = ${ans}。`], grid('res', [[String(res[0]), String(res[1])], [String(res[2]), String(res[3])]], gt({ ok: [[0, 1]] })), vars({ answer: String(ans) })])
+    const ans = bug ? res[0] : res[1]
+    if (bug) t.s('done', () => [[`res = M^${N}; the program prints res.a[0][0] = ${ans}.`, `res = M^${N}；程序输出 res.a[0][0] = ${ans}。`], grid('res', [[String(res[0]), String(res[1])], [String(res[2]), String(res[3])]], gt({ ok: [[0, 0]] })), vars({ answer: String(ans) })])
+    else t.s('done', () => [[`res = M^${N} = [[F(n+1), F(n)], [F(n), F(n−1)]], so F(${N}) = ${ans}.`, `res = M^${N} = [[F(n+1), F(n)], [F(n), F(n−1)]]，所以 F(${N}) = ${ans}。`], grid('res', [[String(res[0]), String(res[1])], [String(res[2]), String(res[3])]], gt({ ok: [[0, 1]] })), vars({ answer: String(ans) })])
     t.out(ans)
   },
 }
@@ -1079,7 +1197,11 @@ int main() {
   input: ['n, then n integers from 0 to 2⁵⁰. Prints the largest value obtainable as the XOR of some of them.', 'n，随后 n 个 0 到 2⁵⁰ 之间的整数。从中选出若干个数，输出它们的异或和的最大值。'],
   sizes: [3, 4, 5], lab: [10, 1000, 20000, 100000],
   gen: (n, r) => `${n}\n${span(1, n).map(() => (n <= 30 ? r.int(1, 31) : Math.floor(r.next() * 2 ** 50))).join(' ')}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'if ((ans ^ p[i]) > ans) ans ^= p[i];  //@max', to: 'if (p[i]) ans ^= p[i];  //@max',
+    why: ['XOR can clear bits as well as set them. p[i] always has bit i set, and if the answer already has bit i set — because a higher basis number brought it along — taking p[i] __clears__ it, and no lower bits can make up for that. Taking every basis number ignores this, so the result is a possible XOR but not the largest.', '异或既能把某一位变成 1，也能把它变成 0。p[i] 的第 i 位一定是 1，如果答案的第 i 位已经是 1——因为某个更高的基中的数顺带把它带了进来——再选 p[i] 就会把它__清掉__，而更低的位加起来也补不回来。把基中的每个数都选上，就忽略了这一点，得到的是一个能异或出的值，却不是最大的。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), xs = span(1, n).map(() => rd.str())
     need(xs.every(s => /^\d+$/.test(s) && BigInt(s) <= 1n << 60n), 'The numbers must be integers between 0 and 2⁶⁰.', '这些数必须是 0 到 2⁶⁰ 之间的整数。')
     const a = xs.map(BigInt), p = new Array<bigint>(61).fill(0n)
@@ -1107,13 +1229,15 @@ int main() {
     let ans = 0n
     for (let i = 60; i >= 0; i--) {
       if (!p[i]) continue
-      const old = ans, take = (ans ^ p[i]) > ans
+      const old = ans, take = bug || (ans ^ p[i]) > ans
+      if (!bug) t.ask(() => [[`The answer so far is ${bin(old)}, and p[${i}] = ${bin(p[i])}. Is p[${i}] taken?`, `目前的答案是 ${bin(old)}，p[${i}] = ${bin(p[i])}。要选 p[${i}] 吗？`], [['yes', '选'], ['no', '不选']], take ? 0 : 1])
       if (take) ans ^= p[i]
       const v = ans
-      t.s('max', () => [take ? [`p[${i}] = ${bin(p[i])}: taking it turns ${bin(old)} into ${bin(v)}, which is larger. Take it.`, `p[${i}] = ${bin(p[i])}：选它能把 ${bin(old)} 变成 ${bin(v)}，变大了。选上。`] : [`p[${i}] = ${bin(p[i])}: bit ${i} of the answer is already 1, taking it would clear it. Skip.`, `p[${i}] = ${bin(p[i])}：答案的第 ${i} 位已经是 1，选它反而会把这一位消掉。跳过。`], basis(i, take ? 'ok' : 'dim'), vars({ answer: bin(v) })])
+      if (bug) t.s('max', () => [[`p[${i}] = ${bin(p[i])}: ${bin(old)} xor p[${i}] = ${bin(v)}.`, `p[${i}] = ${bin(p[i])}：${bin(old)} xor p[${i}] = ${bin(v)}。`], basis(i, 'ok'), vars({ answer: bin(v) })])
+      else t.s('max', () => [take ? [`p[${i}] = ${bin(p[i])}: taking it turns ${bin(old)} into ${bin(v)}, which is larger. Take it.`, `p[${i}] = ${bin(p[i])}：选它能把 ${bin(old)} 变成 ${bin(v)}，变大了。选上。`] : [`p[${i}] = ${bin(p[i])}: bit ${i} of the answer is already 1, taking it would clear it. Skip.`, `p[${i}] = ${bin(p[i])}：答案的第 ${i} 位已经是 1，选它反而会把这一位消掉。跳过。`], basis(i, take ? 'ok' : 'dim'), vars({ answer: bin(v) })])
     }
     const res = ans
-    t.s('done', () => [[`The largest XOR is ${bin(res)} = ${res}.`, `最大的异或和是 ${bin(res)} = ${res}。`], basis(-1, 'ok'), vars({ answer: String(res) })])
+    t.s('done', () => [bug ? [`The program prints ${bin(res)} = ${res}.`, `程序输出 ${bin(res)} = ${res}。`] : [`The largest XOR is ${bin(res)} = ${res}.`, `最大的异或和是 ${bin(res)} = ${res}。`], basis(-1, 'ok'), vars({ answer: String(res) })])
     t.out(res)
   },
 }
@@ -1170,7 +1294,11 @@ int main() {
     if (r.int(0, 3)) { b = 1; for (let k = r.int(1, Math.min(p - 2, 200)); k > 0; k--) b = mulmodN(b, a, p) }
     return `${a} ${b} ${p}\n`
   },
-  run(inp, t) {
+  broken: {
+    from: 'printf("%lld\\n", i * m - tab[cur]);', to: 'printf("%lld\\n", i * m + tab[cur]);',
+    why: ['A hit means a^(i·m) = b · aʲ. Dividing both sides by aʲ gives a^(i·m − j) = b, so the exponent is i·m __minus__ j: the baby steps multiplied b by a, which moves the target forward, and that has to be taken back. With + j the printed x is 2j too large whenever j > 0.', '命中意味着 a^(i·m) = b · aʲ。两边同时除以 aʲ，得到 a^(i·m − j) = b，所以指数是 i·m __减去__ j：小步是在 b 上乘 a，相当于把目标往前推了，现在要退回来。写成 + j 时，只要 j > 0，输出的 x 就大了 2j。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), a0 = rd.int(), b0 = rd.int(), p = rd.int()
     need(Number.isInteger(p) && p >= 2 && p < 2 ** 31 && isPrimeN(p), 'p must be a prime below 2³¹.', 'p 必须是小于 2³¹ 的质数。')
     need(Number.isInteger(a0) && Number.isInteger(b0) && a0 >= 0 && b0 >= 0 && a0 % p !== 0, 'Need a, b ≥ 0 and a not divisible by p.', '需要 a, b ≥ 0，且 a 不是 p 的倍数。')
@@ -1197,8 +1325,9 @@ int main() {
       cur = mulmodN(cur, am, p)
       const v = cur, j = tab.get(cur)
       if (j !== undefined) {
-        const x = i * m - j
-        t.s('hit', () => [[`Giant step i = ${i}: a^${i * m} = ${v}, which is in the table at j = ${j}. So x = ${i} · ${m} − ${j} = ${x}.`, `大步 i = ${i}：a^${i * m} = ${v}，它在表中，对应 j = ${j}。所以 x = ${i} · ${m} − ${j} = ${x}。`], baby(j), vars({ a, b, p, answer: x })])
+        const x = bug ? i * m + j : i * m - j
+        if (bug) t.s('hit', () => [[`Giant step i = ${i}: a^${i * m} = ${v}, which is in the table at j = ${j}. The program prints ${i} · ${m} + ${j} = ${x}.`, `大步 i = ${i}：a^${i * m} = ${v}，它在表中，对应 j = ${j}。程序输出 ${i} · ${m} + ${j} = ${x}。`], baby(j), vars({ a, b, p, answer: x })])
+        else t.s('hit', () => [[`Giant step i = ${i}: a^${i * m} = ${v}, which is in the table at j = ${j}. So x = ${i} · ${m} − ${j} = ${x}.`, `大步 i = ${i}：a^${i * m} = ${v}，它在表中，对应 j = ${j}。所以 x = ${i} · ${m} − ${j} = ${x}。`], baby(j), vars({ a, b, p, answer: x })])
         t.out(x); return
       }
       t.s('giant', () => [[`Giant step i = ${i}: a^${i * m} = ${v} is not in the table.`, `大步 i = ${i}：a^${i * m} = ${v}，不在表中。`], baby(), vars({ i, 'a^(i·m)': v })])
@@ -1259,7 +1388,11 @@ int main() {
   input: ['n p (n ≤ 200, 2 ≤ p < 2³¹), then an n × n table of integers. Prints the determinant modulo p, as a number from 0 to p − 1.', 'n p（n ≤ 200，2 ≤ p < 2³¹），随后是 n × n 的整数表格。输出行列式对 p 取模的值，范围在 0 到 p − 1 之间。'],
   sizes: [2, 3, 4], lab: [5, 20, 50, 100],
   gen: (n, r) => `${n} 998244353\n` + span(1, n).map(() => span(1, n).map(() => (n <= 30 ? r.int(-4, 9) : r.int(0, 998244352))).join(' ')).join('\n') + '\n',
-  run(inp, t) {
+  broken: {
+    from: 'long long det = sign;', to: 'long long det = 1;',
+    why: ['Each Euclid step ends with a row swap, and every swap __multiplies the determinant by −1__; sign keeps track of how many there were. Starting the product from 1 forgets them: whenever the number of swaps is odd, the program prints −det mod p instead of det.', '辗转相除的每一步都以一次交换两行结束，而每次交换都会__让行列式乘以 −1__；sign 记录的就是交换了多少次。从 1 开始连乘就把它们忘了：只要交换的次数是奇数，程序输出的就是 −det mod p 而不是 det。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), p = rd.int()
     need(Number.isInteger(n) && n >= 1 && n <= 200 && Number.isInteger(p) && p >= 2 && p < 2 ** 31, 'Need 1 ≤ n ≤ 200 and 2 ≤ p < 2³¹.', '需要 1 ≤ n ≤ 200 且 2 ≤ p < 2³¹。')
     const half = Math.floor(p / 2), P = BigInt(p)
@@ -1283,10 +1416,11 @@ int main() {
       t.s('swap', () => [[`Swap rows ${i + 1} and ${j + 1}: the sign flips to ${sg > 0 ? '+' : '−'}.${a[j][i] === 0 ? ` The entry below the diagonal is now 0.` : ''}`, `交换第 ${i + 1} 行和第 ${j + 1} 行：符号变为 ${sg > 0 ? '+' : '−'}。${a[j][i] === 0 ? '对角线下方的这个数已经是 0 了。' : ''}`], view(i, j, i), vars({ sign: sg > 0 ? '+' : '−' })])
     }
     a = a.slice()
-    let det = sign
+    let det = bug ? 1 : sign
     for (let i = 0; i < n; i++) det = subMul(0, -det, a[i][i])
     const d = det, res = ((det % p) + p) % p
-    t.s('diag', () => [[`The matrix is triangular: determinant = ${sign > 0 ? '' : '− '}${a.map((row, i) => (row[i] < 0 ? `(${row[i]})` : row[i])).join(' · ')} = ${d} (mod ${p}).`, `矩阵已化为三角形：行列式 = ${sign > 0 ? '' : '− '}${a.map((row, i) => (row[i] < 0 ? `(${row[i]})` : row[i])).join(' · ')} = ${d}（mod ${p}）。`], grid('triangular form', a, Object.fromEntries(span(0, n - 1).map(i => [`${i},${i}`, 'ok' as Tone])), { rows: span(1, n).map(r => 'row ' + r) }), vars({ sign: sign > 0 ? '+' : '−' })])
+    const sgn = bug || sign > 0 ? '' : '− '
+    t.s('diag', () => [[`The matrix is triangular: determinant = ${sgn}${a.map((row, i) => (row[i] < 0 ? `(${row[i]})` : row[i])).join(' · ')} = ${d} (mod ${p}).`, `矩阵已化为三角形：行列式 = ${sgn}${a.map((row, i) => (row[i] < 0 ? `(${row[i]})` : row[i])).join(' · ')} = ${d}（mod ${p}）。`], grid('triangular form', a, Object.fromEntries(span(0, n - 1).map(i => [`${i},${i}`, 'ok' as Tone])), { rows: span(1, n).map(r => 'row ' + r) }), vars({ sign: sign > 0 ? '+' : '−' })])
     t.s('done', () => [[`As a remainder from 0 to p − 1: ${res}.`, `写成 0 到 p − 1 之间的余数：${res}。`], vars({ answer: res })])
     t.out(res)
   },
@@ -1337,7 +1471,11 @@ int main() {
   input: ['n m (both at most 10⁷). Prints the number of pairs (i, j) with 1 ≤ i ≤ n, 1 ≤ j ≤ m and gcd(i, j) = 1.', 'n m（都不超过 10⁷）。输出满足 1 ≤ i ≤ n、1 ≤ j ≤ m 且 gcd(i, j) = 1 的数对 (i, j) 的个数。'],
   sizes: [6, 10, 14], lab: [10, 1000, 100000, 1000000, 5000000],
   gen: (n, r) => `${n} ${Math.max(1, n - r.int(0, n >> 2))}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'mu[i * pr[j]] = -mu[i];  //@flip', to: 'mu[i * pr[j]] = mu[i];  //@flip',
+    why: ['μ(d) is (−1)ᵏ for a product of k different primes, so one more new prime factor __flips the sign__. Copying μ(i) unchanged makes every square-free d > 1 inherit −1 from its smallest prime: μ(6) comes out −1 instead of +1. The pairs divisible by 6 are then subtracted a second time instead of being added back.', '对 k 个不同质数的乘积，μ(d) = (−1)ᵏ，所以多一个新的质因数，__符号就要翻转__。原样复制 μ(i)，会让每个大于 1 的无平方因子数都从它最小的质因子那里继承 −1：μ(6) 算成了 −1 而不是 +1。于是两个数都是 6 的倍数的数对被再减了一次，而不是加回来。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), m = rd.int()
     need(Number.isInteger(n) && Number.isInteger(m) && n >= 1 && m >= 1 && n <= 1e7 && m <= 1e7, 'n and m must be between 1 and 10⁷.', 'n 和 m 须在 1 到 10⁷ 之间。')
     const k = Math.min(n, m), mu = new Int8Array(k + 1), comp = new Uint8Array(k + 1), known = new Uint8Array(k + 1), pr: number[] = []
@@ -1351,8 +1489,10 @@ int main() {
         const x = i * pr[j], q = pr[j]
         comp[x] = 1; known[x] = 1
         if (i % q === 0) { mu[x] = 0; t.s('square', () => [[`${x} = ${i} · ${q}, and ${q} already divides ${i}: ${x} contains ${q}², so μ(${x}) = 0.`, `${x} = ${i} · ${q}，而 ${q} 已经整除 ${i}：${x} 含有 ${q}²，所以 μ(${x}) = 0。`], table({ [i]: 'cmp', [x]: 'bad' })]); break }
-        mu[x] = -mu[i]
-        t.s('flip', () => [[`${x} = ${i} · ${q} with a new prime ${q}: μ(${x}) = −μ(${i}) = ${mu[x]}.`, `${x} = ${i} · ${q}，${q} 是一个新的质因数：μ(${x}) = −μ(${i}) = ${mu[x]}。`], table({ [i]: 'cmp', [x]: 'act' })])
+        if (!bug && mu[i] !== 0) t.ask(() => [[`${x} = ${i} · ${q}, where ${q} is a new prime and μ(${i}) = ${mu[i]}. What is μ(${x})?`, `${x} = ${i} · ${q}，其中 ${q} 是一个新的质因数，μ(${i}) = ${mu[i]}。μ(${x}) 是多少？`], [['−1', '−1'], ['0', '0'], ['1', '1']], -mu[i] + 1])
+        mu[x] = bug ? mu[i] : -mu[i]
+        if (bug) t.s('flip', () => [[`${x} = ${i} · ${q}: μ(${x}) = μ(${i}) = ${mu[x]}.`, `${x} = ${i} · ${q}：μ(${x}) = μ(${i}) = ${mu[x]}。`], table({ [i]: 'cmp', [x]: 'act' })])
+        else t.s('flip', () => [[`${x} = ${i} · ${q} with a new prime ${q}: μ(${x}) = −μ(${i}) = ${mu[x]}.`, `${x} = ${i} · ${q}，${q} 是一个新的质因数：μ(${x}) = −μ(${i}) = ${mu[x]}。`], table({ [i]: 'cmp', [x]: 'act' })])
       }
     }
     let ans = 0
@@ -1365,7 +1505,7 @@ int main() {
       t.s('term', () => [mu[d] === 0 ? [`d = ${d}: μ = 0, no contribution.`, `d = ${d}：μ = 0，没有贡献。`] : [`d = ${d}: μ = ${mu[d]}, and ⌊${n}/${d}⌋ · ⌊${m}/${d}⌋ = ${Math.floor(n / d)} · ${Math.floor(m / d)} pairs are both multiples of ${d}. Term ${term}, total ${total}.`, `d = ${d}：μ = ${mu[d]}，两个数都是 ${d} 的倍数的数对有 ⌊${n}/${d}⌋ · ⌊${m}/${d}⌋ = ${Math.floor(n / d)} · ${Math.floor(m / d)} 个。这一项是 ${term}，累计 ${total}。`], table({ [d]: mu[d] > 0 ? 'ok' : mu[d] < 0 ? 'bad' : 'dim' }, terms.slice()), vars({ n, m, total })])
     }
     const res = ans
-    t.s('done', () => [[`${res} of the ${n * m} pairs are coprime.`, `${n * m} 个数对中有 ${res} 对互质。`], vars({ answer: res })])
+    t.s('done', () => [bug ? [`The program prints ${res}.`, `程序输出 ${res}。`] : [`${res} of the ${n * m} pairs are coprime.`, `${n * m} 个数对中有 ${res} 对互质。`], vars({ answer: res })])
     t.out(res)
   },
 }
@@ -1441,7 +1581,11 @@ int main() {
   input: ['n m (the degrees), then the n + 1 coefficients of the first polynomial and the m + 1 of the second, from the constant term up. Prints the n + m + 1 coefficients of the product modulo 998 244 353. (In the generator both degrees are n.)', 'n m（两个多项式的次数），随后是第一个多项式的 n + 1 个系数和第二个多项式的 m + 1 个系数，从常数项开始。输出乘积的 n + m + 1 个系数，对 998 244 353 取模。（生成器中两个次数都是 n。）'],
   sizes: [1, 2, 3], lab: [4, 64, 1024, 16384, 65536],
   gen: (n, r) => `${n} ${n}\n${r.ints(n + 1, n <= 8 ? 1 : 0, n <= 8 ? 5 : MODN - 1).join(' ')}\n${r.ints(n + 1, n <= 8 ? 1 : 0, n <= 8 ? 5 : MODN - 1).join(' ')}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'long long wn = power(inv == 1 ? G : power(G, MOD - 2), (MOD - 1) / (2 * h));  //@layer', to: 'long long wn = power(G, (MOD - 1) / (2 * h));  //@layer',
+    why: ['Interpolation is the same transform run with ω replaced by __ω⁻¹__. Run with ω again, it does not undo the first transform but applies it twice, and that maps coefficient i to position −i: apart from the constant term, the coefficients come out in reverse order around the length. For (1 + 2x)(1 + 3x) the program prints 1 0 6 instead of 1 5 6.', '插值就是把 ω 换成 __ω⁻¹__ 再做一遍同样的变换。如果仍用 ω，它不会撤销第一次变换，而是又做了一次，这会把第 i 项系数送到位置 −i：除常数项外，各项系数绕着长度倒了过来。对 (1 + 2x)(1 + 3x)，程序输出 1 0 6 而不是 1 5 6。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), m = rd.int()
     need(Number.isInteger(n) && Number.isInteger(m) && n >= 0 && m >= 0 && n + m < 1 << 19, 'The degrees must be at least 0 and their sum below 524,288.', '两个次数都不能为负，且它们的和要小于 524,288。')
     let len = 1
@@ -1457,7 +1601,7 @@ int main() {
       for (let i = 0; i < len; i++) if (i < rev[i]) { const x = f[i]; f[i] = f[rev[i]]; f[rev[i]] = x }
       t.s('rev', () => [[`${name}: reorder by bit-reversed index, so that each half-size subproblem sits in one block.`, `${name}：按下标的二进制反转重新排列，让每个规模减半的子问题占据连续的一块。`], show(name, f, 'cmp')])
       for (let h = 1; h < len; h <<= 1) {
-        const wn = powN(inv === 1 ? 3 : powN(3, MODN - 2), (MODN - 1) / (2 * h))
+        const wn = powN(inv === 1 || bug ? 3 : powN(3, MODN - 2), (MODN - 1) / (2 * h))
         for (let i = 0; i < len; i += 2 * h) {
           let w = 1
           for (let j = i; j < i + h; j++) {
@@ -1479,7 +1623,7 @@ int main() {
     t.s('mul', () => [['Multiply the values at each point: these are the values of the product polynomial.', '把每个点上的两个值相乘：得到的就是乘积多项式在这些点上的值。'], show('a · b (values)', a, 'act'), show('b (values)', b)])
     transform(a, -1, 'a · b (back to coefficients)')
     const res = a.slice(0, n + m + 1)
-    t.s('done', () => [[`The product: ${res.slice(0, 12).join(', ')}${res.length > 12 ? ', …' : ''}.`, `乘积的系数：${res.slice(0, 12).join('，')}${res.length > 12 ? '，……' : ''}。`], arr('coefficients of the product', res.slice(0, 16), tn({ ok: span(0, Math.min(15, n + m)) }), undefined, { base: 0 })])
+    t.s('done', () => [bug ? [`The program prints ${res.slice(0, 12).join(', ')}${res.length > 12 ? ', …' : ''}.`, `程序输出 ${res.slice(0, 12).join('，')}${res.length > 12 ? '，……' : ''}。`] : [`The product: ${res.slice(0, 12).join(', ')}${res.length > 12 ? ', …' : ''}.`, `乘积的系数：${res.slice(0, 12).join('，')}${res.length > 12 ? '，……' : ''}。`], arr('coefficients of the product', res.slice(0, 16), tn({ ok: span(0, Math.min(15, n + m)) }), undefined, { base: 0 })])
     t.out(res.join(' '))
   },
 }

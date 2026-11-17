@@ -188,6 +188,13 @@ select { padding: 4px 6px; }
 .pitfalls { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .pitfalls li { border-left: 4px solid var(--bad); background: var(--bad-bg); border-radius: 0 8px 8px 0; padding: 9px 12px; font-size: .95rem; }
 .next-tab { margin: 28px 0 0; }
+.practice { display: flex; flex-direction: column; gap: 14px; max-width: 760px; }
+.practice > p { margin: 0; }
+.practice h3 { margin: 0 0 8px; }
+.practice ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.practice li { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.practice li input { width: 18px; height: 18px; margin: 0; flex: none; }
+.practice li.solved a { color: var(--muted); }
 .stage-card { min-width: 0; }
 .msg { display: flex; gap: 10px; align-items: baseline; background: var(--accent-soft); border-radius: 8px; padding: 10px 12px; font-size: .97rem; min-height: 3.2em; }
 .msg-no { font-family: var(--mono); font-size: .75rem; background: var(--accent); color: var(--accent-ink); border-radius: 5px; padding: 1px 6px; flex: none; }

@@ -61,7 +61,11 @@ int main() {
   input: ['n — board size. Prints the number of ways to place n non-attacking queens.', 'n —— 棋盘大小。输出放置 n 个互不攻击的皇后的方案数。'],
   sizes: [4, 5, 6], lab: [4, 6, 8, 10, 11],
   gen: n => `${n}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'col[c] = d1[r + c] = d2[r - c + n] = false;', to: 'col[c] = d1[r + c] = false;',
+    why: ['Backtracking must leave the arrays __exactly__ as they were before the queen was placed. This undo clears the column and one diagonal but forgets the other, so the anti-diagonal stays marked as attacked after the queen is gone. Squares on it are then rejected for no reason, and solutions are missed.', '回溯必须把数组恢复到放这个皇后之前的__原样__。这里的撤销清除了列和一条对角线，却忘了另一条，于是皇后拿走之后，那条反对角线仍然被标记为受攻击。之后它上面的格子会被无缘无故地拒绝，一些解就漏掉了。'],
+  },
+  run(inp, t, bug = false) {
     const n = reader(inp).int()
     need(n >= 1 && n <= 13, 'n must be between 1 and 13.', 'n 须在 1 到 13 之间。')
     const col = new Array<boolean>(n).fill(false), d1 = new Array<boolean>(2 * n).fill(false), d2 = new Array<boolean>(2 * n + 1).fill(false), pos: number[] = []
@@ -76,6 +80,7 @@ int main() {
     const dfs = (r: number) => {
       if (r === n) { ans++; t.s('found', () => [[`All ${n} queens placed: solution #${ans}.`, `${n} 个皇后全部放好：第 ${ans} 个解。`], board(n, 0, 'ok'), vars({ solutions: ans })]); return }
       for (let c = 0; c < n; c++) {
+        if (!bug && r > 0) t.ask(() => [[`Row ${r}, column ${c}: can a queen go here?`, `第 ${r} 行第 ${c} 列：这里能放皇后吗？`], [['yes', '能'], ['no, it is attacked', '不能，它受到攻击']], col[c] || d1[r + c] || d2[r - c + n] ? 1 : 0])
         if (col[c] || d1[r + c] || d2[r - c + n]) {
           t.s('prune', () => [[`Row ${r}, column ${c} is attacked (${col[c] ? 'same column' : 'same diagonal'}): skip.`, `第 ${r} 行第 ${c} 列被攻击（${col[c] ? '同列' : '同一对角线'}）：跳过。`], board(r, c, 'bad'), vars({ solutions: ans })])
           continue
@@ -83,7 +88,8 @@ int main() {
         col[c] = d1[r + c] = d2[r - c + n] = true; pos.push(c)
         t.s('place', () => [[`Row ${r}: place a queen in column ${c}, go to row ${r + 1}.`, `第 ${r} 行：在第 ${c} 列放皇后，进入第 ${r + 1} 行。`], board(r, c, 'act'), vars({ solutions: ans })])
         dfs(r + 1)
-        col[c] = d1[r + c] = d2[r - c + n] = false; pos.pop()
+        col[c] = d1[r + c] = false; if (!bug) d2[r - c + n] = false
+        pos.pop()
         t.s('undo', () => [[`Backtrack: remove the queen at row ${r}, column ${c}.`, `回溯：拿走第 ${r} 行第 ${c} 列的皇后。`], board(r, c, 'cmp'), vars({ solutions: ans })])
       }
     }
@@ -136,10 +142,14 @@ int main() {
   input: ["n m, then n rows of '.' (free) and '#' (wall). Prints the fewest moves from the top-left to the bottom-right cell, or −1.", "n m，随后 n 行由 '.'（空地）和 '#'（墙）组成。输出从左上角到右下角的最少步数，无法到达输出 −1。"],
   sizes: [5, 7, 9], lab: [10, 100, 300, 1000],
   gen: (n, r) => genMaze(n, r),
-  run(inp, t) {
+  broken: {
+    from: 'int dx[] = {-1, 0, 1, 0}', to: 'int dx[] = {-1, 0, -1, 0}',
+    why: ['dx and dy are read in pairs: (−1, 0) up, (0, 1) right, (1, 0) down, (0, −1) left. With the third dx changed to −1, the third pair is (−1, 0), up once more, so __no move ever goes down__. The search spreads along the top row and never reaches the bottom of the maze: the program prints −1.', 'dx 和 dy 要成对地看：(−1, 0) 向上，(0, 1) 向右，(1, 0) 向下，(0, −1) 向左。第三个 dx 改成 −1 之后，第三对变成 (−1, 0)，又是向上，于是__从来不会向下走__。搜索只能沿着第一行扩展，永远到不了迷宫的底部：程序输出 −1。'],
+  },
+  run(inp, t, bug = false) {
     const { n, m, g } = readGrid(inp)
     need(g[0][0] === '.' && g[n - 1][m - 1] === '.', 'Start and target cells must be free.', '起点和终点必须是空地。')
-    const d = new Int32Array(n * m).fill(-1), q = [0]
+    const d = new Int32Array(n * m).fill(-1), q = [0], dx = bug ? [-1, 0, -1, 0] : DX
     d[0] = 0
     const view = (cur: number, nw = -1, h = 0) => {
       const tones: Record<string, Tone> = {}
@@ -157,14 +167,14 @@ int main() {
     t.s('start', () => [['Push the start cell with distance 0.', '起点入队，距离为 0。'], ...view(-1)])
     for (let h = 0; h < q.length; h++) {
       const cur = q[h], x = Math.floor(cur / m), y = cur % m
-      if (h % 3 === 1) t.ask(() => {
+      if (h % 3 === 1 && !bug) t.ask(() => {
         let c = 0
         for (let k = 0; k < 4; k++) { const nx = x + DX[k], ny = y + DY[k]; if (nx >= 0 && ny >= 0 && nx < n && ny < m && g[nx][ny] !== '#' && d[nx * m + ny] === -1) c++ }
         return c > 3 ? undefined : [[`(${x}, ${y}) is at the front of the queue. How many new cells will it push?`, `队首是 (${x}, ${y})。它会让几个新格子入队？`], [0, 1, 2, 3].map(v => [String(v), String(v)] as const), c]
       })
       t.s('pop', () => [[`Pop (${x}, ${y}) at distance ${d[cur]}.`, `取出 (${x}, ${y})，距离 ${d[cur]}。`], ...view(cur, -1, h + 1)])
       for (let k = 0; k < 4; k++) {
-        const nx = x + DX[k], ny = y + DY[k], id = nx * m + ny
+        const nx = x + dx[k], ny = y + DY[k], id = nx * m + ny
         if (nx < 0 || ny < 0 || nx >= n || ny >= m || g[nx][ny] === '#' || d[id] !== -1) continue
         d[id] = d[cur] + 1; q.push(id)
         t.s('push', () => [[`(${nx}, ${ny}) is new: distance ${d[id]}, push it.`, `(${nx}, ${ny}) 是新格子：距离 ${d[id]}，入队。`], ...view(cur, id, h + 1)])
@@ -221,7 +231,11 @@ int main() {
   input: ["n m, then n rows of '#' (land) and '.' (water). Prints the number of 4-connected land regions.", "n m，随后 n 行由 '#'（陆地）和 '.'（水）组成。输出四连通的陆地连通块个数。"],
   sizes: [5, 7, 9], lab: [10, 100, 300, 1000],
   gen: (n, r) => { const s = genMaze(n, r, 0.5).split('\n'); return s.join('\n') },
-  run(inp, t) {
+  broken: {
+    from: 'id[nx][ny] = cnt;', to: 'id[nx][ny] = ++cnt;',
+    why: ['A region is counted once, when its seed is found; the cells reached from the seed belong to __the same__ region and must get the same label. `++cnt` gives every cell reached by the fill a new label, so cnt ends up counting land cells rather than regions.', '一个连通块只在找到它的种子时计数一次；从种子扩散到的格子属于__同一个__连通块，必须得到相同的标号。`++cnt` 让填充到的每个格子都得到一个新标号，于是 cnt 最终数的是陆地格子数，而不是连通块数。'],
+  },
+  run(inp, t, bug = false) {
     const { n, m, g } = readGrid(inp)
     const id = new Int32Array(n * m)
     let cnt = 0
@@ -246,12 +260,13 @@ int main() {
         for (let k = 0; k < 4; k++) {
           const nx = x + DX[k], ny = y + DY[k], c = nx * m + ny
           if (nx < 0 || ny < 0 || nx >= n || ny >= m || g[nx][ny] !== '#' || id[c]) continue
-          id[c] = cnt; q.push(c)
-          t.s('fill', () => [[`Spread from (${x}, ${y}) to (${nx}, ${ny}).`, `从 (${x}, ${y}) 扩散到 (${nx}, ${ny})。`], view(c), vars({ regions: cnt })])
+          id[c] = bug ? ++cnt : cnt; q.push(c)
+          const label = id[c]
+          t.s('fill', () => [[`Spread from (${x}, ${y}) to (${nx}, ${ny}): label ${label}.`, `从 (${x}, ${y}) 扩散到 (${nx}, ${ny})：标号 ${label}。`], view(c), vars({ cnt: label })])
         }
       }
     }
-    t.s('done', () => [[`The scan is complete: ${cnt} region(s).`, `扫描结束：共 ${cnt} 个连通块。`], view(-1), vars({ regions: cnt })])
+    t.s('done', () => [bug ? [`The scan is complete: cnt = ${cnt}.`, `扫描结束：cnt = ${cnt}。`] : [`The scan is complete: ${cnt} region(s).`, `扫描结束：共 ${cnt} 个连通块。`], view(-1), vars({ regions: cnt })])
     t.out(cnt)
   },
 }
@@ -306,7 +321,11 @@ int main() {
   input: ["n m, then n rows of '.' and '#'. Prints the fewest moves from the top-left to the bottom-right cell, or −1.", "n m，随后 n 行 '.' 和 '#'。输出从左上角到右下角的最少步数，无法到达输出 −1。"],
   sizes: [6, 8, 10], lab: [10, 100, 300, 700],
   gen: (n, r) => genMaze(n, r, 0.2),
-  run(inp, t) {
+  broken: {
+    from: 'if (f > d[x][y] + h(x, y)) continue;', to: 'if (f >= d[x][y] + h(x, y)) continue;',
+    why: ['The heap can hold an old entry for a cell whose g has since improved; such an entry has f __larger__ than the cell\'s current g + h, and only those may be skipped. An entry that is up to date has f exactly equal to g + h. With `>=` it is skipped as well — starting with the start cell itself — so nothing is ever expanded and the program prints −1.', '堆里可能留着某个格子的旧元素，而这个格子的 g 后来变小了；这样的元素的 f __大于__格子当前的 g + h，只有它们才可以跳过。最新的元素的 f 恰好等于 g + h。写成 `>=` 后它们也被跳过了——第一个就是起点本身——于是一个格子都没有扩展，程序输出 −1。'],
+  },
+  run(inp, t, bug = false) {
     const { n, m, g } = readGrid(inp)
     need(g[0][0] === '.' && g[n - 1][m - 1] === '.', 'Start and target cells must be free.', '起点和终点必须是空地。')
     const BIG = 1e9, d = new Int32Array(n * m).fill(BIG), par = new Int32Array(n * m).fill(-1), closed = new Uint8Array(n * m)
@@ -330,7 +349,10 @@ int main() {
     t.s('start', () => [[`Start: g = 0, h = ${h(0)}, so f = ${h(0)}.`, `起点：g = 0，h = ${h(0)}，所以 f = ${h(0)}。`], view(0)])
     while (pq.size) {
       const [f, cur] = pq.pop()
-      if (f > d[cur] + h(cur)) continue
+      if (bug ? f >= d[cur] + h(cur) : f > d[cur] + h(cur)) {
+        if (bug) { const x = Math.floor(cur / m), y = cur % m; t.s('pop', () => [[`Pop (${x}, ${y}) with f = ${f}: g + h = ${d[cur] + h(cur)}, so the entry is skipped.`, `取出 (${x}, ${y})，f = ${f}：g + h = ${d[cur] + h(cur)}，于是跳过这个元素。`], view(cur), vars({ expanded })]) }
+        continue
+      }
       closed[cur] = 1; expanded++
       const x = Math.floor(cur / m), y = cur % m
       t.s('pop', () => [[`Pop (${x}, ${y}): g = ${d[cur]}, h = ${h(cur)}, f = ${f} is the smallest.`, `取出 (${x}, ${y})：g = ${d[cur]}，h = ${h(cur)}，f = ${f} 最小。`], view(cur), vars({ expanded })])
@@ -346,7 +368,7 @@ int main() {
     t.s('done', () => {
       const path: number[] = []
       if (ans >= 0) for (let p = n * m - 1; p >= 0; p = par[p]) path.push(p)
-      return [ans >= 0 ? [`Target reached in ${ans} moves after expanding ${expanded} of ${n * m} cells.`, `到达终点，共 ${ans} 步；只扩展了 ${n * m} 个格子中的 ${expanded} 个。`] : ['The frontier is empty: the target is unreachable.', '待扩展集合已空：终点不可达。'], view(-1, -1, path), vars({ expanded })]
+      return [ans >= 0 ? (bug ? [`Target popped with g = ${ans} after expanding ${expanded} of ${n * m} cells.`, `终点出堆时 g = ${ans}；扩展了 ${n * m} 个格子中的 ${expanded} 个。`] : [`Target reached in ${ans} moves after expanding ${expanded} of ${n * m} cells.`, `到达终点，共 ${ans} 步；只扩展了 ${n * m} 个格子中的 ${expanded} 个。`]) : ['The frontier is empty: the target is unreachable.', '待扩展集合已空：终点不可达。'], view(-1, -1, path), vars({ expanded })]
     })
     t.out(ans)
   },
@@ -396,7 +418,11 @@ int main() {
   input: ['n (1 ≤ n ≤ 9). Prints every permutation of 1 … n, one per line, in dictionary order.', 'n（1 ≤ n ≤ 9）。按字典序输出 1 … n 的所有排列，每行一个。'],
   sizes: [2, 3, 4], lab: [3, 5, 7, 8],
   gen: n => `${n}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'used[x] = false;  //@undo', to: 'used[k] = false;  //@undo',
+    why: ['used is indexed by __number__, not by position: the number x that was put at position k is the one to give back. `used[k]` frees whichever number happens to equal the position instead, so x stays taken for good while another number becomes free although it is still in the row: permutations go missing and others repeat a number.', 'used 的下标是__数__而不是位置：要归还的是放在第 k 个位置上的那个数 x。`used[k]` 释放的却是恰好等于位置编号的那个数，于是 x 永远被占着，而另一个仍在排列中的数却变成了“空闲”：一些排列消失了，另一些排列里出现了重复的数。'],
+  },
+  run(inp, t, bug = false) {
     const n = reader(inp).int()
     need(Number.isInteger(n) && n >= 1 && n <= 9, 'n must be between 1 and 9.', 'n 须在 1 到 9 之间。')
     const a = new Array<number>(n + 1).fill(0), used = new Array<boolean>(n + 1).fill(false), out: string[] = []
@@ -412,11 +438,16 @@ int main() {
       }
       for (let x = 1; x <= n; x++) {
         if (used[x]) { t.tick(); continue }
+        if (!bug && (k > 1 || x > 1)) t.ask(() => {
+          const free = span(1, n).filter(v => !used[v])
+          return free.length < 2 || free.length > 4 ? undefined : [[`Position ${k}: which number is put here now?`, `第 ${k} 个位置：现在放哪个数？`], free.map(v => [String(v), String(v)] as const), free.indexOf(x)]
+        })
         a[k] = x; used[x] = true
         t.s('put', () => [[`Position ${k}: put ${x}.`, `第 ${k} 个位置：放 ${x}。`], ...view(k, 'act'), vars({ k, x, found: out.length })])
         dfs(k + 1)
-        used[x] = false
-        t.s('undo', () => [[`Back at position ${k}: take ${x} out again and try the next number.`, `回到第 ${k} 个位置：把 ${x} 拿出来，试下一个数。`], ...view(k, 'bad'), vars({ k, x, found: out.length })])
+        used[bug ? k : x] = false
+        const freed = bug ? k : x
+        t.s('undo', () => [bug ? [`Back at position ${k}: used[${freed}] = false.`, `回到第 ${k} 个位置：used[${freed}] = false。`] : [`Back at position ${k}: take ${x} out again and try the next number.`, `回到第 ${k} 个位置：把 ${x} 拿出来，试下一个数。`], ...view(k, 'bad'), vars({ k, x, found: out.length })])
       }
     }
     dfs(1)
@@ -425,7 +456,7 @@ int main() {
 }
 
 /** Longest downhill run on a grid of heights, with or without remembering the answers of cells already solved. */
-export const skiRun = (memo: boolean): Lesson['run'] => (inp, t) => {
+export const skiRun = (memo: boolean): Lesson['run'] => (inp, t, bug = false) => {
   const rd = reader(inp), n = rd.int(), m = rd.int()
   need(Number.isInteger(n) && Number.isInteger(m) && n >= 1 && m >= 1 && n * m <= 250000, 'The grid needs between 1 and 250,000 cells.', '网格的格子数须在 1 到 250,000 之间。')
   const h = Array.from({ length: n }, () => rd.ints(m)), f = Array.from({ length: n }, () => new Int32Array(m)), path: number[] = []
@@ -438,6 +469,7 @@ export const skiRun = (memo: boolean): Lesson['run'] => (inp, t) => {
     return [grid('height', h, tones, { sq: true }), memo ? grid('f: longest run starting here', f.map(row => Array.from(row, v => v || '')), { [x + ',' + y]: tone }, { sq: true }) : vars({ calls })] as const
   }
   const dfs = (x: number, y: number, top: boolean): number => {
+    if (memo && !top && !bug) t.ask(() => [[`dfs(${x}, ${y}) is called. What does it do?`, `调用 dfs(${x}, ${y})。它会做什么？`], [['return the stored answer at once', '直接返回存好的答案'], ['search from this cell', '从这个格子开始搜索']], f[x][y] ? 0 : 1])
     if (memo && f[x][y]) {
       if (top) t.tick(); else t.s('hit', () => [[`(${x}, ${y}) was solved before: f = ${f[x][y]}, no need to search again.`, `(${x}, ${y}) 之前已经算过：f = ${f[x][y]}，不必再搜。`], ...view(x, y, 'alt')])
       return f[x][y]
@@ -445,7 +477,7 @@ export const skiRun = (memo: boolean): Lesson['run'] => (inp, t) => {
     calls++
     t.s('enter', () => [[`Search from (${x}, ${y}), height ${h[x][y]}.`, `从 (${x}, ${y}) 开始搜索，高度 ${h[x][y]}。`], ...view(x, y, 'act')])
     path.push(x * m + y)
-    let best = 1
+    let best = bug ? 0 : 1
     for (let k = 0; k < 4; k++) {
       const nx = x + DX[k], ny = y + DY[k]
       if (nx < 0 || ny < 0 || nx >= n || ny >= m || h[nx][ny] >= h[x][y]) continue
@@ -509,6 +541,10 @@ int main() {
   input: ['n m, then n rows of m heights. A run moves to a neighbouring cell (up, down, left, right) that is strictly lower. Prints the number of cells on the longest run.', 'n m，随后 n 行，每行 m 个高度。每一步只能滑到上下左右相邻且严格更低的格子。输出最长路线经过的格子数。'],
   sizes: [3, 4, 5], lab: [4, 8, 12, 100, 300],
   gen: (n, r) => `${n} ${n}\n` + span(0, n - 1).map(i => span(0, n - 1).map(j => 2 * (2 * n - 2 - i - j) + r.int(0, 3) + 1).join(' ')).join('\n') + '\n',
+  broken: {
+    from: 'int best = 1;  //@enter', to: 'int best = 0;  //@enter',
+    why: ['A run that starts at (x, y) contains (x, y) itself, so even a cell with no lower neighbour has an answer of __1__, not 0. Starting from 0 makes every answer one too small — and worse, 0 is also the mark for "not computed yet", so the bottom cells are searched again every time they are reached.', '从 (x, y) 出发的路线包含 (x, y) 本身，所以即使一个格子没有更低的邻居，它的答案也是 __1__ 而不是 0。从 0 开始会让每个答案都小 1——更糟的是，0 同时也是“还没算过”的标记，于是最低处的格子每次被走到都要重新搜索一遍。'],
+  },
   run: skiRun(true),
 }
 
@@ -564,7 +600,11 @@ int main() {
   input: ["n m, then n rows of '.' (free) and '#' (wall). Prints the fewest moves from the top-left to the bottom-right cell, or −1.", "n m，随后 n 行由 '.'（空地）和 '#'（墙）组成。输出从左上角到右下角的最少步数，无法到达输出 −1。"],
   sizes: [5, 7, 9], lab: [10, 100, 300, 1000],
   gen: (n, r) => genMaze(n, r),
-  run(inp, t) {
+  broken: {
+    from: 'best = d[0][id] + d[1][id];  //@meet', to: 'best = d[0][id] + d[1][id] + 1;  //@meet',
+    why: ['d[0][id] counts the moves from the start __to__ the meeting cell, and d[1][id] the moves from that cell to the target. The cell is the end of one half and the start of the other, so the two halves join there without any extra move. Adding 1 counts a move that is not made: every answer comes out one too long.', 'd[0][id] 是从起点__到__相遇格的步数，d[1][id] 是从这个格子到终点的步数。相遇格既是前半段的终点，又是后半段的起点，两段在这里直接接上，中间没有多出的一步。加 1 就多算了一步并不存在的移动：每个答案都多了 1。'],
+  },
+  run(inp, t, bug = false) {
     const { n, m, g } = readGrid(inp)
     need(g[0][0] === '.' && g[n - 1][m - 1] === '.', 'Start and target cells must be free.', '起点和终点必须是空地。')
     const d = [new Int32Array(n * m).fill(-1), new Int32Array(n * m).fill(-1)]
@@ -595,14 +635,15 @@ int main() {
         nf.push(id)
         const other = d[s ^ 1][id], sum = d[0][id] + d[1][id]
         if (other !== -1 && (best < 0 || sum < best)) {
-          best = sum
-          t.s('meet', () => [[`(${x}, ${y}) was already reached from the other side: ${d[0][id]} + ${d[1][id]} = ${sum} moves.`, `(${x}, ${y}) 已经被另一边到达过：${d[0][id]} + ${d[1][id]} = ${sum} 步。`], view({ [id]: 'ok' }), vars({ best: sum })])
+          best = bug ? sum + 1 : sum
+          const b = best
+          t.s('meet', () => [bug ? [`(${x}, ${y}) was already reached from the other side: best = ${d[0][id]} + ${d[1][id]} + 1 = ${b}.`, `(${x}, ${y}) 已经被另一边到达过：best = ${d[0][id]} + ${d[1][id]} + 1 = ${b}。`] : [`(${x}, ${y}) was already reached from the other side: ${d[0][id]} + ${d[1][id]} = ${sum} moves.`, `(${x}, ${y}) 已经被另一边到达过：${d[0][id]} + ${d[1][id]} = ${sum} 步。`], view({ [id]: 'ok' }), vars({ best: b })])
         } else t.s('grow', () => [[`(${x}, ${y}) is new for the ${s ? 'target' : 'start'} side: distance ${d[s][id]}.`, `(${x}, ${y}) 是${s ? '终点' : '起点'}一侧的新格子：距离 ${d[s][id]}。`], view({ [id]: 'act' })])
       }
       f = s ? [f[0], nf] : [nf, f[1]]
     }
     const res = best
-    t.s('done', () => [res >= 0 ? [`The searches met: the shortest path has ${res} moves.`, `两边相遇了：最短路为 ${res} 步。`] : ['One side ran out of cells before the two met: −1.', '两边还没相遇，其中一边就无路可走了：−1。'], view(), vars({ answer: res })])
+    t.s('done', () => [res >= 0 ? (bug ? [`The searches met: the program prints ${res}.`, `两边相遇了：程序输出 ${res}。`] : [`The searches met: the shortest path has ${res} moves.`, `两边相遇了：最短路为 ${res} 步。`]) : ['One side ran out of cells before the two met: −1.', '两边还没相遇，其中一边就无路可走了：−1。'], view(), vars({ answer: res })])
     t.out(res)
   },
 }
@@ -651,7 +692,11 @@ int main() {
   input: ['n (1 ≤ n ≤ 5000). An addition chain starts with 1, and every later number is the sum of the previous number and one of the numbers before or equal to it. Prints the fewest additions that reach n, then one such chain.', 'n（1 ≤ n ≤ 5000）。加法链从 1 开始，后面的每个数都等于前一个数加上它之前（含它自己）的某个数。输出得到 n 所需的最少加法次数，以及一条这样的加法链。'],
   sizes: [7, 11, 15], lab: [10, 30, 100, 300, 1000, 3000],
   gen: n => `${n}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'printf("%d\\n", limit);', to: 'printf("%d\\n", limit + 1);',
+    why: ['The question asks for the number of __additions__. The chain a[0..limit] holds limit + 1 numbers, but the first of them, 1, is given for free; each addition adds one number. So the count of additions is limit, and printing limit + 1 counts the numbers in the chain instead.', '题目问的是__加法__的次数。链 a[0..limit] 中有 limit + 1 个数，但第一个数 1 是白给的；每做一次加法才多出一个数。所以加法次数是 limit，输出 limit + 1 数的是链中数的个数。'],
+  },
+  run(inp, t, bug = false) {
     const n = reader(inp).int()
     need(Number.isInteger(n) && n >= 1 && n <= 5000, 'n must be between 1 and 5,000.', 'n 须在 1 到 5,000 之间。')
     const a = [1]
@@ -660,7 +705,8 @@ int main() {
     const dfs = (k: number): boolean => {
       if (a[k] === n) { t.s('goal', () => [[`${a[k]} = n: a chain with ${k} addition${k === 1 ? '' : 's'}.`, `${a[k]} = n：得到一条用了 ${k} 次加法的加法链。`], chain(k, 'ok'), vars({ n, limit })]); return true }
       if (k === limit) { t.s('deep', () => [[`Limit reached at ${a[k]} ≠ ${n}: back.`, `到达深度限制，${a[k]} ≠ ${n}：返回。`], chain(k, 'bad'), vars({ n, limit })]); return false }
-      if (a[k] * 2 ** (limit - k) < n) { t.s('prune', () => [[`${a[k]} doubled ${limit - k} more time${limit - k === 1 ? '' : 's'} gives ${a[k] * 2 ** (limit - k)} < ${n}: hopeless, prune.`, `${a[k]} 再翻倍 ${limit - k} 次也只有 ${a[k] * 2 ** (limit - k)} < ${n}：不可能成功，剪枝。`], chain(k, 'bad'), vars({ n, limit })]); return false }
+      const top = a[k] * 2 ** (limit - k)
+      if (top < n) { t.s('prune', () => [[`${a[k]} doubled ${limit - k} more time${limit - k === 1 ? '' : 's'} gives ${top} < ${n}: hopeless, prune.`, `${a[k]} 再翻倍 ${limit - k} 次也只有 ${top} < ${n}：不可能成功，剪枝。`], chain(k, 'bad'), vars({ n, limit })]); return false }
       for (let i = k; i >= 0; i--) {
         a[k + 1] = a[k] + a[i]
         if (a[k + 1] > n) { t.tick(); continue }
@@ -675,8 +721,8 @@ int main() {
       limit++
     }
     const res = a.slice(0, limit + 1)
-    t.s('done', () => [[`Shortest chain: ${limit} addition${limit === 1 ? '' : 's'}.`, `最短的加法链用了 ${limit} 次加法。`], arr('chain', res, tn({ ok: span(0, limit) }), undefined, { base: 0 }), vars({ answer: limit })])
-    t.out(limit + '\n' + res.join(' '))
+    t.s('done', () => [bug ? [`The search succeeded with limit ${limit}: the program prints ${limit + 1} and the chain.`, `在限制为 ${limit} 时搜索成功：程序输出 ${limit + 1} 和这条链。`] : [`Shortest chain: ${limit} addition${limit === 1 ? '' : 's'}.`, `最短的加法链用了 ${limit} 次加法。`], arr('chain', res, tn({ ok: span(0, limit) }), undefined, { base: 0 }), vars({ answer: limit })])
+    t.out((bug ? limit + 1 : limit) + '\n' + res.join(' '))
   },
 }
 

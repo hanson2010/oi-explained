@@ -57,7 +57,11 @@ int main() {
     const at = r.int(0, n - m)
     return `${s}\n${r.next() < 0.8 ? s.slice(at, at + m) : rndStr(m, r, 'ab')}\n`
   },
-  run(inp, t) {
+  broken: {
+    from: 'while (j && s[i] != p[j]) j = nxt[j - 1];  //@fail', to: 'while (j && s[i] != p[j]) j = 0;  //@fail',
+    why: ['After a mismatch the last nxt[j − 1] characters read are __still a prefix of the pattern__, so an occurrence may already have begun inside the failed attempt. Resetting j to 0 throws that away, and since the text pointer never moves back, such an occurrence is never found: in "aab" the pattern "ab" is missed after "aa" fails.', '失配之后，刚读过的最后 nxt[j − 1] 个字符__仍然是模式串的前缀__，所以一次出现可能已经在这次失败的尝试中开始了。把 j 重置为 0 就把这些丢掉了；而文本指针又从不回退，这样的出现就永远找不到：在 "aab" 中，"aa" 失配后，模式串 "ab" 就被漏掉了。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), s = rd.str(), p = rd.str(), n = s.length, m = p.length, nxt = new Int32Array(m), out: number[] = []
     lower(s); lower(p)
     const P = p.split(''), S = s.split('')
@@ -77,12 +81,13 @@ int main() {
     for (let i = 0, j = 0; i < n; i++) {
       while (j && s[i] !== p[j]) {
         const old = j
-        t.ask(() => {
+        if (!bug) t.ask(() => {
           const c = [...new Set([0, nxt[old - 1], old - 1])].sort((x, y) => x - y)
           return c.length < 2 ? undefined : [[`Mismatch: s[${i}] = '${s[i]}' but p[${old}] = '${p[old]}', with ${old} characters matched. What does j become?`, `失配：s[${i}] = '${s[i]}'，而 p[${old}] = '${p[old]}'，此前已匹配 ${old} 个字符。j 变成多少？`], c.map(x => [`j = ${x}`, `j = ${x}`] as const), c.indexOf(nxt[old - 1])]
         })
-        j = nxt[j - 1]
-        t.s('fail', () => [[`s[${i}] = '${s[i]}' ≠ p[${old}] = '${p[old]}': keep the border of length ${j}, slide the pattern.`, `s[${i}] = '${s[i]}' ≠ p[${old}] = '${p[old]}'：保留长度为 ${j} 的 border，滑动模式串。`], arr('s', S, tn({ vis: span(i - j, i - 1), bad: i }), { i }), align(i, j, tn({ ok: span(0, j - 1), act: j })), arr('nxt', Array.from(nxt), tn({ act: old - 1 }))])
+        j = bug ? 0 : nxt[j - 1]
+        if (bug) t.s('fail', () => [[`s[${i}] = '${s[i]}' ≠ p[${old}] = '${p[old]}': j = 0.`, `s[${i}] = '${s[i]}' ≠ p[${old}] = '${p[old]}'：j = 0。`], arr('s', S, tn({ bad: i }), { i }), align(i, 0, tn({ act: 0 })), arr('nxt', Array.from(nxt), tn({ act: old - 1 }))])
+        else t.s('fail', () => [[`s[${i}] = '${s[i]}' ≠ p[${old}] = '${p[old]}': keep the border of length ${j}, slide the pattern.`, `s[${i}] = '${s[i]}' ≠ p[${old}] = '${p[old]}'：保留长度为 ${j} 的 border，滑动模式串。`], arr('s', S, tn({ vis: span(i - j, i - 1), bad: i }), { i }), align(i, j, tn({ ok: span(0, j - 1), act: j })), arr('nxt', Array.from(nxt), tn({ act: old - 1 }))])
       }
       const hit = s[i] === p[j]
       if (hit) j++
@@ -136,7 +141,11 @@ int main() {
   input: ['A lowercase string. Prints the length of its longest palindromic substring.', '一个小写字母串。输出它的最长回文子串的长度。'],
   sizes: [5, 7, 9], lab: [10, 1000, 100000, 500000],
   gen: (n, r) => rndStr(n, r, n <= 30 ? 'ab' : 'abc') + '\n',
-  run(inp, t) {
+  broken: {
+    from: 'while (t[i + p[i] + 1] == t[i - p[i] - 1]) p[i]++;', to: 'while (t[i + p[i]] == t[i - p[i]]) p[i]++;',
+    why: ['p[i] = k means the cells i − k … i + k are already known to match, so the next pair to test is the one __just outside__: i + k + 1 and i − k − 1. Testing t[i + k] against t[i − k] re-checks the outermost pair already known — at k = 0 that is cell i against itself, which always matches — so every radius comes out one too large.', 'p[i] = k 表示 i − k … i + k 这些格子已经确认是对称的，所以下一对要比较的是__紧挨在外面__的那一对：i + k + 1 和 i − k − 1。比较 t[i + k] 和 t[i − k]，是在重新检查已经确认过的最外层那一对——k = 0 时就是格子 i 和它自己，必然相等——于是每个半径都多了 1。'],
+  },
+  run(inp, t, bug = false) {
     const s = reader(inp).str()
     lower(s)
     const T = ['^', '#'], n0 = s.length
@@ -148,11 +157,17 @@ int main() {
     t.s('pad', () => [[`Pad "${s.length > 20 ? s.slice(0, 20) + '…' : s}" with # between characters and sentinels at both ends.`, `在 “${s.length > 20 ? s.slice(0, 20) + '…' : s}” 的字符之间插入 #，两端加上哨兵。`], arr('t (padded)', T, tn({ dim: [0, n - 1] }))])
     for (let i = 1; i < n - 1; i++) {
       const inside = i < r, m = 2 * c - i
+      if (!bug && inside && p[m] !== r - i) t.ask(() => {
+        const opts = [...new Set([Math.min(p[m], r - i), Math.max(p[m], r - i), 0])].sort((x, y) => x - y)
+        return [[`i = ${i} is inside the box (r = ${r}). Its mirror ${m} has p = ${p[m]}, and r − i = ${r - i}. Where does p[${i}] start?`, `i = ${i} 在盒子内（r = ${r}）。对称点 ${m} 的 p = ${p[m]}，而 r − i = ${r - i}。p[${i}] 从多少开始？`], opts.map(x => [String(x), String(x)] as const), opts.indexOf(Math.min(p[m], r - i))]
+      })
       p[i] = inside ? Math.min(p[m], r - i) : 0
       t.s('mirror', () => [inside ? [`i = ${i} lies inside the box (r = ${r}); its mirror is ${m}: p[${i}] ≥ min(p[${m}] = ${p[m]}, r − i = ${r - i}) = ${p[i]}.`, `i = ${i} 在盒子内（r = ${r}）；对称点是 ${m}：p[${i}] ≥ min(p[${m}] = ${p[m]}, r − i = ${r - i}) = ${p[i]}。`] : [`i = ${i} is outside the box (r = ${r}): start from p[${i}] = 0.`, `i = ${i} 在盒子之外（r = ${r}）：从 p[${i}] = 0 开始。`], ...view(i, inside ? { [m]: 'cmp', [i]: 'act' } : { [i]: 'act' })])
-      while (T[i + p[i] + 1] === T[i - p[i] - 1]) {
+      const off = bug ? 0 : 1
+      while (T[i + p[i] + off] === T[i - p[i] - off]) {
+        const a = i + p[i] + off, b = i - p[i] - off
         p[i]++
-        t.s('expand', () => [[`t[${i + p[i]}] = t[${i - p[i]}] = '${T[i + p[i]]}': expand to p[${i}] = ${p[i]}.`, `t[${i + p[i]}] = t[${i - p[i]}] = '${T[i + p[i]]}'：扩展到 p[${i}] = ${p[i]}。`], ...view(i, { ...tn({ ok: span(i - p[i], i + p[i]) }), [i]: 'act' })])
+        t.s('expand', () => [[`t[${a}] = t[${b}] = '${T[a]}': expand to p[${i}] = ${p[i]}.`, `t[${a}] = t[${b}] = '${T[a]}'：扩展到 p[${i}] = ${p[i]}。`], ...view(i, { ...tn({ ok: span(Math.max(0, i - p[i]), Math.min(n - 1, i + p[i])) }), [i]: 'act' })])
       }
       if (i + p[i] > r) {
         c = i; r = i + p[i]
@@ -160,7 +175,8 @@ int main() {
       }
       if (p[i] > ans) { ans = p[i]; best = i }
     }
-    t.s('done', () => [[`Longest palindrome has length ${ans}${n0 <= 40 ? `: "${T.slice(best - ans, best + ans + 1).filter(x => x !== '#').join('')}"` : ''}.`, `最长回文子串长度为 ${ans}${n0 <= 40 ? `：“${T.slice(best - ans, best + ans + 1).filter(x => x !== '#').join('')}”` : ''}。`], arr('t (padded)', T, tn({ dim: [0, n - 1], ok: span(best - ans, best + ans) })), arr('p', Array.from(p), tn({ ok: best })), vars({ answer: ans })])
+    if (bug) t.s('done', () => [[`The largest p[i] is ${ans}: the program prints it.`, `最大的 p[i] 是 ${ans}：程序输出它。`], arr('t (padded)', T, tn({ dim: [0, n - 1] })), arr('p', Array.from(p), tn({ ok: best })), vars({ answer: ans })])
+    else t.s('done', () => [[`Longest palindrome has length ${ans}${n0 <= 40 ? `: "${T.slice(best - ans, best + ans + 1).filter(x => x !== '#').join('')}"` : ''}.`, `最长回文子串长度为 ${ans}${n0 <= 40 ? `：“${T.slice(best - ans, best + ans + 1).filter(x => x !== '#').join('')}”` : ''}。`], arr('t (padded)', T, tn({ dim: [0, n - 1], ok: span(best - ans, best + ans) })), arr('p', Array.from(p), tn({ ok: best })), vars({ answer: ans })])
     t.out(ans)
   },
 }
@@ -206,7 +222,11 @@ int main() {
     const blk = rndStr(Math.max(1, Math.min(n, r.int(2, 4))), r, 'ab')
     return Array.from({ length: n }, (_, i) => (r.next() < 0.12 ? r.pick([...'ab']) : blk[i % blk.length])).join('') + '\n'
   },
-  run(inp, t) {
+  broken: {
+    from: 'if (i < r) z[i] = min(z[i - l], r - i);  //@reuse', to: 'if (i < r) z[i] = z[i - l];  //@reuse',
+    why: ['Inside the box, s[i..r) is a copy of s[i − l..r − l), but __nothing is known beyond r__. If z[i − l] reaches past the end of the box, the copy only guarantees r − i characters, and the rest may well differ. Taking z[i − l] whole claims matches that were never checked, so some z values come out too large.', '在盒子内部，s[i..r) 是 s[i − l..r − l) 的复制，但 __r 之后的情况一无所知__。如果 z[i − l] 超出了盒子的末端，这份复制只能保证 r − i 个字符，其余的完全可能不同。直接取整个 z[i − l]，就声称了从未检查过的匹配，于是有些 z 值偏大。'],
+  },
+  run(inp, t, bug = false) {
     const s = reader(inp).str(), n = s.length, z = new Int32Array(n), S = s.split('')
     lower(s)
     z[0] = n
@@ -214,8 +234,13 @@ int main() {
     const view = (i: number, hi: Tones = {}) => [arr('s', S, { ...tn({ vis: span(l, r - 1) }), ...hi }, r ? { i, l, 'r-1': r - 1 } : { i }), arr('z', Array.from(z, (x, k) => (k <= i ? x : '')), tn({ act: i }))] as const
     for (let i = 1; i < n; i++) {
       if (i < r) {
-        z[i] = Math.min(z[i - l], r - i)
-        t.s('reuse', () => [[`i = ${i} is inside the box [${l}, ${r}): copy min(z[${i - l}] = ${z[i - l]}, r − i = ${r - i}) = ${z[i]}.`, `i = ${i} 在盒子 [${l}, ${r}) 内：直接取 min(z[${i - l}] = ${z[i - l]}, r − i = ${r - i}) = ${z[i]}。`], ...view(i, { [i - l]: 'cmp', [i]: 'act' })])
+        if (!bug && z[i - l] !== r - i) t.ask(() => {
+          const opts = [...new Set([Math.min(z[i - l], r - i), Math.max(z[i - l], r - i), 0])].sort((x, y) => x - y)
+          return [[`i = ${i} is inside the box [${l}, ${r}). z[${i - l}] = ${z[i - l]} and r − i = ${r - i}. Where does z[${i}] start?`, `i = ${i} 在盒子 [${l}, ${r}) 内。z[${i - l}] = ${z[i - l]}，r − i = ${r - i}。z[${i}] 从多少开始？`], opts.map(x => [String(x), String(x)] as const), opts.indexOf(Math.min(z[i - l], r - i))]
+        })
+        z[i] = bug ? z[i - l] : Math.min(z[i - l], r - i)
+        if (bug) t.s('reuse', () => [[`i = ${i} is inside the box [${l}, ${r}): copy z[${i - l}] = ${z[i]}.`, `i = ${i} 在盒子 [${l}, ${r}) 内：直接取 z[${i - l}] = ${z[i]}。`], ...view(i, { [i - l]: 'cmp', [i]: 'act' })])
+        else t.s('reuse', () => [[`i = ${i} is inside the box [${l}, ${r}): copy min(z[${i - l}] = ${z[i - l]}, r − i = ${r - i}) = ${z[i]}.`, `i = ${i} 在盒子 [${l}, ${r}) 内：直接取 min(z[${i - l}] = ${z[i - l]}, r − i = ${r - i}) = ${z[i]}。`], ...view(i, { [i - l]: 'cmp', [i]: 'act' })])
       } else t.s('reuse', () => [[`i = ${i} is outside the box: start comparing from scratch.`, `i = ${i} 在盒子之外：从头开始比较。`], ...view(i, { [i]: 'act' })])
       while (i + z[i] < n && s[z[i]] === s[i + z[i]]) {
         z[i]++
@@ -291,7 +316,11 @@ int main() {
     const big = n > 30, alpha = big ? 'abc' : 'ab'
     return `${n}\n${Array.from({ length: n }, () => rndStr(big ? r.int(1, 6) : r.int(1, 3), r, alpha)).join('\n')}\n${rndStr(big ? n * 10 : n + 6, r, alpha)}\n`
   },
-  run(inp, t) {
+  broken: {
+    from: 'cnt[u] += cnt[fail[u]];  //@fail', to: 'cnt[u] = cnt[fail[u]];  //@fail',
+    why: ['Reaching state u means that __both__ kinds of pattern end here: those that end exactly at u (counted when the patterns were inserted) and those that end at a state on u\'s fail chain. `=` replaces the first kind with the second, so every pattern that ends at a node with a longer string through it is forgotten: with patterns "a" and "ab", the text "ab" counts only "a".', '到达状态 u，意味着__两类__模式串都在这里结束：恰好在 u 结束的那些（插入模式串时已经计数），以及在 u 的 fail 链上的状态结束的那些。`=` 用后一类替换了前一类，于是凡是在非叶结点结束的模式串都被忘掉了：模式串为 "a" 和 "ab" 时，文本 "ab" 只数到了 "a"。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), pats = Array.from({ length: n }, rd.str), text = rd.str()
     pats.forEach(lower); lower(text)
     const cap = pats.reduce((s, p) => s + p.length, 1), ch = new Int32Array(cap * 26), fail = new Int32Array(cap), cnt = new Int32Array(cap), par = [-1], letter = ['·'], tree: GEdge[] = []
@@ -316,7 +345,7 @@ int main() {
     for (let c = 0; c < 26; c++) if (ch[c]) q.push(ch[c])
     for (let h = 0; h < q.length; h++) {
       const u = q[h]
-      cnt[u] += cnt[fail[u]]
+      cnt[u] = (bug ? 0 : cnt[u]) + cnt[fail[u]]
       t.s('fail', () => [[`BFS: node '${letter[u]}' has fail → ${fail[u] ? `'${letter[fail[u]]}'` : 'root'}; it now reports ${cnt[u]} pattern(s).`, `BFS：结点 '${letter[u]}' 的 fail → ${fail[u] ? `'${letter[fail[u]]}'` : '根'}；它现在对应 ${cnt[u]} 个模式串。`], view(tn({ ok: q.slice(0, h), act: u, cmp: fail[u] }))])
       for (let c = 0; c < 26; c++) {
         const v = ch[u * 26 + c]
@@ -380,15 +409,20 @@ int main() {
   input: ['A lowercase string. Prints the suffix array (1-based starting positions in sorted order).', '一个小写字母串。输出后缀数组（按字典序排列的各后缀起始位置，从 1 开始）。'],
   sizes: [5, 7, 9], lab: [10, 1000, 20000, 100000],
   gen: (n, r) => rndStr(n, r, n <= 30 ? 'ab' : 'abc') + '\n',
-  run(inp, t) {
+  broken: {
+    from: 'int ra = a + k < n ? rk[a + k] : -1, rb = b + k < n ? rk[b + k] : -1;', to: 'int ra = a + k < n ? rk[a + k] : n, rb = b + k < n ? rk[b + k] : n;',
+    why: ['A suffix that runs out of characters is a prefix of the longer one it is compared with, so it must come __first__: its second key has to be smaller than every rank. n is larger than every rank 0 … n − 1, so from the second round on a suffix that has ended is placed after the longer suffixes that begin the same way: "a" is sorted after "ab".', '一个字符已经用完的后缀，是与它比较的那个更长后缀的前缀，所以它必须排在__前面__：它的第二关键字必须小于所有排名。n 比所有排名 0 … n − 1 都大，所以从第二轮起，已经结束的后缀会被排在以相同字符开头的更长后缀之后："a" 被排到了 "ab" 后面。'],
+  },
+  run(inp, t, bug = false) {
     const s = reader(inp).str(), n = s.length
     lower(s)
     const sa = span(0, n - 1), tmp = new Int32Array(n)
-    let rk = Int32Array.from(sa, i => s.charCodeAt(i) - 96)
+    // The broken version needs the C++ starting ranks (character codes), because its sentinel n is compared with them.
+    let rk = Int32Array.from(sa, i => s.charCodeAt(i) - (bug ? 0 : 96))
     const table = (k: number, tone: Record<string, Tone>) => grid(`suffixes ordered by their first ${k} character(s)`, sa.map(i => [i + 1, rk[i], s.slice(i, i + k) + (i + k < n ? '·' + s.slice(i + k, i + k + 6) : '')]), tone, { cols: ['start', 'rank', 'suffix'] })
     t.s('init', () => [['Start: rank every suffix by its first character.', '开始：按首字符给每个后缀排名。'], table(1, {})])
     for (let k = 1; ; k <<= 1) {
-      const key = (a: number) => (a + k < n ? rk[a + k] : -1)
+      const key = (a: number) => (a + k < n ? rk[a + k] : bug ? n : -1)
       const cmp = (a: number, b: number) => { t.tick(); return rk[a] - rk[b] || key(a) - key(b) }
       sa.sort(cmp)
       t.s('sort', () => [[`k = ${k}: sort by the pair (rk[i], rk[i + ${k}]) — that is, by the first ${2 * k} characters.`, `k = ${k}：按二元组 (rk[i], rk[i + ${k}]) 排序——也就是按前 ${2 * k} 个字符排序。`], grid(`sorted by (rk[i], rk[i + ${k}])`, sa.map(i => [i + 1, `(${rk[i]}, ${key(i)})`, s.slice(i, i + 2 * k)]), {}, { cols: ['start', 'key pair', `first ${2 * k}`] })])
@@ -463,7 +497,11 @@ int main() {
     }
     return out
   },
-  run(inp, t) {
+  broken: {
+    from: 'return h[r] - h[l - 1] * pw[r - l + 1];  //@get', to: 'return h[r] - h[l - 1];  //@get',
+    why: ['h[r] holds the first r characters as a base-131 number. The first l − 1 of them sit __r − l + 1 places further left__ there than they do in h[l − 1], so h[l − 1] has to be shifted by multiplying with 131^(r − l + 1) before it is subtracted. Without the shift the result depends on everything before l, so two equal substrings at different positions get different "hashes": the program answers N where it should answer Y.', 'h[r] 把前 r 个字符看作一个 131 进制数。其中前 l − 1 个字符在 h[r] 里的位置，比在 h[l − 1] 里__往左多了 r − l + 1 位__，所以 h[l − 1] 要先乘上 131^(r − l + 1) 移位，再相减。不移位的话，结果就依赖于 l 之前的所有字符，于是在不同位置的两个相同子串得到不同的“哈希值”：程序在本该回答 Y 的地方回答了 N。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), s = rd.str(), q = rd.int(), n = s.length
     lower(s)
     const S = s.split(''), B = 131n, h = new BigUint64Array(n + 1), pw = new BigUint64Array(n + 1), out: string[] = []
@@ -472,7 +510,7 @@ int main() {
       h[i] = h[i - 1] * B + BigInt(s.charCodeAt(i - 1)); pw[i] = pw[i - 1] * B
       t.s('build', () => [[`h[${i}] = h[${i - 1}] · 131 + '${s[i - 1]}' (${s.charCodeAt(i - 1)}): the hash of "${s.slice(0, i)}".`, `h[${i}] = h[${i - 1}] · 131 + '${s[i - 1]}'（${s.charCodeAt(i - 1)}）：这是 “${s.slice(0, i)}” 的哈希值。`], arr('s', S, tn({ ok: span(0, i - 2), act: i - 1 }), undefined, { base: 1 }), vars({ [`h[${i}]`]: hex6(h[i]) })])
     }
-    const get = (l: number, r: number) => BigInt.asUintN(64, h[r] - h[l - 1] * pw[r - l + 1])
+    const get = (l: number, r: number) => BigInt.asUintN(64, h[r] - h[l - 1] * (bug ? 1n : pw[r - l + 1]))
     for (let k = 0; k < q; k++) {
       const [a, b, c, d] = rd.ints(4)
       need(1 <= a && a <= b && b <= n && 1 <= c && c <= d && d <= n, `Question ${k + 1} needs 1 ≤ l ≤ r ≤ ${n} for both substrings.`, `第 ${k + 1} 个询问的两个子串都须满足 1 ≤ l ≤ r ≤ ${n}。`)
@@ -483,9 +521,14 @@ int main() {
         continue
       }
       const x = get(a, b), y = get(c, d)
-      t.s('get', () => [[`Hash of s[${a}..${b}] = h[${b}] − h[${a - 1}] · 131^${b - a + 1}, and likewise for s[${c}..${d}].`, `s[${a}..${b}] 的哈希值 = h[${b}] − h[${a - 1}] · 131^${b - a + 1}，s[${c}..${d}] 同理。`], arr('s', S, marks(), undefined, { base: 1 }), vars({ [`"${s.slice(a - 1, b)}"`]: hex6(x), [`"${s.slice(c - 1, d)}" `]: hex6(y) })])
+      if (!bug && a > 1) t.ask(() => {
+        const opts = [...new Set([b - a + 1, b, a - 1])].filter(e => e >= 1).sort((u, v) => u - v)
+        return opts.length < 2 ? undefined : [[`To get the hash of s[${a}..${b}], h[${a - 1}] is multiplied by 131 to which power before it is subtracted from h[${b}]?`, `求 s[${a}..${b}] 的哈希值时，h[${a - 1}] 要先乘上 131 的几次方，再从 h[${b}] 中减去？`], opts.map(e => [String(e), String(e)] as const), opts.indexOf(b - a + 1)]
+      })
+      if (bug) t.s('get', () => [[`Hash of s[${a}..${b}] = h[${b}] − h[${a - 1}], and likewise for s[${c}..${d}].`, `s[${a}..${b}] 的哈希值 = h[${b}] − h[${a - 1}]，s[${c}..${d}] 同理。`], arr('s', S, marks(), undefined, { base: 1 }), vars({ [`"${s.slice(a - 1, b)}"`]: hex6(x), [`"${s.slice(c - 1, d)}" `]: hex6(y) })])
+      else t.s('get', () => [[`Hash of s[${a}..${b}] = h[${b}] − h[${a - 1}] · 131^${b - a + 1}, and likewise for s[${c}..${d}].`, `s[${a}..${b}] 的哈希值 = h[${b}] − h[${a - 1}] · 131^${b - a + 1}，s[${c}..${d}] 同理。`], arr('s', S, marks(), undefined, { base: 1 }), vars({ [`"${s.slice(a - 1, b)}"`]: hex6(x), [`"${s.slice(c - 1, d)}" `]: hex6(y) })])
       out.push(x === y ? 'Y' : 'N')
-      t.s('query', () => [x === y ? ['The two hashes are equal: the substrings are the same. Y.', '两个哈希值相等：这两个子串相同。Y。'] : ['The two hashes differ: the substrings differ. N.', '两个哈希值不同：这两个子串不同。N。'], arr('s', S, tn({ [x === y ? 'ok' : 'bad']: [...span(a - 1, b - 1), ...span(c - 1, d - 1)] }), undefined, { base: 1 }), arr('answers', out)])
+      t.s('query', () => [bug ? (x === y ? ['The two values are equal: Y.', '两个值相等：Y。'] : ['The two values differ: N.', '两个值不同：N。']) : x === y ? ['The two hashes are equal: the substrings are the same. Y.', '两个哈希值相等：这两个子串相同。Y。'] : ['The two hashes differ: the substrings differ. N.', '两个哈希值不同：这两个子串不同。N。'], arr('s', S, tn({ [x === y ? 'ok' : 'bad']: [...span(a - 1, b - 1), ...span(c - 1, d - 1)] }), undefined, { base: 1 }), arr('answers', out)])
     }
     t.out(out.join('\n'))
   },
@@ -547,7 +590,11 @@ int main() {
   input: ['A string of lowercase letters, at most 200 000 long. Prints the number of different non-empty substrings.', '一个由小写字母组成的字符串，长度不超过 200 000。输出它的不同的非空子串的个数。'],
   sizes: [4, 5, 6], lab: [10, 1000, 100000, 200000],
   gen: (n, r) => rndStr(n, r, n <= 30 ? 'ab' : 'abcd') + '\n',
-  run(inp, t) {
+  broken: {
+    from: 'ans += len[v] - len[fa[v]];  //@count', to: 'ans += len[v];  //@count',
+    why: ['A state does not hold all the strings of lengths 1 … len[v]: the shorter suffixes belong to the states further up its suffix link. It holds __only__ the lengths len[fa[v]] + 1 … len[v], which is len[v] − len[fa[v]] strings. Adding len[v] counts each short substring once in every state below it, so the total is far too large.', '一个状态并不包含长度为 1 … len[v] 的所有串：更短的后缀属于沿后缀链接往上的那些状态。它__只__包含长度为 len[fa[v]] + 1 … len[v] 的串，共 len[v] − len[fa[v]] 个。加上 len[v]，就让每个较短的子串在它下面的每个状态里都被数了一次，总数大大偏多。'],
+  },
+  run(inp, t, bug = false) {
     const s = reader(inp).str(), n = s.length
     lower(s)
     need(n <= 200000, 'The string must be at most 200,000 characters long.', '字符串长度不能超过 200,000。')
@@ -587,9 +634,10 @@ int main() {
       last = cur
     }
     let ans = 0
-    for (let v = 2; v <= tot; v++) ans += len[v] - len[fa[v]]
+    for (let v = 2; v <= tot; v++) ans += len[v] - (bug ? 0 : len[fa[v]])
     const res = ans, states = tot
-    t.s('count', () => [[`${states} states. State v holds len[v] − len[link[v]] substrings: ${span(2, Math.min(states, 9)).map(v => len[v] - len[fa[v]]).join(' + ')}${states > 9 ? ' + …' : ''} = ${res}.`, `共 ${states} 个状态。状态 v 包含 len[v] − len[link[v]] 个子串：${span(2, Math.min(states, 9)).map(v => len[v] - len[fa[v]]).join(' + ')}${states > 9 ? ' + …' : ''} = ${res}。`], text(n), view(), vars({ answer: res })])
+    if (bug) t.s('count', () => [[`${states} states. Add up len[v]: ${span(2, Math.min(states, 9)).map(v => len[v]).join(' + ')}${states > 9 ? ' + …' : ''} = ${res}.`, `共 ${states} 个状态。把 len[v] 加起来：${span(2, Math.min(states, 9)).map(v => len[v]).join(' + ')}${states > 9 ? ' + …' : ''} = ${res}。`], text(n), view(), vars({ answer: res })])
+    else t.s('count', () => [[`${states} states. State v holds len[v] − len[link[v]] substrings: ${span(2, Math.min(states, 9)).map(v => len[v] - len[fa[v]]).join(' + ')}${states > 9 ? ' + …' : ''} = ${res}.`, `共 ${states} 个状态。状态 v 包含 len[v] − len[link[v]] 个子串：${span(2, Math.min(states, 9)).map(v => len[v] - len[fa[v]]).join(' + ')}${states > 9 ? ' + …' : ''} = ${res}。`], text(n), view(), vars({ answer: res })])
     t.out(res)
   },
 }

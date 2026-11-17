@@ -4,8 +4,8 @@ Revised 2026-11-16 after a review against the code. The audience is self-learner
 
 ## Where the project stands
 
-- 101 lessons: 35 CSP-J, 44 CSP-S, 22 NOI. 16 have an earlier version, 10 ask questions, 5 have a broken version to fix.
-- Milestones 0.2 to 0.7 are done. Next is 0.8, practice problems.
+- 101 lessons: 35 CSP-J, 44 CSP-S, 22 NOI. 16 have an earlier version, 59 ask questions, and all 101 have a broken version to fix.
+- Milestones 0.2 to 0.7 are done. 0.8 is done except for one checker run over the AcWing links: every lesson has practice problems.
 - A lesson costs about 150 lines on average, counting its program, story, text and oracle.
 
 Syllabus points with a lesson, out of the points that should have one:
@@ -118,7 +118,25 @@ Links from each lesson to problems on online judges that use it, on three sites,
 - `npm run check:practice`: a script that fetches every link and compares the page with the title listed. The judges are outside sites, so it is run by hand from a machine that can reach them, not in CI. Every link must pass it before the milestone is done.
 - Tests check the id format per judge, that a lesson has no repeats, and that a problem has the same title wherever it is listed.
 
-A first version was built during 0.6 with Luogu, LibreOJ and AtCoder, and withdrawn before merging: its links were written from memory in an environment that could not reach the judges, and none was verified. The Luogu part of that list is kept as a starting point in `specs/practice-draft.txt`; treat every line as unverified. AcWing and Codeforces problems are still to be chosen.
+**Done:** the type, the Practice tab, the Profile count, `npm run check:practice` and the tests. Every lesson has practice problems: 367 links to 352 problems (138 on AcWing, 161 on Luogu, 53 on Codeforces). They were first shipped on the ten lessons that ask questions and then extended to all 101 on 2026-11-17, ahead of principle 3, at the owner's request. Titles carry the problem number as the judge writes it: `789. 数的范围`, `P2249 【深基13.例1】查找`, `474B. Worms`. The Luogu and Codeforces links passed the checker on 2026-11-17. The AcWing titles were taken from AcWing's own problem list that day, but the checker could not open the pages: AcWing was refusing this address after the list was fetched. **Left to do:** run `npm run check:practice -- acwing` once AcWing answers again.
+
+Notes from building it:
+
+- An AcWing address uses a page number that is not the problem number (problem 789 is `content/791`). `id` is the page number; the number in the title is the problem's. `specs/acwing-problems.tsv` lists every AcWing problem with both, fetched 2026-11-17.
+- AcWing shows problems only to logged-in users, and problems from its courses (算法基础课, 算法提高课) only to accounts that have the course; others are redirected to the course page. Learners without the course will meet that redirect too. The checker tries each account's cookies from the git-ignored `cookies/` folder.
+- AcWing refuses every page from the address, with or without cookies, after a few dozen requests, even one every 3 seconds, and the refusal lasted more than three hours. On 2026-11-17 AcWing's administrators froze both accounts whose cookies had been used for those requests. The checker now sends at most one AcWing request a minute and stops at the first refusal, naming the problem to resume from.
+- Account 1's cookies cover the courses 算法基础课 and 算法提高课, account 2's cover 算法进阶课; the checker tries account 1 first.
+- Luogu answers a first request with a cookie and a redirect. Codeforces blocks scripts from problem pages, so the checker uses its API.
+- Some lessons have no Codeforces problem (no plain fit) and a few have no AcWing problem (the J-level sorts, the Z function, KM).
+
+An earlier, unverified draft of Luogu links (`specs/practice-draft.txt`) served as a starting point and has been removed.
+
+## Questions and broken versions on every lesson
+
+Both features shipped on a handful of lessons (0.4 and 0.5) and were extended on 2026-11-17, at the owner's request:
+
+- **Find the bug** on all 101 lessons. Each mistake is one a learner could make — an off-by-one bound, a missing case, a wrong index, two updates in the wrong order, a max-heap where a min-heap is needed — and each `why` explains the idea it breaks. Where the first choice never failed on the smallest test size (a maze that never needs a left turn, an overestimating A* heuristic on small open grids), a different mistake was chosen.
+- **Ask me first** on 59 lessons. The other 42 make no decision worth predicting: their steps are single comparisons or arithmetic that can be read off the screen.
 
 ## Deferred
 
@@ -158,4 +176,4 @@ Already in place, so removed from the plan: links to a tab and an animation step
 | 0.5 (done) | Broken versions | 7 CSP-S | 90 |
 | 0.6 (done) | Review | – | 90 |
 | 0.7 (done) | – | 11 NOI | 101 |
-| 0.8 | Practice links (AcWing, Luogu, Codeforces), link checker | – | 101 |
+| 0.8 | Practice links (AcWing, Luogu, Codeforces), link checker; questions on 59 lessons and a broken version on all 101 | – | 101 |

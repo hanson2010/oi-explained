@@ -186,7 +186,11 @@ int main() {
     for (let i = 0; i < q; i++) { const l = r.int(1, n), h = r.int(l, n); s += `${l} ${h} ${r.int(1, 5)}\n` }
     return s
   },
-  run(inp, t) {
+  broken: {
+    from: 'd[r + 1] -= v;', to: 'd[r] -= v;',
+    why: ['`d[l] += v` raises every value from position l onward, so the rise has to be cancelled at the first position __outside__ the range, r + 1. `d[r] -= v` cancels it one place early: a[r] never gets the v, and when l = r the update disappears altogether.', '`d[l] += v` 让位置 l 及之后的所有值都增加 v，所以必须在区间__之外__的第一个位置 r + 1 把增量抵消。`d[r] -= v` 提前了一位：a[r] 没有加上 v；当 l = r 时，这次修改干脆完全消失了。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), q = rd.int(), a = [0, ...rd.ints(n)], d = new Array<number>(n + 2).fill(0)
     for (let i = 1; i <= n; i++) {
       d[i] = a[i] - a[i - 1]
@@ -199,9 +203,14 @@ int main() {
       d[l] += v
       t.s('addl', () => [[`Add ${v} to [${l}, ${r}]: first d[${l}] += ${v}.`, `区间 [${l}, ${r}] 加 ${v}：先令 d[${l}] += ${v}。`],
         arr('a (before updates)', a, tn({ vis: span(l, r) })), arr('d', d, tn({ act: l }), { l }), vars({ l, r, v })])
-      d[r + 1] -= v
-      t.s('addr', () => [[`Then d[${r + 1}] −= ${v} so the increase stops after ${r}.`, `再令 d[${r + 1}] −= ${v}，使增量在 ${r} 之后停止。`],
-        arr('a (before updates)', a, tn({ vis: span(l, r) })), arr('d', d, tn({ ok: l, act: r + 1 }), { l, 'r+1': r + 1 }), vars({ l, r, v })])
+      if (!bug) t.ask(() => {
+        const idx = [...new Set([r, r + 1, n + 1])].sort((p, q) => p - q)
+        return [[`d[${l}] += ${v} raises every value from position ${l} on. Which cell must cancel it so that only a[${l}..${r}] rise?`, `d[${l}] += ${v} 让位置 ${l} 及之后的值都增加了。要让只有 a[${l}..${r}] 增加，应在哪一格把它抵消？`], idx.map(k => [`d[${k}]`, `d[${k}]`] as const), idx.indexOf(r + 1)]
+      })
+      const e = bug ? r : r + 1
+      d[e] -= v
+      t.s('addr', () => [bug ? [`Then d[${e}] −= ${v}.`, `再令 d[${e}] −= ${v}。`] : [`Then d[${e}] −= ${v} so the increase stops after ${r}.`, `再令 d[${e}] −= ${v}，使增量在 ${r} 之后停止。`],
+        arr('a (before updates)', a, tn({ vis: span(l, r) })), arr('d', d, tn({ ok: l, act: e }), bug ? { l, r: e } : { l, 'r+1': e }), vars({ l, r, v })])
     }
     for (let i = 1; i <= n; i++) {
       a[i] = a[i - 1] + d[i]
@@ -249,7 +258,11 @@ int main() {
     for (let i = 1; i < n; i++) b = b * 2n + BigInt(r.int(0, 1))
     return `${r.int(2, 9)} ${b} ${n <= 20 ? 1000 : 1000000007}\n`
   },
-  run(inp, t) {
+  broken: {
+    from: 'while (b > 0) {', to: 'while (b > 1) {',
+    why: ['The loop has to run once for __every__ binary digit of b, and the highest digit is always a 1. When b has been shifted down to 1, that last digit is still waiting to be multiplied in; `b > 1` stops right before it. The answer then lacks the largest factor a^(2ᵏ), and for b = 1 the program prints 1.', '循环必须对 b 的__每一个__二进制位各执行一次，而最高位总是 1。当 b 被右移到只剩 1 时，最后这一位还没有乘进去；`b > 1` 恰好在它之前停下了。于是答案少乘了最大的那个因子 a^(2ᵏ)；b = 1 时程序会输出 1。'],
+  },
+  run(inp, t, bug = false) {
     const tk = inp.split(/\s+/).filter(Boolean)
     need(tk.length >= 3 && tk.slice(0, 3).every(s => /^\d+$/.test(s)), 'Expected three non-negative integers.', '需要三个非负整数。')
     let a = BigInt(tk[0]), b = BigInt(tk[1])
@@ -260,7 +273,7 @@ int main() {
     a %= m
     const view = (tone: 'act' | 'cmp') => arr('b in binary (bit k is at the right end)', bits, tn({ dim: span(n - k, n - 1), [tone]: n - 1 - k }), undefined, { base: 0 })
     t.s('init', () => [[`Start with res = ${res}; scan the bits of b from the lowest.`, `初始 res = ${res}；从最低位开始扫描 b 的二进制位。`], view('cmp'), vars({ a: String(a), res: String(res) })])
-    while (b > 0n) {
+    while (b > (bug ? 1n : 0n)) {
       if (b & 1n) {
         const old = res
         res = (res * a) % m
@@ -271,7 +284,7 @@ int main() {
       t.s('sq', () => [[`Square: a = ${old}² mod ${m} = ${a}, ready for bit ${k + 1}.`, `平方：a = ${old}² mod ${m} = ${a}，为第 ${k + 1} 位做准备。`], view('cmp'), vars({ 'a^(2^k)': String(a), res: String(res), k: k + 1 })])
       b >>= 1n; k++
     }
-    t.s('done', () => [[`All bits used: the answer is ${res}.`, `所有位处理完毕：答案是 ${res}。`], arr('b in binary', bits, tn({ dim: span(0, n - 1) })), vars({ answer: String(res) })])
+    t.s('done', () => [bug ? [`The loop ends with b = ${b}: the program prints ${res}.`, `循环结束时 b = ${b}：程序输出 ${res}。`] : [`All bits used: the answer is ${res}.`, `所有位处理完毕：答案是 ${res}。`], arr('b in binary', bits, tn({ dim: span(0, n - 1) })), vars({ answer: String(res) })])
     t.out(res)
   },
 }
@@ -307,18 +320,30 @@ int main() {
   input: ['n — the number of disks. Prints every move.', 'n —— 盘子数量。输出每一步移动。'],
   sizes: [3, 4, 5], lab: [4, 8, 12, 16, 20],
   gen: n => `${n}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'if (n == 0) return;', to: 'if (n == 1) return;',
+    why: ['The base case decides when there is __nothing left to do__, and that is only when there are no disks. With `n == 1` the function returns without moving the one disk it was asked to move, so disk 1 never moves at all: the program prints 2ⁿ⁻¹ − 1 moves instead of 2ⁿ − 1, and the larger disks end up placed on top of it.', '边界条件决定什么时候__已经无事可做__，而这只在没有盘子时才成立。写成 `n == 1` 后，函数在要求它移动一个盘子时直接返回，于是 1 号盘从来没有动过：程序输出 2ⁿ⁻¹ − 1 步而不是 2ⁿ − 1 步，较大的盘子还会被放到它的上面。'],
+  },
+  run(inp, t, bug = false) {
     const n = reader(inp).int()
     need(n >= 0 && n <= 24, 'n must be between 0 and 24.', 'n 须在 0 到 24 之间。')
     const peg: Record<string, number[]> = { A: span(1, n).reverse(), B: [], C: [] }, out: string[] = []
     const show = (hi?: string) => ['A', 'B', 'C'].map(p => arr(`peg ${p} (bottom → top)`, peg[p].length ? peg[p] : ['—'], p === hi && peg[p].length ? tn({ ok: peg[p].length - 1 }) : {}))
     t.s('first', () => [[`Goal: move ${n} disks from A to C.`, `目标：把 ${n} 个盘子从 A 移到 C。`], ...show()])
+    const top = (p: string) => peg[p][peg[p].length - 1] ?? Infinity
     const go = (k: number, from: string, via: string, to: string) => {
-      if (k === 0) return
+      if (bug ? k <= 1 : k === 0) return
       go(k - 1, from, to, via)
-      peg[to].push(peg[from].pop()!)
+      // Which legal move comes next? There are at most three: the smallest disk to either other peg, and one other.
+      if (!bug) t.ask(() => {
+        const legal = ['A', 'B', 'C'].flatMap(p => ['A', 'B', 'C'].filter(q => q !== p && top(p) < top(q)).map(q => `${p}->${q}`))
+        if (legal.length < 2) return undefined
+        return [[`Which move does the program make next?`, `程序下一步做哪一次移动？`], legal.map(m => [m, m] as const), legal.indexOf(`${from}->${to}`)]
+      })
+      const disk = peg[from].pop()
+      if (disk !== undefined) peg[to].push(disk)
       out.push(`${from}->${to}`)
-      t.s('move', () => [[`Move disk ${k} from ${from} to ${to} (move #${out.length}).`, `把 ${k} 号盘从 ${from} 移到 ${to}（第 ${out.length} 步）。`], ...show(to), vars({ moves: out.length })])
+      t.s('move', () => [bug ? [`The program prints ${from}->${to} (move #${out.length}).`, `程序输出 ${from}->${to}（第 ${out.length} 步）。`] : [`Move disk ${k} from ${from} to ${to} (move #${out.length}).`, `把 ${k} 号盘从 ${from} 移到 ${to}（第 ${out.length} 步）。`], ...show(to), vars({ moves: out.length })])
       go(k - 1, via, from, to)
     }
     go(n, 'A', 'B', 'C')
@@ -371,16 +396,21 @@ int main() {
   input: ['Two non-negative integers, one per line. (n is the number of digits.)', '两个非负整数，每行一个。（n 为位数。）'],
   sizes: [4, 8, 14], lab: [10, 1000, 100000, 500000],
   gen: (n, r) => `${rndNum(n, r)}\n${rndNum(Math.max(1, n - r.int(0, Math.min(2, n - 1))), r)}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'i < max(a.size(), b.size()) || carry;', to: 'i < max(a.size(), b.size());',
+    why: ['When the highest column produces a carry, the sum has __one digit more__ than the longer number: 99 + 1 = 100. Without `|| carry` the loop stops as soon as the digits of both numbers run out, and that final carry is silently dropped — the program prints 00 for 99 + 1.', '当最高一列产生进位时，和比较长的那个数__多一位__：99 + 1 = 100。去掉 `|| carry` 后，两个数的数字一用完循环就停了，最后那个进位被悄悄丢掉——程序对 99 + 1 输出 00。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), a = digitsOf(rd.str()), b = digitsOf(rd.str()), c: number[] = []
-    const len = Math.max(a.length, b.length) + 1
+    const len = Math.max(a.length, b.length) + 1, top = Math.max(a.length, b.length)
     t.s('rev', () => [['Line the numbers up at the ones place (stored low digit first).', '两个数在个位对齐（内部按低位在前存储）。'], big('a', a, len), big('b', b, len), big('c', c, len)])
     let carry = 0
-    for (let i = 0; i < Math.max(a.length, b.length) || carry; i++) {
+    for (let i = 0; i < top || (!bug && carry); i++) {
       const sum = carry + (a[i] ?? 0) + (b[i] ?? 0), old = carry
       c.push(sum % 10); carry = Math.floor(sum / 10)
       t.s('digit', () => [[`Column ${i}: ${a[i] ?? 0} + ${b[i] ?? 0} + carry ${old} = ${sum} → write ${sum % 10}, carry ${carry}.`, `第 ${i} 位：${a[i] ?? 0} + ${b[i] ?? 0} + 进位 ${old} = ${sum} → 写 ${sum % 10}，进位 ${carry}。`],
         big('a', a, len, { [i]: 'cmp' }), big('b', b, len, { [i]: 'cmp' }), big('c', c, len, { [i]: 'act' }), vars({ sum, carry })])
+      if (!bug && i === top - 1) t.ask(() => [[`Both numbers have run out of digits, and the carry is ${carry}. What happens next?`, `两个数的数字都用完了，进位是 ${carry}。接下来会怎样？`], [['one more column, for the carry', '再算一列，处理进位'], ['the sum is complete', '和已经算完']], carry ? 0 : 1])
     }
     const res = c.slice().reverse().join('')
     t.s('done', () => [[`Result: ${res.length > 40 ? res.slice(0, 40) + '…' : res}`, `结果：${res.length > 40 ? res.slice(0, 40) + '…' : res}`], big('a', a, len), big('b', b, len), big('c', c, len, Object.fromEntries(c.map((_, i) => [i, 'ok' as const])))])
@@ -427,17 +457,25 @@ int main() {
   input: ['Two non-negative integers, one per line. (n is the number of digits.)', '两个非负整数，每行一个。（n 为位数。）'],
   sizes: [2, 3, 4], lab: [10, 100, 1000, 3000],
   gen: (n, r) => `${rndNum(n, r)}\n${rndNum(n, r)}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'c[i + 1] += c[i] / 10;', to: 'c[i + 1] = c[i] / 10;',
+    why: ['In addition the carry is the only thing going into the next column, but here column i + 1 __already holds__ the sum of its own digit products. `=` overwrites that sum with the carry, so everything multiplied into the higher columns is lost. The carry has to be added to what is there: `+=`.', '在加法里，进位是唯一要送进下一列的东西；而这里第 i + 1 列__本来就存着__它自己那些数字乘积的和。`=` 用进位覆盖了这个和，于是累加到高位的所有乘积都丢失了。进位必须加到原有的值上：`+=`。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), a = digitsOf(rd.str()), b = digitsOf(rd.str()), n = a.length, m = b.length
     const c = new Array<number>(n + m).fill(0), len = n + m
     for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) {
+      if (!bug && i + j > 0) t.ask(() => {
+        const cols = [...new Set([i + j, i * j, i + j + 1])].filter(k => k < len).sort((p, q) => p - q)
+        return [[`a[${i}] is worth 10^${i} and b[${j}] is worth 10^${j}. Which column of c does their product go to?`, `a[${i}] 的权值是 10^${i}，b[${j}] 的权值是 10^${j}。它们的乘积累加到 c 的哪一位？`], cols.map(k => [`column ${k}`, `第 ${k} 位`] as const), cols.indexOf(i + j)]
+      })
       c[i + j] += a[i] * b[j]
       t.s('acc', () => [[`a[${i}] × b[${j}] = ${a[i]} × ${b[j]} = ${a[i] * b[j]} goes to column ${i + j}.`, `a[${i}] × b[${j}] = ${a[i]} × ${b[j]} = ${a[i] * b[j]}，累加到第 ${i + j} 位。`],
         big('a', a, len, { [i]: 'cmp' }), big('b', b, len, { [j]: 'cmp' }), big('c (before carrying)', c, len, { [i + j]: 'act' })])
     }
     for (let i = 0; i + 1 < len; i++) {
       const old = c[i]
-      c[i + 1] += Math.floor(c[i] / 10); c[i] %= 10
+      c[i + 1] = (bug ? 0 : c[i + 1]) + Math.floor(c[i] / 10); c[i] %= 10
       t.s('carry', () => [[`Column ${i} holds ${old}: keep ${c[i]}, carry ${Math.floor(old / 10)}.`, `第 ${i} 位是 ${old}：保留 ${c[i]}，进位 ${Math.floor(old / 10)}。`],
         big('a', a, len), big('b', b, len), big('c', c, len, { [i]: 'ok', [i + 1]: 'act' })])
     }
@@ -482,14 +520,18 @@ int main() {
   input: ['n k — prints the decimal number n in base k (2 ≤ k ≤ 16). (In the generator, n is the number of decimal digits.)', 'n k —— 把十进制数 n 转换为 k 进制（2 ≤ k ≤ 16）。（生成器中 n 表示十进制位数。）'],
   sizes: [2, 4, 7], lab: [3, 6, 9, 12, 15],
   gen: (n, r) => `${rndNum(Math.min(n, 15), r)} ${r.pick([2, 2, 8, 16, 3])}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'while (n > 0) {', to: 'while (n >= k) {',
+    why: ['When n has shrunk below k it is a single base-k digit — but that digit __has not been written yet__. `n >= k` stops the loop right there, so the highest digit of every answer is lost (and a number below k prints nothing). The loop must go on until nothing is left: `n > 0`.', '当 n 缩小到比 k 小时，它恰好是一位 k 进制数字——但这一位__还没有写下来__。`n >= k` 正好在这时让循环停下，于是每个答案都丢掉了最高位（比 k 小的数则什么也不输出）。循环必须一直进行到什么都不剩：`n > 0`。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp)
     let n = rd.int()
     const k = rd.int(), res: string[] = []
     need(Number.isSafeInteger(n) && n >= 0, 'n must be a non-negative integer below 2^53.', 'n 须为小于 2^53 的非负整数。')
     need(k >= 2 && k <= 16, 'The base must be between 2 and 16.', '进制须在 2 到 16 之间。')
     if (n === 0) res.push('0')
-    while (n > 0) {
+    while (bug ? n >= k : n > 0) {
       const d = n % k
       res.push(DIG[d])
       t.s('digit', () => [[`${n} mod ${k} = ${d} → next digit is ${DIG[d]}.`, `${n} mod ${k} = ${d} → 下一位是 ${DIG[d]}。`], arr('remainders (lowest digit first)', res, tn({ act: res.length - 1 })), vars({ n, k })])
@@ -546,16 +588,21 @@ int main() {
   input: ['n — buy exactly n birds for exactly n coins. A rooster costs 5, a hen 3, and three chicks cost 1. Prints every solution "roosters hens chicks", then the number of solutions.', 'n —— 用恰好 n 文钱买恰好 n 只鸡。公鸡 5 文一只，母鸡 3 文一只，小鸡 1 文三只。输出所有方案“公鸡 母鸡 小鸡”，最后输出方案数。'],
   sizes: [20, 30, 40], lab: [30, 100, 300, 1000, 3000],
   gen: n => `${n}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'if (z % 3 == 0 && 5 * x + 3 * y + z / 3 == n) {', to: 'if (5 * x + 3 * y + z / 3 == n) {',
+    why: ['Chicks are sold in threes. In C++ `z / 3` __rounds down__, so without `z % 3 == 0` a z that is not a multiple of 3 is charged as if one or two chicks were free: 20 chicks cost 6 coins. Some of those cheaper candidates then add up to exactly n coins, and the program prints them as solutions.', '小鸡三只一卖。在 C++ 中 `z / 3` 会__向下取整__，所以去掉 `z % 3 == 0` 后，不是 3 的倍数的 z 会被按“白送一两只”来计价：20 只小鸡只算 6 文。这些被算便宜了的候选中，有的恰好花掉 n 文，于是被当作解输出了。'],
+  },
+  run(inp, t, bug = false) {
     const n = reader(inp).int(), sols: number[][] = []
     need(Number.isInteger(n) && n >= 1 && n <= 100000, 'n must be between 1 and 100,000.', 'n 须在 1 到 100,000 之间。')
     for (let x = 0; 5 * x <= n; x++) {
       t.s('x', () => [[`Fix x = ${x} roosters: ${5 * x} coins spent, ${n - 5 * x} left for hens and chicks.`, `固定 x = ${x} 只公鸡：花掉 ${5 * x} 文，还剩 ${n - 5 * x} 文买母鸡和小鸡。`], ...fowlsView(n, x, undefined, sols), vars({ x })])
       for (let y = 0; 5 * x + 3 * y <= n; y++) {
-        const z = n - x - y, cost = 5 * x + 3 * y + z / 3, ok = z % 3 === 0 && cost === n
+        const z = n - x - y, cost = 5 * x + 3 * y + Math.floor(z / 3), ok = (bug || z % 3 === 0) && cost === n
         if (ok) sols.push([x, y, z])
         t.s(ok ? 'found' : 'check', () => [
-          z % 3 !== 0 ? [`y = ${y}: z = ${n} − ${x} − ${y} = ${z} chicks, not a multiple of 3. Reject.`, `y = ${y}：z = ${n} − ${x} − ${y} = ${z} 只小鸡，不是 3 的倍数。舍去。`]
+          bug ? (ok ? [`y = ${y}: z = ${z}. Cost ${5 * x} + ${3 * y} + ${Math.floor(z / 3)} = ${n}. Printed as a solution.`, `y = ${y}：z = ${z}。花费 ${5 * x} + ${3 * y} + ${Math.floor(z / 3)} = ${n}。作为一组解输出。`] : [`y = ${y}: z = ${z}. Cost ${5 * x} + ${3 * y} + ${Math.floor(z / 3)} = ${cost}, not ${n}. Reject.`, `y = ${y}：z = ${z}。花费 ${5 * x} + ${3 * y} + ${Math.floor(z / 3)} = ${cost}，不等于 ${n}。舍去。`])
+          : z % 3 !== 0 ? [`y = ${y}: z = ${n} − ${x} − ${y} = ${z} chicks, not a multiple of 3. Reject.`, `y = ${y}：z = ${n} − ${x} − ${y} = ${z} 只小鸡，不是 3 的倍数。舍去。`]
             : ok ? [`y = ${y}: z = ${z}. Cost ${5 * x} + ${3 * y} + ${z / 3} = ${n}. A solution!`, `y = ${y}：z = ${z}。花费 ${5 * x} + ${3 * y} + ${z / 3} = ${n}。找到一组解！`]
             : [`y = ${y}: z = ${z}. Cost ${5 * x} + ${3 * y} + ${z / 3} = ${cost}, not ${n}. Reject.`, `y = ${y}：z = ${z}。花费 ${5 * x} + ${3 * y} + ${z / 3} = ${cost}，不等于 ${n}。舍去。`],
           ...fowlsView(n, x, y, sols), vars({ x, y, z })])
@@ -603,7 +650,11 @@ int main() {
   input: ['n m — n people numbered 1 … n stand in a circle and count 1, 2, …, m; whoever says m leaves, and counting restarts at 1 with the next person. Prints the order in which they leave.', 'n m —— 编号 1 … n 的 n 个人围成一圈，从 1 开始报数，报到 m 的人出圈，下一个人重新从 1 开始报。输出出圈的顺序。'],
   sizes: [5, 8, 12], lab: [10, 100, 1000, 5000],
   gen: (n, r) => `${n} ${n <= 30 ? r.int(2, 4) : r.int(2, 9)}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'if (!gone[p]) said++;', to: 'said++;',
+    why: ['People who have left stay in the array, so the count has to __skip them__. Without the `!gone[p]` test they keep saying numbers from outside the circle: the counting reaches m too early, and a person who has already left can be chosen to leave again, so some numbers are printed twice and others never.', '出圈的人仍然留在数组里，所以报数时必须__跳过他们__。去掉 `!gone[p]` 的判断后，他们在圈外还在继续报数：报数会过早到达 m，而且已经出圈的人还可能再次被选中出圈，于是有的编号输出了两次，有的从未出现。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), m = rd.int()
     need(Number.isInteger(n) && n >= 1 && n <= 100000 && Number.isInteger(m) && m >= 1, 'Need 1 ≤ n ≤ 100,000 and m ≥ 1.', '需要 1 ≤ n ≤ 100,000 且 m ≥ 1。')
     const gone = new Array<boolean>(n + 1).fill(false), order: number[] = []
@@ -611,11 +662,20 @@ int main() {
     let p = 0
     for (let left = n; left > 0; left--) {
       let said = 0
+      let last = p
       while (said < m) {
         p = p % n + 1
-        if (gone[p]) { t.tick(); continue }
+        if (gone[p] && !bug) { t.tick(); continue }
         said++
-        const k = said, q = p
+        const k = said, q = p, prev = last
+        last = q
+        // Worth asking only when the seat next to the last speaker is empty: then the count has to skip it.
+        if (!bug && prev) t.ask(() => {
+          const seat = prev % n + 1
+          if (seat === q) return undefined
+          const opts = [seat, q].sort((x, y) => x - y)
+          return [[`Person ${prev} spoke last. Who says the next number?`, `上一个报数的是 ${prev} 号。下一个数由谁来报？`], opts.map(x => [`person ${x}`, `${x} 号`] as const), opts.indexOf(q)]
+        })
         t.s('count', () => [[`Person ${q} says ${k}.`, `${q} 号报 ${k}。`], circle(q, 'act'), arr('leaving order', order), vars({ said: k, m })])
       }
       gone[p] = true; order.push(p)
@@ -677,7 +737,11 @@ int main() {
     const x = rndNum(n, r), k = r.int(0, 3), y = k === 0 && n >= 3 ? x.slice(0, n - 2) + rndNum(2, r) : rndNum(Math.max(1, n - Math.max(0, k - 1)), r)
     return r.int(0, 2) === 0 ? `${y}\n${x}\n` : `${x}\n${y}\n`
   },
-  run(inp, t) {
+  broken: {
+    from: 'int d = a[i] - borrow - (i < b.size() ? b[i] : 0);', to: 'int d = a[i] + borrow - (i < b.size() ? b[i] : 0);',
+    why: ['A column that went below zero took 10 from the column above it, so that column now __owes 1__ and must give it up: `- borrow`. Adding the borrow instead makes every column after a borrow two too large: the program computes 82 − 19 = 83.', '某一列不够减时，向高一位借了 10，于是高一位就__欠下了 1__，必须把它还回去：`- borrow`。改成加上借位后，凡是前一列借过位的列，结果都大了 2：程序算出 82 − 19 = 83。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp)
     let a = digitsOf(rd.str()), b = digitsOf(rd.str())
     const c: number[] = [], len = Math.max(a.length, b.length)
@@ -686,10 +750,11 @@ int main() {
     t.s('swap', () => [less ? ['The first number is smaller: swap them and remember the minus sign.', '第一个数较小：交换两数，并记下负号。'] : ['The first number is not smaller: subtract directly.', '第一个数不小于第二个数：直接相减。'], big('a', a, len), big('b', b, len), vars({ sign: less ? '−' : '+' })])
     let borrow = 0
     for (let i = 0; i < a.length; i++) {
-      const old = borrow, d = a[i] - borrow - (b[i] ?? 0)
+      const old = borrow, d = a[i] + (bug ? borrow : -borrow) - (b[i] ?? 0)
       borrow = d < 0 ? 1 : 0
       c.push(d < 0 ? d + 10 : d)
-      t.s('digit', () => [[`Column ${i}: ${a[i]} − borrow ${old} − ${b[i] ?? 0} = ${d}${d < 0 ? ` → write ${d + 10}, borrow 1` : ' → write it, no borrow'}.`, `第 ${i} 位：${a[i]} − 借位 ${old} − ${b[i] ?? 0} = ${d}${d < 0 ? ` → 写 ${d + 10}，向高位借 1` : ' → 直接写下，不借位'}。`],
+      t.s('digit', () => [bug ? [`Column ${i}: ${a[i]} + borrow ${old} − ${b[i] ?? 0} = ${d}${d < 0 ? ` → write ${d + 10}, borrow 1` : ' → write it, no borrow'}.`, `第 ${i} 位：${a[i]} + 借位 ${old} − ${b[i] ?? 0} = ${d}${d < 0 ? ` → 写 ${d + 10}，向高位借 1` : ' → 直接写下，不借位'}。`]
+        : [`Column ${i}: ${a[i]} − borrow ${old} − ${b[i] ?? 0} = ${d}${d < 0 ? ` → write ${d + 10}, borrow 1` : ' → write it, no borrow'}.`, `第 ${i} 位：${a[i]} − 借位 ${old} − ${b[i] ?? 0} = ${d}${d < 0 ? ` → 写 ${d + 10}，向高位借 1` : ' → 直接写下，不借位'}。`],
         big('a', a, len, { [i]: 'cmp' }), big('b', b, len, { [i]: 'cmp' }), big('c', c, len, { [i]: 'act' }), vars({ d, borrow })])
     }
     const before = c.length
@@ -739,17 +804,25 @@ int main() {
   input: ['A non-negative integer a with up to hundreds of thousands of digits, then b (1 ≤ b ≤ 10⁹). Prints the quotient and the remainder. (n is the number of digits of a.)', '一个可能有几十万位的非负整数 a，随后是 b（1 ≤ b ≤ 10⁹）。输出商和余数。（n 为 a 的位数。）'],
   sizes: [4, 7, 12], lab: [10, 1000, 100000, 500000],
   gen: (n, r) => `${rndNum(n, r)}\n${n <= 30 ? r.int(2, r.int(0, 1) ? 9 : 99) : r.int(2, 1000000000)}\n`,
-  run(inp, t) {
+  broken: {
+    from: 'r = r * 10 + (ch - \'0\');', to: 'r = r + (ch - \'0\');',
+    why: ['The remainder left over from the step before stands for tens of the next digit\'s units: in 74 ÷ 3, the 1 left after 7 ÷ 3 = 2 is __1 ten__, so the next number to divide is 14. `r + digit` treats it as 1 unit and divides 1 + 4 = 5 instead. Bringing a digit down shifts the old remainder one place left: `r * 10 + digit`.', '上一步剩下的余数，相对于下一位来说是“十”而不是“一”：在 74 ÷ 3 中，7 ÷ 3 = 2 余下的 1 代表 __1 个十__，所以下一步要除的是 14。`r + digit` 把它当成了 1 个一，去除 1 + 4 = 5。落下一位数字时，原来的余数要向左移一位：`r * 10 + digit`。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), s = rd.str(), b = rd.int()
     need(/^\d+$/.test(s), 'Expected a non-negative integer.', '需要非负整数。')
     need(Number.isInteger(b) && b >= 1 && b <= 1e9, 'b must be between 1 and 1,000,000,000.', 'b 须在 1 到 1,000,000,000 之间。')
     const a = s.split('').map(Number), n = a.length, q: number[] = []
     let r = 0
     for (let i = 0; i < n; i++) {
-      const old = r, cur = r * 10 + a[i], d = Math.floor(cur / b)
+      const old = r, cur = (bug ? r : r * 10) + a[i], d = Math.floor(cur / b)
+      if (!bug && i > 0 && old > 0) t.ask(() => {
+        const vals = [...new Set([old * 10 + a[i], old + a[i], a[i] * 10 + old])].sort((x, y) => x - y)
+        return [[`The remainder so far is ${old}. Bring down the digit ${a[i]}: which number is divided by ${b} next?`, `目前的余数是 ${old}。落下数字 ${a[i]}：接下来用哪个数除以 ${b}？`], vals.map(v => [String(v), String(v)] as const), vals.indexOf(old * 10 + a[i])]
+      })
       q.push(d); r = cur % b
       const rem = r
-      t.s('digit', () => [[`Bring down ${a[i]}: ${old} · 10 + ${a[i]} = ${cur}. ${cur} ÷ ${b} = ${d}, remainder ${rem}.`, `落下 ${a[i]}：${old} · 10 + ${a[i]} = ${cur}。${cur} ÷ ${b} = ${d}，余 ${rem}。`],
+      t.s('digit', () => [[`Bring down ${a[i]}: ${old}${bug ? '' : ' · 10'} + ${a[i]} = ${cur}. ${cur} ÷ ${b} = ${d}, remainder ${rem}.`, `落下 ${a[i]}：${old}${bug ? '' : ' · 10'} + ${a[i]} = ${cur}。${cur} ÷ ${b} = ${d}，余 ${rem}。`],
         arr('a', a, tn({ dim: span(0, i - 1), act: i })), arr('quotient', [...q, ...new Array<string>(n - q.length).fill('')], tn({ ok: i })), vars({ b, r: rem })])
     }
     let k = 0
@@ -798,7 +871,11 @@ int main() {
     const pool = r.ints(Math.max(2, Math.ceil(n * 0.7)), 1, n <= 30 ? 999 : 1000000000)
     return `${n}\n${span(1, n).map(() => r.pick(pool)).join(' ')}\n`
   },
-  run(inp, t) {
+  broken: {
+    from: 'lower_bound(b, b + k, a[i])', to: 'upper_bound(b, b + k, a[i])',
+    why: ['`lower_bound` returns the position of the first element __≥__ a[i] — the value itself, since it is in b. `upper_bound` returns the first element __>__ a[i], one place further on, so every rank comes out one too large: the smallest value gets 2.', '`lower_bound` 返回第一个 __≥__ a[i] 的位置——因为 a[i] 就在 b 里，这正是它自己。`upper_bound` 返回第一个 __>__ a[i] 的位置，往后多了一格，于是每个排名都大了 1：最小的值排名变成了 2。'],
+  },
+  run(inp, t, bug = false) {
     const rd = reader(inp), n = rd.int(), a = rd.ints(n)
     const b = a.slice().sort((x, y) => x - y)
     t.tick(Math.ceil(n * Math.log2(Math.max(2, n))))
@@ -809,10 +886,15 @@ int main() {
     const out: number[] = []
     for (let i = 0; i < n; i++) {
       let lo = 0, hi = u.length
-      while (lo < hi) { const mid = (lo + hi) >> 1; t.tick(); if (u[mid] >= a[i]) hi = mid; else lo = mid + 1 }
+      while (lo < hi) { const mid = (lo + hi) >> 1; t.tick(); if (bug ? u[mid] > a[i] : u[mid] >= a[i]) hi = mid; else lo = mid + 1 }
+      // Is the rank among the distinct values, or the position among all values? Ask only where the two differ.
+      if (!bug) t.ask(() => {
+        const opts = [...new Set([lo + 1, b.indexOf(a[i]) + 1, i + 1])].sort((x, y) => x - y)
+        return opts.length < 2 ? undefined : [[`What rank does a[${i}] = ${a[i]} get?`, `a[${i}] = ${a[i]} 的排名是多少？`], opts.map(x => [String(x), String(x)] as const), opts.indexOf(lo + 1)]
+      })
       out.push(lo + 1)
       const pos = lo
-      t.s('map', () => [[`a[${i}] = ${a[i]}: binary search finds it at position ${pos + 1} of b, so its rank is ${pos + 1}.`, `a[${i}] = ${a[i]}：二分查找发现它在 b 的第 ${pos + 1} 个位置，所以排名是 ${pos + 1}。`], arr('a', a, tn({ dim: span(0, i - 1), act: i })), arr('b (distinct, sorted)', u, tn({ ok: pos }), undefined, { base: 1 }), arr('ranks', [...out, ...new Array<string>(n - out.length).fill('')], tn({ act: i }))])
+      t.s('map', () => [bug ? [`a[${i}] = ${a[i]}: the binary search returns position ${pos + 1} of b.`, `a[${i}] = ${a[i]}：二分查找返回 b 的第 ${pos + 1} 个位置。`] : [`a[${i}] = ${a[i]}: binary search finds it at position ${pos + 1} of b, so its rank is ${pos + 1}.`, `a[${i}] = ${a[i]}：二分查找发现它在 b 的第 ${pos + 1} 个位置，所以排名是 ${pos + 1}。`], arr('a', a, tn({ dim: span(0, i - 1), act: i })), arr('b (distinct, sorted)', u, tn({ ok: pos < u.length ? pos : [] }), undefined, { base: 1 }), arr('ranks', [...out, ...new Array<string>(n - out.length).fill('')], tn({ act: i }))])
     }
     t.s('done', () => [[`Values up to ${Math.max(...u)} have become ranks 1 … ${u.length}, and every comparison between two of them is unchanged.`, `最大为 ${Math.max(...u)} 的数值变成了 1 … ${u.length} 的排名，而任意两个数之间的大小关系都没有变。`], arr('a', a), arr('ranks', out, tn({ ok: span(0, n - 1) }))])
     t.out(out.join(' '))

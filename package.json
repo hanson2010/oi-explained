@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "gen": "node scripts/gen-meta.mjs"
+    "gen": "node scripts/gen-meta.mjs",
+    "check:practice": "node scripts/check-practice.mjs"
   },
   "dependencies": {
     "react": "^19.3.1",
