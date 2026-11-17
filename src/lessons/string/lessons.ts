@@ -491,4 +491,107 @@ int main() {
   },
 }
 
-export default [kmp, manacher, zfn, ac, sa, stringHash]
+const sam: Lesson = {
+  id: 'sam', title: ['Suffix automaton', '后缀自动机'], level: 'N', cat: 'string', diff: 10,
+  needs: ['ac-automaton'],
+  blurb: ['The smallest machine that recognises every substring of a string: at most 2n states, built one character at a time.', '能识别一个字符串所有子串的最小的自动机：至多 2n 个状态，每次读入一个字符就能把它扩建好。'],
+  ideas: [
+    ['Group the substrings by the set of positions where they end. Each group is one state.', '把所有子串按“它们在原串中结束的位置的集合”分组。每一组是一个状态。'],
+    ['The strings of one state are suffixes of each other with consecutive lengths; len[v] is the longest.', '同一个状态里的串互为后缀，长度是连续的；len[v] 是其中最长的那个的长度。'],
+    ['The suffix link of v leads to the state of the longest suffix that belongs to a different state. So v holds the lengths len[link[v]] + 1 … len[v].', 'v 的后缀链接指向“不属于 v 的最长后缀”所在的状态。所以 v 包含的长度是 len[link[v]] + 1 … len[v]。'],
+    ['To append a character c: create a state for the whole new string, and walk up the suffix links from the old last state, adding c-transitions until one already exists.', '在末尾添加字符 c：为整个新串新建一个状态，然后从原来的最后一个状态沿着后缀链接往上走，一路添加 c 的转移，直到遇到已经有 c 转移的状态。'],
+    ['If that existing transition leads to a state q that is too long, split q by cloning it.', '如果那个已有的转移通向的状态 q “太长”，就复制 q，把它拆成两个状态。'],
+  ],
+  time: 'O(n)', space: 'O(n · 26)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+const int N = 200005;
+char s[N];
+int len[2 * N], fa[2 * N], nxt[2 * N][26], last = 1, tot = 1;  // state 1 is the empty string; fa is the suffix link
+
+void extend(int c) {
+    int cur = ++tot, p = last;
+    len[cur] = len[last] + 1;  //@new
+    for (; p && !nxt[p][c]; p = fa[p]) nxt[p][c] = cur;  //@walk
+    if (!p) fa[cur] = 1;  //@root
+    else {
+        int q = nxt[p][c];
+        if (len[q] == len[p] + 1) fa[cur] = q;  //@direct
+        else {
+            int cl = ++tot;
+            len[cl] = len[p] + 1; fa[cl] = fa[q];
+            memcpy(nxt[cl], nxt[q], sizeof nxt[q]);  //@clone
+            for (; p && nxt[p][c] == q; p = fa[p]) nxt[p][c] = cl;
+            fa[q] = fa[cur] = cl;
+        }
+    }
+    last = cur;
+}
+
+int main() {
+    scanf("%s", s);
+    for (int i = 0; s[i]; i++) extend(s[i] - 'a');
+    long long ans = 0;
+    for (int v = 2; v <= tot; v++) ans += len[v] - len[fa[v]];  //@count
+    printf("%lld\n", ans);  //@done
+}`,
+  notes: [
+    ['new', ['The new state stands for the whole string read so far.', '新状态代表目前读入的整个字符串。']],
+    ['walk', ['Every suffix of the old string that had no c-transition can now be followed by c, ending at the new last position.', '原串的每个还没有 c 转移的后缀，现在都可以接上 c，并且结束在新的最后一个位置。']],
+    ['root', ['c never occurred before: every suffix of the new string is new, and the link goes to the empty string.', 'c 以前从未出现过：新串的所有后缀都是新的，后缀链接指向空串。']],
+    ['direct', ['q is exactly "that suffix plus c": it becomes the suffix link of the new state.', 'q 恰好就是“那个后缀接上 c”：它成为新状态的后缀链接。']],
+    ['clone', ['q also holds longer strings that do not end at the new position. The clone takes the short ones, with the same transitions.', 'q 里还有更长的、并不在新位置结束的串。克隆出来的状态接管较短的那些，转移与 q 相同。']],
+    ['count', ['State v holds len[v] − len[fa[v]] different substrings, and every substring is in exactly one state.', '状态 v 包含 len[v] − len[fa[v]] 个不同的子串，而每个子串恰好属于一个状态。']],
+  ],
+  input: ['A string of lowercase letters, at most 200 000 long. Prints the number of different non-empty substrings.', '一个由小写字母组成的字符串，长度不超过 200 000。输出它的不同的非空子串的个数。'],
+  sizes: [4, 5, 6], lab: [10, 1000, 100000, 200000],
+  gen: (n, r) => rndStr(n, r, n <= 30 ? 'ab' : 'abcd') + '\n',
+  run(inp, t) {
+    const s = reader(inp).str(), n = s.length
+    lower(s)
+    need(n <= 200000, 'The string must be at most 200,000 characters long.', '字符串长度不能超过 200,000。')
+    const M = 2 * n + 2, len = new Int32Array(M), fa = new Int32Array(M), nxt = new Int32Array(M * 26), end = new Int32Array(M)
+    let last = 1, tot = 1
+    // Each state is drawn as its longest string; the edges are the suffix links.
+    const name = (v: number) => (v === 1 ? 'ε' : s.slice(end[v] - len[v], end[v]))
+    const view = (hi: Tones = {}) => {
+      const par = span(1, tot).map(v => (v === 1 ? -1 : fa[v] ? fa[v] - 1 : -2)), es: GEdge[] = []
+      for (let v = 2; v <= tot; v++) if (fa[v]) es.push({ u: fa[v] - 1, v: v - 1 })
+      return graph(layoutForest(par), es, { label: span(1, tot).map(name), sub: span(1, tot).map(v => (v === 1 ? undefined : len[v])), tone: hi, name: 'states (their longest string) joined by suffix links · caption = len' })
+    }
+    const text = (i: number) => arr('s', s.split(''), tn({ ok: span(0, i - 1), act: i }))
+    for (let i = 0; i < n; i++) {
+      const c = s.charCodeAt(i) - 97, cur = ++tot
+      let p = last, steps = 0
+      len[cur] = len[last] + 1; end[cur] = i + 1
+      for (; p && !nxt[p * 26 + c]; p = fa[p]) { nxt[p * 26 + c] = cur; steps++; t.tick() }
+      const walked = steps
+      if (!p) {
+        fa[cur] = 1
+        t.s('root', () => [[`Add '${s[i]}': new state "${name(cur)}". The walk up the suffix links added ${walked} transition${walked === 1 ? '' : 's'} and fell off the root: '${s[i]}' is a new letter, so the link goes to ε.`, `添加 '${s[i]}'：新建状态 “${name(cur)}”。沿后缀链接往上走，添加了 ${walked} 个转移，一直走过了根：'${s[i]}' 是一个新字母，所以后缀链接指向 ε。`], text(i), view({ [cur - 1]: 'act', 0: 'cmp' })])
+      } else {
+        const q = nxt[p * 26 + c]
+        if (len[q] === len[p] + 1) {
+          fa[cur] = q
+          t.s('direct', () => [[`Add '${s[i]}': new state "${name(cur)}". After ${walked} new transition${walked === 1 ? '' : 's'}, state "${name(p)}" already has a '${s[i]}'-transition to "${name(q)}", which is exactly one longer: it becomes the suffix link.`, `添加 '${s[i]}'：新建状态 “${name(cur)}”。添加了 ${walked} 个转移之后，状态 “${name(p)}” 已经有通向 “${name(q)}” 的 '${s[i]}' 转移，而且长度恰好多 1：它就是新状态的后缀链接。`], text(i), view({ [cur - 1]: 'act', [q - 1]: 'cmp' })])
+        } else {
+          const cl = ++tot, from = p
+          len[cl] = len[p] + 1; fa[cl] = fa[q]; end[cl] = end[q]
+          nxt.copyWithin(cl * 26, q * 26, q * 26 + 26)
+          for (; p && nxt[p * 26 + c] === q; p = fa[p]) { nxt[p * 26 + c] = cl; t.tick() }
+          fa[q] = cl; fa[cur] = cl
+          t.s('clone', () => [[`Add '${s[i]}': new state "${name(cur)}". State "${name(from)}" leads by '${s[i]}' to "${name(q)}", which is longer than "${name(from)}" + '${s[i]}'. Split it: the clone "${name(cl)}" takes the short strings and becomes the link of both.`, `添加 '${s[i]}'：新建状态 “${name(cur)}”。状态 “${name(from)}” 经 '${s[i]}' 通向 “${name(q)}”，而它比 “${name(from)}” 接上 '${s[i]}' 更长。于是把它拆开：克隆出的状态 “${name(cl)}” 接管较短的那些串，并成为两者共同的后缀链接。`], text(i), view({ [cur - 1]: 'act', [q - 1]: 'cmp', [cl - 1]: 'alt' })])
+        }
+      }
+      last = cur
+    }
+    let ans = 0
+    for (let v = 2; v <= tot; v++) ans += len[v] - len[fa[v]]
+    const res = ans, states = tot
+    t.s('count', () => [[`${states} states. State v holds len[v] − len[link[v]] substrings: ${span(2, Math.min(states, 9)).map(v => len[v] - len[fa[v]]).join(' + ')}${states > 9 ? ' + …' : ''} = ${res}.`, `共 ${states} 个状态。状态 v 包含 len[v] − len[link[v]] 个子串：${span(2, Math.min(states, 9)).map(v => len[v] - len[fa[v]]).join(' + ')}${states > 9 ? ' + …' : ''} = ${res}。`], text(n), view(), vars({ answer: res })])
+    t.out(res)
+  },
+}
+
+export default [kmp, manacher, zfn, ac, sa, stringHash, sam]

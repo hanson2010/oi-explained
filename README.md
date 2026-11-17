@@ -1,6 +1,6 @@
 # OI Explained
 
-A web app for learners of competitive programming (OI). It covers 90 algorithms and data structures from the CCF NOI syllabus (2025 edition), from CSP-J to NOI level. The interface is available in English and Simplified Chinese.
+A web app for learners of competitive programming (OI). It covers 101 algorithms and data structures from the CCF NOI syllabus (2025 edition), from CSP-J to NOI level. The interface is available in English and Simplified Chinese.
 
 Each lesson has five tabs:
 

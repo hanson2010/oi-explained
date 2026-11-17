@@ -1,7 +1,7 @@
 import type { GEdge, Tones } from '../../engine/types'
 import { arr, graph, grid, gt, layoutForest, reader, span, tn, vars } from '../../engine/h'
 import type { Extras } from '../extras'
-import { row } from '../story-util'
+import { col, row } from '../story-util'
 
 const PAD = [...'#a#b#a#c#a#b#a#']
 
@@ -216,6 +216,33 @@ int main() {
       { id: 'len', kind: 'test', text: ['next question:   equal lengths ?', '下一个询问：长度相等 ？'], no: 'query', on: [] },
       { id: 'get', text: ['hash(l, r) = h[r] − h[l−1] · pw[r − l + 1]   for both substrings', '对两个子串分别计算 hash(l, r) = h[r] − h[l−1] · pw[r − l + 1]'] },
       { id: 'query', kind: 'end', text: ['print Y if the lengths and the hashes agree, otherwise N', '长度和哈希值都相同则输出 Y，否则输出 N'] },
+    ],
+  },
+
+  sam: {
+    story: [
+      { kind: 'term', title: ['Finite automata', '有限自动机'],
+        body: ['A **finite automaton** is a machine with a finite number of **states** and, for each state and each letter, at most one **transition** to another state. It reads a string letter by letter from a start state; some states are marked as **accepting**. The automaton recognises exactly the strings that lead it to an accepting state. You have met several already: a ==trie== is an automaton that accepts a set of words; ==KMP== walks an automaton whose state is "how much of the pattern is matched"; the ==AC automaton== does the same for many patterns. The suffix automaton is the smallest automaton that accepts all suffixes of a string — and every path from the start, accepting or not, spells one of its substrings.', '**有限自动机**是这样一台机器：它有有限个**状态**，对每个状态和每个字母，至多有一个通向另一个状态的**转移**。它从起始状态出发，一个字母一个字母地读入字符串；其中一些状态被标记为**接受状态**。自动机识别的恰好是那些能把它带到接受状态的字符串。你其实已经见过好几种了：==字典树==是接受一组单词的自动机；==KMP== 是在一个自动机上行走，它的状态是“模式串已经匹配了多少”；==AC 自动机==对多个模式串做同样的事。后缀自动机是接受一个字符串所有后缀的最小的自动机——而且从起始状态出发的每一条路径，无论是否到达接受状态，拼出来的都是它的一个子串。'] },
+      { kind: 'naive', title: ['Start simple: put every substring in a set', '先从最简单的做起：把每个子串放进集合'],
+        body: ['Take all n² / 2 substrings and insert them into a set, or all n suffixes into a trie. Either way the size is **quadratic**: for a string of 10⁵ letters, billions of characters.', '取出全部 n² / 2 个子串放进一个集合，或者把 n 个后缀都插入一棵字典树。无论哪种做法，规模都是**平方级**的：10⁵ 个字母的字符串，要处理几十亿个字符。'],
+        fig: () => [grid('the substrings of "abab", by where they end', [['a', '1, 3'], ['b', '2, 4'], ['ab', '2, 4'], ['ba', '3'], ['aba', '3'], ['bab', '4'], ['abab', '4']], gt({ cmp: [[1, 1], [2, 1]], alt: [[3, 1], [4, 1]], ok: [[5, 1], [6, 1]] }), { cols: ['substring', 'end positions'] })] },
+      { kind: 'insight', title: ['Substrings that end in the same places are one state', '结束位置相同的子串是同一个状态'],
+        body: ['Group substrings by their ==set of end positions==. In the table, "b" and "ab" always end together; so do "ba" and "aba"; so do "bab" and "abab". Whatever can follow one member of a group can follow all of them — so one state is enough for the whole group. The members of a group are suffixes of each other with consecutive lengths; `len` is the longest.', '把子串按==结束位置的集合==分组。在上面的表里，“b” 和 “ab” 总是一起结束；“ba” 和 “aba” 也是；“bab” 和 “abab” 也是。同一组里的任何一个串后面能接什么，其他的串后面也都能接——所以整组只需要一个状态。同一组的成员互为后缀，长度连续；`len` 是其中最长的那个的长度。'] },
+      { kind: 'how', title: ['Suffix links, and three cases when a letter is added', '后缀链接，以及添加一个字母时的三种情况'],
+        body: ['Dropping letters from the front of a state\'s strings eventually reaches a string with __more__ end positions: its state is the **suffix link**. To append c: make a state `cur` for the whole string; climb the links from the previous last state, giving every state without a c-transition one to `cur`. ==Fell off the top==: link `cur` to the root. ==Stopped at p with p –c→ q and len[q] = len[p] + 1==: link `cur` to q. ==Otherwise==: clone q with length len[p] + 1, redirect the transitions that pointed to q, and link both q and `cur` to the clone.', '从一个状态里的串的前面不断去掉字母，最终会得到一个结束位置__更多__的串：它所在的状态就是**后缀链接**。添加字符 c 时：为整个串新建状态 `cur`；从之前的最后一个状态出发沿链接往上爬，给每个没有 c 转移的状态添上一个通向 `cur` 的转移。==爬过了顶==：把 `cur` 的链接指向根。==停在 p，且 p –c→ q 满足 len[q] = len[p] + 1==：把 `cur` 的链接指向 q。==否则==：克隆 q，长度设为 len[p] + 1，把原来指向 q 的转移改指向克隆体，并让 q 和 `cur` 的链接都指向克隆体。'] },
+      { kind: 'result', title: ['All substrings, in linear size', '线性的大小，装下所有子串'],
+        body: ['Fewer than **2n states** and 3n transitions, built in linear time. State v contains `len[v] − len[link[v]]` substrings, so their sum is the number of different substrings. The same structure answers: does t occur in s (walk it), how often (sizes of end-position sets), the longest common substring of two strings, the k-th smallest substring.', '状态少于 **2n 个**，转移少于 3n 条，线性时间即可建成。状态 v 包含 `len[v] − len[link[v]]` 个子串，把它们加起来就是不同子串的个数。同一个结构还能回答：t 是否在 s 中出现（沿着它走一遍）、出现了多少次（结束位置集合的大小）、两个串的最长公共子串、字典序第 k 小的子串。'],
+        fig: () => [grid('"abab": 3 + 2 + 2 = 7 different substrings', [['a', 1, 0, 1], ['ab, b', 2, 0, 2], ['aba, ba', 3, 1, 2], ['abab, bab', 4, 2, 2]], gt({ ok: col(3, 0, 3) }), { cols: ['strings of the state', 'len', 'len of its link', 'count'] })] },
+    ],
+    flow: [
+      { id: 'new', kind: 'start', text: ['next letter c:   cur = new state,   len = len[last] + 1', '下一个字母 c：cur = 新状态，len = len[last] + 1'] },
+      { id: 'walk', text: ['p = last;   while p has no c-transition:   add p –c→ cur,   p = link[p]', 'p = last；只要 p 没有 c 转移：添加 p –c→ cur，p = link[p]'] },
+      { id: 'root', kind: 'test', text: ['p fell off the root ?   link[cur] = root', 'p 爬过了根 ？link[cur] = 根'], yes: 'last', no: 'direct' },
+      { id: 'direct', kind: 'test', text: ['q = target of p –c→;   len[q] = len[p] + 1 ?   link[cur] = q', 'q = p –c→ 的目标；len[q] = len[p] + 1 ？link[cur] = q'], yes: 'last', no: 'clone' },
+      { id: 'clone', text: ['clone q with len[p] + 1;   redirect transitions;   link[q] = link[cur] = clone', '克隆 q，长度为 len[p] + 1；修改转移；link[q] = link[cur] = 克隆体'] },
+      { id: 'last', text: ['last = cur', 'last = cur'], next: 'new', on: [] },
+      { id: 'count', text: ['answer = Σ (len[v] − len[link[v]])', '答案 = Σ (len[v] − len[link[v]])'] },
+      { id: 'done', kind: 'end', text: ['print the answer', '输出答案'] },
     ],
   },
 }

@@ -1,5 +1,5 @@
 import type { Lesson, Tone, Tones } from '../../engine/types'
-import { adjOf, arr, genTree, graph, grid, gt, INF, inf, layoutTree, need, parentsOf, reader, span, tn, toEdges, vars, type E } from '../../engine/h'
+import { adjOf, arr, fmtGraph, genTree, graph, grid, gt, INF, inf, layoutGraph, layoutTree, need, parentsOf, reader, readGraph, span, tn, toEdges, vars, type E } from '../../engine/h'
 
 const cpp = String.raw
 
@@ -394,4 +394,105 @@ int main() {
   },
 }
 
-export default [lis, knapsack, interval, lcs, treeDp, bitmask]
+const MOD998 = 998244353
+const mulM = (a: number, b: number) => (a * (b >>> 16) % MOD998 * 65536 + a * (b & 65535)) % MOD998
+const powM = (a: number, e: number) => { let r = 1; for (a %= MOD998; e > 0; e = Math.floor(e / 2)) { if (e % 2) r = mulM(r, a); a = mulM(a, a) } return r }
+const expectDp: Lesson = {
+  id: 'expect-dp', title: ['Expectation DP: a random walk on a DAG', '期望 DP：有向无环图上的随机游走'], level: 'N', cat: 'dp', diff: 9,
+  needs: ['topo-sort', 'mod-inverse'],
+  blurb: ['The expected length from a vertex is the average, over its outgoing edges, of the edge length plus the expected length from the other end. Work backwards from the target.', '从一个顶点出发的期望长度，等于对它的所有出边取平均：边长加上从另一端出发的期望长度。从终点往回推。'],
+  ideas: [
+    ['A walker starts at vertex 1 and at every vertex picks one of the outgoing edges, each with the same chance. How long is the walk to vertex n on average?', '一个人从顶点 1 出发，在每个顶点等概率地选一条出边走。走到顶点 n 平均要走多长？'],
+    ['Let f[u] be the expected remaining length from u. Then f[n] = 0.', '设 f[u] 为从 u 出发还要走的期望长度。那么 f[n] = 0。'],
+    ['At u, each of the deg(u) edges u → v is taken with probability 1 / deg(u), and then w + f[v] lies ahead: f[u] is the average of those values.', '在 u 处，deg(u) 条出边 u → v 各以 1 / deg(u) 的概率被选中，之后还要走 w + f[v]：f[u] 就是这些值的平均数。'],
+    ['f[v] must be known before f[u]: process the vertices in reverse topological order.', '计算 f[u] 之前必须先知道 f[v]：要按逆拓扑序处理各个顶点。'],
+    ['The answer is a fraction. It is printed modulo a prime, with the division done by a modular inverse.', '答案是一个分数。按题目要求对一个质数取模输出，其中的除法用乘法逆元完成。'],
+  ],
+  time: 'O((n + m) log p)', space: 'O(n + m)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+const long long MOD = 998244353;
+const int N = 200005;
+int n, m, deg[N], todo[N];
+long long f[N], sum[N];
+vector<pair<int, int>> rg[N];  // rg[v]: the edges that END at v, as (start, length)
+
+long long power(long long a, long long b) {
+    long long r = 1;
+    for (a %= MOD; b > 0; b >>= 1) {
+        if (b & 1) r = r * a % MOD;
+        a = a * a % MOD;
+    }
+    return r;
+}
+
+int main() {
+    scanf("%d%d", &n, &m);
+    for (int i = 0; i < m; i++) {
+        int u, v, w; scanf("%d%d%d", &u, &v, &w);
+        rg[v].push_back({u, w}); deg[u]++; todo[u]++;
+    }
+    queue<int> q;
+    q.push(n);  //@start
+    while (!q.empty()) {
+        int v = q.front(); q.pop();
+        for (auto [u, w] : rg[v]) {
+            sum[u] = (sum[u] + f[v] + w) % MOD;  //@edge
+            if (--todo[u] == 0) {
+                f[u] = sum[u] * power(deg[u], MOD - 2) % MOD;  //@avg
+                q.push(u);
+            }
+        }
+    }
+    printf("%lld\n", f[1]);  //@done
+}`,
+  notes: [
+    ['start', ['The target is the only vertex whose value is known at once: nothing is left to walk.', '终点是唯一一个一开始就知道答案的顶点：已经不用再走了。']],
+    ['edge', ['One of the choices at u: walk w and then, on average, f[v] more.', '在 u 处的一种选择：先走 w，之后平均还要走 f[v]。']],
+    ['avg', ['All choices at u are summed. Dividing by their number is multiplying by the inverse of deg(u).', 'u 处所有选择的值已经加完。除以它们的个数，就是乘以 deg(u) 的逆元。']],
+  ],
+  input: ['n m, then m lines "u v w": an edge from u to v of length w, always with u < v. Every vertex except n has at least one outgoing edge. Prints the expected length of the walk from 1 to n, modulo 998 244 353.', 'n m，随后 m 行 “u v w”：一条从 u 到 v、长度为 w 的有向边，保证 u < v。除 n 以外的每个顶点都至少有一条出边。输出从 1 走到 n 的期望长度对 998 244 353 取模的值。'],
+  sizes: [4, 5, 6], lab: [10, 1000, 100000, 200000],
+  gen(n, r) {
+    const es: number[][] = [], seen = new Set<number>()
+    if (n < 2) return fmtGraph(1, es)
+    for (let u = 0; u + 1 < n; u++) { const v = r.int(u + 1, Math.min(n - 1, u + 3)); seen.add(u * n + v); es.push([u, v, r.int(1, 9)]) }
+    for (let tries = 0, want = n + (n >> 1); es.length < want && tries < 6 * n; tries++) {
+      const u = r.int(0, n - 2), v = r.int(u + 1, Math.min(n - 1, u + 4))
+      if (!seen.has(u * n + v)) { seen.add(u * n + v); es.push([u, v, r.int(1, 9)]) }
+    }
+    return fmtGraph(n, es)
+  },
+  run(inp, t) {
+    const { n, m, es } = readGraph(inp, true)
+    need(n <= 200000, 'n must be at most 200,000.', 'n 不能超过 200,000。')
+    const deg = new Int32Array(n), todo = new Int32Array(n), rg: [number, number, number][][] = Array.from({ length: n }, () => [])
+    es.forEach(([u, v, w], e) => { need(u < v, 'Every edge must go from a smaller to a larger vertex.', '每条边都必须从编号较小的顶点指向编号较大的顶点。'); need(w >= 0, 'Lengths must not be negative.', '长度不能为负。'); rg[v].push([u, w, e]); deg[u]++; todo[u]++ })
+    for (let u = 0; u + 1 < n; u++) need(deg[u] > 0, `Vertex ${u + 1} has no outgoing edge.`, `顶点 ${u + 1} 没有出边。`)
+    const f = new Array<number>(n).fill(0), sum = new Array<number>(n).fill(0), real = new Array<number>(n).fill(0), rsum = new Array<number>(n).fill(0), known = new Uint8Array(n)
+    const pos = t.on ? layoutGraph(n, es) : [], ed = toEdges(es, true, true), et: Tones = {}
+    const view = (hi: Tones = {}, ehi: Tones = {}) => graph(pos, ed, { tone: { ...Object.fromEntries(span(0, n - 1).filter(u => known[u]).map(u => [u, 'ok' as Tone])), ...hi }, et: { ...et, ...ehi }, sub: span(0, n - 1).map(u => (known[u] ? +real[u].toFixed(2) : '?')), name: 'caption = expected remaining length' })
+    known[n - 1] = 1
+    const q = [n - 1]
+    t.s('start', () => [[`f[${n}] = 0: at the target nothing is left to walk.`, `f[${n}] = 0：到了终点就不用再走了。`], view({ [n - 1]: 'act' })])
+    for (let h = 0; h < q.length; h++) {
+      const v = q[h]
+      for (const [u, w, e] of rg[v]) {
+        sum[u] = (sum[u] + f[v] + w) % MOD998; rsum[u] += real[v] + w
+        et[e] = 'vis'
+        t.s('edge', () => [[`Edge ${u + 1} → ${v + 1}: this choice costs ${w} + f[${v + 1}] = ${+(w + real[v]).toFixed(2)}. Sum of the choices at ${u + 1} so far: ${+rsum[u].toFixed(2)}.`, `边 ${u + 1} → ${v + 1}：这种选择的代价是 ${w} + f[${v + 1}] = ${+(w + real[v]).toFixed(2)}。顶点 ${u + 1} 目前各种选择之和：${+rsum[u].toFixed(2)}。`], view({ [u]: 'cmp', [v]: 'act' }, { [e]: 'act' })])
+        if (--todo[u] === 0) {
+          f[u] = mulM(sum[u], powM(deg[u], MOD998 - 2)); real[u] = rsum[u] / deg[u]; known[u] = 1
+          q.push(u)
+          t.s('avg', () => [[`All ${deg[u]} edge${deg[u] === 1 ? '' : 's'} out of ${u + 1} are done: f[${u + 1}] = ${+rsum[u].toFixed(2)} / ${deg[u]} = ${+real[u].toFixed(2)}.`, `顶点 ${u + 1} 的 ${deg[u]} 条出边都处理完了：f[${u + 1}] = ${+rsum[u].toFixed(2)} / ${deg[u]} = ${+real[u].toFixed(2)}。`], view({ [u]: 'act' }), vars({ [`f[${u + 1}] mod p`]: f[u] })])
+        }
+      }
+    }
+    t.tick(m)
+    t.s('done', () => [[`The expected length from 1 is ${+real[0].toFixed(4)}; as a fraction modulo 998244353 it is ${f[0]}.`, `从 1 出发的期望长度是 ${+real[0].toFixed(4)}；写成分数并对 998244353 取模就是 ${f[0]}。`], view({ 0: 'act' }), vars({ answer: f[0] })])
+    t.out(f[0])
+  },
+}
+
+export default [lis, knapsack, interval, lcs, treeDp, bitmask, expectDp]

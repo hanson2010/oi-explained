@@ -1,5 +1,5 @@
 import type { Lesson, Rng, Tone, Tones } from '../../engine/types'
-import { adjOf, arr, fmtGraph, genGraph, genTree, graph, grid, gt, Heap, INF, inf, layoutGraph, layoutTree, need, parentsOf, readGraph, span, tn, toEdges, vars, type E, type P } from '../../engine/h'
+import { adjOf, arr, fmtGraph, genGraph, genTree, graph, grid, gt, Heap, INF, inf, layoutGraph, layoutTree, need, parentsOf, reader, readGraph, span, tn, toEdges, vars, type E, type P } from '../../engine/h'
 
 const cpp = String.raw
 const edgesFor = (n: number) => (n <= 30 ? n + (n >> 1) : 2 * n)
@@ -1580,4 +1580,230 @@ int main() {
   },
 }
 
-export default [gdfs, gbfs, dijkstra, spfa, floyd, prim, kruskal, topo, bipartite, tarjan, cutBridge, lca, diameter, hld, dinic, hungarian, eulerPath, secondShortest]
+const twoSat: Lesson = {
+  id: 'two-sat', title: ['2-SAT', '2-SAT'], level: 'N', cat: 'graph', diff: 8,
+  needs: ['tarjan-scc'],
+  blurb: ['Every "this or that" condition is two implications. Draw them as edges: the conditions can all hold unless some variable is forced to imply its own opposite and back.', '每个“这个或者那个”的条件都等于两条推导关系。把它们画成边：只要没有哪个变量既能推出自己的反面、又能被反面推回来，所有条件就能同时满足。'],
+  ideas: [
+    ['Each variable is true or false; each condition says "xᵢ = a or xⱼ = b". Find values that satisfy all conditions.', '每个变量取真或假；每个条件形如“xᵢ = a 或 xⱼ = b”。要找一组取值满足所有条件。'],
+    ['"A or B" means: if A fails then B must hold, and if B fails then A must hold. Two implications.', '“A 或 B”的意思是：A 不成立时 B 必须成立，B 不成立时 A 必须成立。这是两条推导关系。'],
+    ['Make a vertex for each literal — xᵢ is true, xᵢ is false — and an edge for each implication.', '为每个“文字”建一个顶点——xᵢ 为真、xᵢ 为假——再为每条推导关系连一条边。'],
+    ['Literals in one strongly connected component imply each other: they are all true or all false together.', '同一个强连通分量里的文字可以互相推出：它们要么全真，要么全假。'],
+    ['If xᵢ-true and xᵢ-false share a component there is no solution. Otherwise choose, for each variable, the literal whose component comes later in topological order.', '如果“xᵢ 为真”和“xᵢ 为假”在同一个分量里，就无解。否则对每个变量，选拓扑序靠后的那个分量里的文字。'],
+  ],
+  time: 'O(n + m)', space: 'O(n + m)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+const int N = 2000005;
+int n, m, dfn[N], low[N], comp[N], st[N], idx, cnt, top;
+bool in[N];
+vector<int> g[N];
+
+int node(int i, int v) { return v ? i : i + n; }  // the literal "x_i = v"
+
+void tarjan(int u) {
+    dfn[u] = low[u] = ++idx; st[++top] = u; in[u] = true;
+    for (int v : g[u]) {
+        if (!dfn[v]) { tarjan(v); low[u] = min(low[u], low[v]); }
+        else if (in[v]) low[u] = min(low[u], dfn[v]);
+    }
+    if (low[u] == dfn[u]) {
+        cnt++;  //@scc
+        for (int v = 0; v != u;) { v = st[top--]; in[v] = false; comp[v] = cnt; }
+    }
+}
+
+int main() {
+    scanf("%d%d", &n, &m);
+    while (m--) {
+        int i, a, j, b; scanf("%d%d%d%d", &i, &a, &j, &b);
+        g[node(i, !a)].push_back(node(j, b));  //@clause
+        g[node(j, !b)].push_back(node(i, a));
+    }
+    for (int u = 1; u <= 2 * n; u++) if (!dfn[u]) tarjan(u);
+    for (int i = 1; i <= n; i++)
+        if (comp[i] == comp[i + n]) { puts("IMPOSSIBLE"); return 0; }  //@clash
+    puts("POSSIBLE");
+    for (int i = 1; i <= n; i++) printf("%d ", comp[i] < comp[i + n] ? 1 : 0);  //@pick
+}`,
+  notes: [
+    ['clause', ['If x_i is not a, then x_j must be b — and the other way round on the next line.', '如果 x_i 不等于 a，那么 x_j 必须等于 b——下一行是反过来的那一条。']],
+    ['scc', ['Tarjan numbers the components in reverse topological order: a smaller number means later in the order.', 'Tarjan 算法给分量编号的顺序是逆拓扑序：编号越小，在拓扑序中越靠后。']],
+    ['clash', ['x_i = 1 implies x_i = 0 and back: whichever value is chosen forces the other.', 'x_i = 1 能推出 x_i = 0，反过来也成立：无论取哪个值都会推出另一个。']],
+    ['pick', ['Choose the literal that is later in topological order, so that nothing it implies was rejected.', '选拓扑序靠后的那个文字，这样它能推出的东西都不会是被舍弃的。']],
+  ],
+  input: ['n m, then m lines "i a j b" meaning: x_i = a or x_j = b (a and b are 0 or 1). Prints POSSIBLE and one valid assignment x_1 … x_n, or IMPOSSIBLE.', 'n m，随后 m 行 “i a j b”，表示：x_i = a 或 x_j = b（a、b 为 0 或 1）。输出 POSSIBLE 和一组合法的取值 x_1 … x_n，或者输出 IMPOSSIBLE。'],
+  sizes: [3, 4, 5], lab: [10, 1000, 50000, 100000],
+  gen(n, r) {
+    const m = n <= 30 ? n + 1 : 2 * n, h = r.ints(n, 0, 1)
+    let s = `${n} ${m}\n`
+    for (let k = 0; k < m; k++) {
+      const i = r.int(1, n), j = r.int(1, n), b = r.int(0, 1)
+      let a = r.int(0, 1)
+      // Four clauses in five agree with a hidden assignment, so most inputs can be satisfied.
+      if (r.int(0, 4) && a !== h[i - 1] && b !== h[j - 1]) a = h[i - 1]
+      s += `${i} ${a} ${j} ${b}\n`
+    }
+    return s
+  },
+  run(inp, t) {
+    const rd = reader(inp), n = rd.int(), m = rd.int()
+    need(Number.isInteger(n) && n >= 1 && n <= 1000000 && Number.isInteger(m) && m >= 0, 'Need 1 ≤ n ≤ 1,000,000 and m ≥ 0.', '需要 1 ≤ n ≤ 1,000,000 且 m ≥ 0。')
+    const N2 = 2 * n, node = (i: number, v: number) => (v ? i : i + n), es: [number, number, number][] = [], g: number[][] = Array.from({ length: N2 }, () => [])
+    const name = (u: number) => (u < n ? `x${u + 1}` : `¬x${u - n + 1}`), label = span(0, N2 - 1).map(name)
+    const cls: number[][] = []
+    for (let k = 0; k < m; k++) {
+      const [i, a, j, b] = rd.ints(4)
+      need(i >= 1 && i <= n && j >= 1 && j <= n && (a === 0 || a === 1) && (b === 0 || b === 1), `Condition ${k + 1} is invalid.`, `第 ${k + 1} 个条件不合法。`)
+      cls.push([i, a, j, b])
+      const e1: [number, number] = [node(i - 1, 1 - a), node(j - 1, b)], e2: [number, number] = [node(j - 1, 1 - b), node(i - 1, a)]
+      g[e1[0]].push(e1[1]); g[e2[0]].push(e2[1]); es.push([e1[0], e1[1], 1], [e2[0], e2[1], 1])
+    }
+    const pos = lay(t.on, N2, es), ed = toEdges(es, false, true)
+    for (let k = 0; k < m; k++) {
+      const [i, a, j, b] = cls[k]
+      t.s('clause', () => [[`"x${i} = ${a} or x${j} = ${b}" gives two edges: ${name(node(i - 1, 1 - a))} → ${name(node(j - 1, b))} and ${name(node(j - 1, 1 - b))} → ${name(node(i - 1, a))}.`, `“x${i} = ${a} 或 x${j} = ${b}” 给出两条边：${name(node(i - 1, 1 - a))} → ${name(node(j - 1, b))} 和 ${name(node(j - 1, 1 - b))} → ${name(node(i - 1, a))}。`], graph(pos, ed, { label, et: Object.fromEntries(span(0, 2 * m - 1).map(e => [e, e >= 2 * k + 2 ? 'dim' : e >= 2 * k ? 'act' : undefined]).filter(x => x[1])) as Tones })])
+    }
+    const dfn = new Int32Array(N2), low = new Int32Array(N2), comp = new Int32Array(N2), onst = new Uint8Array(N2), it = new Int32Array(N2), st: number[] = []
+    let idx = 0, cnt = 0
+    const tones = () => { const tone: Tones = {}; for (let u = 0; u < N2; u++) if (comp[u]) tone[u] = PAL[(comp[u] - 1) % PAL.length]; return tone }
+    for (let s = 0; s < N2; s++) {
+      if (dfn[s]) continue
+      const call = [s]
+      dfn[s] = low[s] = ++idx; st.push(s); onst[s] = 1
+      while (call.length) {
+        const u = call[call.length - 1]
+        if (it[u] < g[u].length) {
+          const v = g[u][it[u]++]
+          t.tick()
+          if (!dfn[v]) { dfn[v] = low[v] = ++idx; st.push(v); onst[v] = 1; call.push(v) } else if (onst[v]) low[u] = Math.min(low[u], dfn[v])
+          continue
+        }
+        call.pop()
+        if (low[u] === dfn[u]) {
+          cnt++
+          const members: number[] = []
+          for (let v = -1; v !== u;) { v = st.pop()!; onst[v] = 0; comp[v] = cnt; members.push(v) }
+          const c = cnt
+          t.s('scc', () => [[`Component ${c}: {${members.map(name).join(', ')}}${members.length > 1 ? ' — these imply one another' : ''}.`, `第 ${c} 个分量：{${members.map(name).join('、')}}${members.length > 1 ? '——它们可以互相推出' : ''}。`], graph(pos, ed, { label, tone: tones(), sub: Array.from(comp, x => x || undefined), name: 'caption = component number' }), vars({ components: c })])
+        }
+        if (call.length) { const p = call[call.length - 1]; low[p] = Math.min(low[p], low[u]) }
+      }
+    }
+    for (let i = 0; i < n; i++) if (comp[i] === comp[i + n]) {
+      t.s('clash', () => [[`x${i + 1} and ¬x${i + 1} are in the same component: each forces the other. IMPOSSIBLE.`, `x${i + 1} 和 ¬x${i + 1} 在同一个分量里：它们互相推出对方。无解。`], graph(pos, ed, { label, tone: { ...tones(), [i]: 'bad', [i + n]: 'bad' }, sub: Array.from(comp) })])
+      t.out('IMPOSSIBLE'); return
+    }
+    const val = span(0, n - 1).map(i => (comp[i] < comp[i + n] ? 1 : 0))
+    t.s('pick', () => [[`No variable clashes. For each one take the literal with the smaller component number: ${val.map((v, i) => `x${i + 1} = ${v}`).slice(0, 8).join(', ')}${n > 8 ? ', …' : ''}.`, `没有变量发生冲突。对每个变量，取分量编号较小的那个文字：${val.map((v, i) => `x${i + 1} = ${v}`).slice(0, 8).join('，')}${n > 8 ? '，……' : ''}。`], graph(pos, ed, { label, tone: Object.fromEntries(span(0, N2 - 1).map(u => [u, (u < n ? val[u] === 1 : val[u - n] === 0) ? 'ok' : 'dim'])) as Tones, sub: Array.from(comp), name: 'green = chosen literals' }), arr('assignment', val, tn({ ok: span(0, n - 1) }), undefined, { base: 1 })])
+    t.out('POSSIBLE\n' + val.join(' '))
+  },
+}
+
+const km: Lesson = {
+  id: 'km', title: ['Kuhn–Munkres: maximum-weight matching', 'KM 算法：二分图最大权完美匹配'], level: 'N', cat: 'graph', diff: 10,
+  needs: ['hungarian'],
+  blurb: ['Give every worker and every job a label whose sum is never below the weight between them. Match along the pairs where the sum is exact; when stuck, lower the labels just enough to open a new such pair.', '给每个工人和每项工作一个顶标，使两者之和永远不小于它们之间的权值。只沿着“和恰好等于权值”的边去匹配；走不通时，把顶标降低到刚好多出一条这样的边。'],
+  ideas: [
+    ['Assign n workers to n jobs, one each, with the largest total weight.', '把 n 个工人分配给 n 项工作，一人一项，使总权值最大。'],
+    ['Keep labels u (workers) and v (jobs) with u[i] + v[j] ≥ w[i][j] for every pair. An edge is tight when equality holds.', '维护顶标 u（工人）和 v（工作），使每一对都满足 u[i] + v[j] ≥ w[i][j]。等号成立的边叫做“相等边”。'],
+    ['Any perfect matching weighs at most the sum of all labels. One made only of tight edges weighs exactly that sum — so it is the best.', '任何完美匹配的权值都不超过所有顶标之和。只由相等边组成的完美匹配，权值恰好等于这个和——所以它是最优的。'],
+    ['So: look for an augmenting path as in the Hungarian algorithm, but only along tight edges.', '所以：像匈牙利算法那样找增广路，但只沿着相等边走。'],
+    ['When the search is stuck, take the smallest slack u + v − w on an edge leaving the searched part and shift the labels by it: one more edge becomes tight and nothing breaks.', '搜索卡住时，取从已搜索部分伸出去的边中最小的松弛量 u + v − w，把顶标平移这么多：会多出一条相等边，而原有的性质都不会被破坏。'],
+  ],
+  time: 'O(n³)', space: 'O(n²)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+const long long INF = 4e18;
+int n, p[505], way[505];  // p[j]: the worker matched to job j (0 = none)
+long long w[505][505], u[505], v[505], minv[505];
+bool used[505];
+
+int main() {
+    scanf("%d", &n);
+    for (int i = 1; i <= n; i++)
+        for (int j = 1; j <= n; j++) scanf("%lld", &w[i][j]);
+    for (int i = 1; i <= n; i++) {
+        p[0] = i;  //@row
+        int j0 = 0;
+        fill(minv, minv + n + 1, INF);
+        fill(used, used + n + 1, false);
+        do {
+            used[j0] = true;
+            int i0 = p[j0], j1 = 0;
+            long long delta = INF;
+            for (int j = 1; j <= n; j++) {
+                if (used[j]) continue;
+                long long cur = u[i0] + v[j] - w[i0][j];  //@slack
+                if (cur < minv[j]) { minv[j] = cur; way[j] = j0; }
+                if (minv[j] < delta) { delta = minv[j]; j1 = j; }
+            }
+            for (int j = 0; j <= n; j++) {
+                if (used[j]) { u[p[j]] -= delta; v[j] += delta; }  //@relabel
+                else minv[j] -= delta;
+            }
+            j0 = j1;  //@grow
+        } while (p[j0] != 0);
+        do { int j1 = way[j0]; p[j0] = p[j1]; j0 = j1; } while (j0);  //@flip
+    }
+    long long ans = 0;
+    for (int j = 1; j <= n; j++) ans += w[p[j]][j];
+    printf("%lld\n", ans);  //@done
+}`,
+  notes: [
+    ['row', ['Job 0 is a dummy that holds the worker to be placed; the search starts from it.', '0 号工作是一个虚拟的位置，暂时安放待分配的工人；搜索从它开始。']],
+    ['slack', ['How far this edge is from being tight. minv[j] remembers the smallest slack seen for job j, and way[j] where it came from.', '这条边离“相等边”还差多少。minv[j] 记录工作 j 目前见到的最小松弛量，way[j] 记录它是从哪里来的。']],
+    ['relabel', ['Workers in the search tree go down by delta, their jobs go up by delta: edges inside the tree stay tight, and the edge with the smallest slack becomes tight.', '搜索树里的工人的顶标减去 delta，他们的工作的顶标加上 delta：树内的边仍然是相等边，而松弛量最小的那条边变成了相等边。']],
+    ['grow', ['Job j1 joins the tree. If it is free, the path is complete.', '工作 j1 加入搜索树。如果它还没有被分配，增广路就找到了。']],
+    ['flip', ['Walk back along way[] and hand each job to the worker before it on the path.', '沿着 way[] 往回走，把路径上的每项工作交给它前面的那个工人。']],
+  ],
+  input: ['n (≤ 500), then an n × n table: row i, column j is the weight of giving job j to worker i. Prints the largest total weight of an assignment that gives every worker a different job.', 'n（≤ 500），随后是 n × n 的表格：第 i 行第 j 列是把工作 j 交给工人 i 的权值。每个工人分到互不相同的一项工作，输出最大的总权值。'],
+  sizes: [3, 4, 5], lab: [5, 20, 100, 300],
+  gen: (n, r) => `${n}\n` + span(1, n).map(() => r.ints(n, 1, n <= 30 ? 9 : 1000).join(' ')).join('\n') + '\n',
+  run(inp, t) {
+    const rd = reader(inp), n = rd.int()
+    need(Number.isInteger(n) && n >= 1 && n <= 500, 'n must be between 1 and 500.', 'n 须在 1 到 500 之间。')
+    const w = [new Array<number>(n + 1).fill(0), ...span(1, n).map(() => [0, ...rd.ints(n)])]
+    const u = new Array<number>(n + 1).fill(0), v = new Array<number>(n + 1).fill(0), p = new Array<number>(n + 1).fill(0), way = new Array<number>(n + 1).fill(0)
+    const view = (cur: number, usedJ: boolean[] = [], hi: Record<string, Tone> = {}) => {
+      const tones: Record<string, Tone> = {}
+      for (let i = 1; i <= n; i++) for (let j = 1; j <= n; j++) if (u[i] + v[j] === w[i][j] && (i < cur || i === cur)) tones[`${i - 1},${j - 1}`] = 'vis'
+      for (let j = 1; j <= n; j++) if (p[j]) tones[`${p[j] - 1},${j - 1}`] = 'ok'
+      for (let j = 1; j <= n; j++) if (usedJ[j]) for (let i = 1; i <= n; i++) tones[`${i - 1},${j - 1}`] ??= 'dim'
+      return grid('weights (green: matched, teal: tight edge, u + v = w)', w.slice(1).map(row => row.slice(1)), { ...tones, ...hi }, { rows: span(1, n).map(i => `worker ${i}  u=${u[i]}`), cols: span(1, n).map(j => `job ${j} v=${v[j]}`) })
+    }
+    for (let i = 1; i <= n; i++) {
+      p[0] = i
+      let j0 = 0
+      const minv = new Array<number>(n + 1).fill(Infinity), used = new Array<boolean>(n + 1).fill(false)
+      t.s('row', () => [[`Place worker ${i}: search for a path of tight edges to a free job.`, `安排工人 ${i}：沿着相等边寻找一条通向空闲工作的路径。`], view(i), vars({ worker: i })])
+      do {
+        used[j0] = true
+        const i0 = p[j0]
+        let j1 = 0, delta = Infinity
+        for (let j = 1; j <= n; j++) {
+          if (used[j]) continue
+          t.tick()
+          const cur = u[i0] + v[j] - w[i0][j]
+          if (cur < minv[j]) { minv[j] = cur; way[j] = j0 }
+          if (minv[j] < delta) { delta = minv[j]; j1 = j }
+        }
+        for (let j = 0; j <= n; j++) if (used[j]) { u[p[j]] -= delta; v[j] += delta } else minv[j] -= delta
+        j0 = j1
+        const d = delta, jj = j1, from = i0, free = p[j1] === 0, usedNow = used.slice()
+        t.s('grow', () => [[`From worker ${from}: the smallest slack on an edge leaving the tree is ${d}${d !== 0 ? `, so shift the labels by ${d}` : ''}. Job ${jj} is now reachable by a tight edge${free ? ' and is free: path found' : ` but belongs to worker ${p[jj]}: continue from that worker`}.`, `从工人 ${from} 出发：伸出搜索树的边中最小的松弛量是 ${d}${d !== 0 ? `，于是把顶标平移 ${d}` : ''}。工作 ${jj} 现在可以通过相等边到达${free ? '，而且它是空闲的：增广路找到了' : `，但它属于工人 ${p[jj]}：从这个工人继续搜索`}。`], view(i, usedNow, { [`${way[jj] === 0 ? i - 1 : p[way[jj]] - 1},${jj - 1}`]: 'act' }), vars({ worker: i, delta: d, 'job reached': jj })])
+      } while (p[j0] !== 0)
+      do { const j1 = way[j0]; p[j0] = p[j1]; j0 = j1 } while (j0)
+      t.s('flip', () => [[`Flip the path: every job on it goes to the worker before it. ${i} worker${i === 1 ? ' is' : 's are'} placed.`, `沿路径翻转：路径上的每项工作都交给它前面的那个工人。已安排好 ${i} 个工人。`], view(i), vars({ matched: i })])
+    }
+    let ans = 0
+    for (let j = 1; j <= n; j++) ans += w[p[j]][j]
+    const res = ans
+    t.s('done', () => [[`Every worker has a job. Total weight ${res} — equal to the sum of all labels, ${u.slice(1).reduce((a, b) => a + b, 0) + v.slice(1).reduce((a, b) => a + b, 0)}, so nothing can be better.`, `每个工人都有了工作。总权值为 ${res}——恰好等于所有顶标之和 ${u.slice(1).reduce((a, b) => a + b, 0) + v.slice(1).reduce((a, b) => a + b, 0)}，所以不可能更好了。`], view(n), vars({ answer: res })])
+    t.out(res)
+  },
+}
+
+export default [gdfs, gbfs, dijkstra, spfa, floyd, prim, kruskal, topo, bipartite, tarjan, cutBridge, lca, diameter, hld, dinic, hungarian, eulerPath, secondShortest, twoSat, km]

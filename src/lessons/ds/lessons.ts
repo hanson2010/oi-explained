@@ -1375,4 +1375,212 @@ int main() {
   },
 }
 
-export default [stack, traversal, huffman, bst, monoQueue, sparse, dsu, fenwick, segtree, trie, treap, sqrtDec, leftist, linkedList, sweepLine, hashTable]
+const persistentSeg: Lesson = {
+  id: 'persistent-seg', title: ['Persistent segment tree', '可持久化线段树（主席树）'], level: 'N', cat: 'ds', diff: 8,
+  needs: ['segment-tree', 'coord-compress'],
+  blurb: ['Keep every past version of a segment tree by copying only the path that changes. Two versions subtracted describe any range of the array.', '每次修改只复制发生变化的那一条路径，就能保留线段树的所有历史版本。两个版本相减，就描述了数组的任意一段。'],
+  ideas: [
+    ['Build a counting tree over the value ranks: a node stores how many values fall in its rank range.', '在数值的排名上建一棵计数线段树：每个结点保存有多少个数落在它的排名范围内。'],
+    ['Insert the elements one at a time and keep the tree after each insertion: version i holds a[1..i].', '把元素一个个插入，并保留每次插入之后的树：第 i 个版本包含 a[1..i]。'],
+    ['An insertion changes only one root-to-leaf path. Copy those log n nodes and share everything else with the previous version.', '一次插入只改变从根到叶子的一条路径。只复制这 log n 个结点，其余部分与上一个版本共用。'],
+    ['The counts of version r minus those of version l − 1 are the counts of a[l..r] — at every node.', '第 r 个版本的计数减去第 l − 1 个版本的计数，就是 a[l..r] 的计数——在每个结点上都成立。'],
+    ['To find the k-th smallest, walk both versions down together: go left if the left half holds at least k values, otherwise go right with k reduced.', '求第 k 小时，让两个版本一起往下走：如果左半边至少有 k 个数就往左，否则 k 减去左边的个数后往右。'],
+  ],
+  time: 'O((n + q) log n)', space: 'O(n log n)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+const int N = 200005;
+int n, q, m, a[N], b[N], root[N], tot;
+int lc[N * 20], rc[N * 20], cnt[N * 20];
+
+int insert(int pre, int l, int r, int x) {  // a copy of node pre that holds one more value, x
+    int p = ++tot;
+    lc[p] = lc[pre]; rc[p] = rc[pre]; cnt[p] = cnt[pre] + 1;  //@copy
+    if (l == r) return p;
+    int mid = (l + r) / 2;
+    if (x <= mid) lc[p] = insert(lc[pre], l, mid, x);  //@left
+    else rc[p] = insert(rc[pre], mid + 1, r, x);  //@right
+    return p;
+}
+
+int query(int u, int v, int l, int r, int k) {  // k-th smallest among the values in v but not in u
+    if (l == r) return l;  //@leaf
+    int mid = (l + r) / 2, c = cnt[lc[v]] - cnt[lc[u]];  //@count
+    if (k <= c) return query(lc[u], lc[v], l, mid, k);  //@goleft
+    return query(rc[u], rc[v], mid + 1, r, k - c);  //@goright
+}
+
+int main() {
+    scanf("%d%d", &n, &q);
+    for (int i = 1; i <= n; i++) { scanf("%d", &a[i]); b[i] = a[i]; }
+    sort(b + 1, b + n + 1);
+    m = unique(b + 1, b + n + 1) - b - 1;  //@ranks
+    for (int i = 1; i <= n; i++)
+        root[i] = insert(root[i - 1], 1, m, lower_bound(b + 1, b + m + 1, a[i]) - b);
+    while (q--) {
+        int l, r, k; scanf("%d%d%d", &l, &r, &k);
+        printf("%d\n", b[query(root[l - 1], root[r], 1, m, k)]);  //@ans
+    }
+}`,
+  notes: [
+    ['copy', ['The new node starts as a copy of the old one — both children still shared — with its count raised by one.', '新结点先完整复制旧结点——两个儿子仍然共用——再把计数加一。']],
+    ['left', ['Only the child on the path is replaced by a new node. The other child is the old one, shared.', '只有路径上的那个儿子被换成新结点。另一个儿子还是原来的，两个版本共用。']],
+    ['count', ['How many values of a[l..r] have a rank in the left half.', 'a[l..r] 中有多少个数的排名落在左半边。']],
+    ['goright', ['The c smallest values are in the left half, so on the right we look for number k − c.', '最小的 c 个数都在左半边，所以到右半边要找的是第 k − c 小。']],
+    ['ranks', ['The tree is built over ranks 1 … m, so values are compressed first.', '线段树建在排名 1 … m 上，所以要先把数值离散化。']],
+  ],
+  input: ['n q, the n numbers, then q lines "l r k". For each line prints the k-th smallest of a[l..r] (positions from 1).', 'n q，n 个数，随后 q 行 “l r k”。对每一行输出 a[l..r] 中第 k 小的数（位置从 1 开始）。'],
+  sizes: [5, 6, 8], lab: [10, 1000, 100000, 200000],
+  gen(n, r) {
+    const q = n <= 30 ? 2 : n
+    let s = `${n} ${q}\n${r.ints(n, 1, n <= 30 ? 30 : 1000000000).join(' ')}\n`
+    for (let i = 0; i < q; i++) { const l = r.int(1, n), h = r.int(l, n); s += `${l} ${h} ${r.int(1, h - l + 1)}\n` }
+    return s
+  },
+  run(inp, t) {
+    const rd = reader(inp), n = rd.int(), q = rd.int(), a = [0, ...rd.ints(n)]
+    need(Number.isInteger(n) && n >= 1 && n <= 200000, 'n must be between 1 and 200,000.', 'n 须在 1 到 200,000 之间。')
+    const b = [...new Set(a.slice(1))].sort((x, y) => x - y), m = b.length
+    const lc = [0], rc = [0], cnt = [0], root = [0], out: number[] = []
+    const rankOf = new Map(b.map((v, i) => [v, i + 1]))
+    const ranks = (lo: number, hi: number, at?: number) => arr('distinct values, by rank', b, tn({ dim: [...span(0, lo - 2), ...span(hi, m - 1)], cmp: span(lo - 1, hi - 1), ...(at === undefined ? {} : { act: at - 1 }) }), undefined, { base: 1 })
+    t.s('ranks', () => [[`${m} distinct value${m === 1 ? '' : 's'}: the tree is built over the ranks 1 … ${m}. Version 0 is the empty tree.`, `共 ${m} 个不同的值：线段树建在排名 1 … ${m} 上。第 0 个版本是空树。`], arr('a', a.slice(1), undefined, undefined, { base: 1 }), ranks(1, m)])
+    const insert = (pre: number, l: number, r: number, x: number, i: number): number => {
+      const p = lc.length
+      lc.push(lc[pre]); rc.push(rc[pre]); cnt.push(cnt[pre] + 1)
+      if (l === r) {
+        t.s('copy', () => [[`Leaf for rank ${l} (value ${b[l - 1]}): a new node with count ${cnt[p]}.`, `排名 ${l}（数值 ${b[l - 1]}）的叶子：新建一个结点，计数为 ${cnt[p]}。`], arr('a', a.slice(1), tn({ ok: span(0, i - 2), act: i - 1 }), undefined, { base: 1 }), ranks(l, r, x), vars({ version: i, nodes: lc.length - 1 })])
+        return p
+      }
+      const mid = (l + r) >> 1, left = x <= mid
+      t.s(left ? 'left' : 'right', () => [[`Ranks ${l}–${r}: new node, count ${cnt[pre]} → ${cnt[p]}. Rank ${x} is in the ${left ? 'left' : 'right'} half, so the ${left ? 'right' : 'left'} child is shared with version ${i - 1}.`, `排名 ${l}–${r}：新建结点，计数 ${cnt[pre]} → ${cnt[p]}。排名 ${x} 在${left ? '左' : '右'}半边，所以${left ? '右' : '左'}儿子与第 ${i - 1} 个版本共用。`], arr('a', a.slice(1), tn({ ok: span(0, i - 2), act: i - 1 }), undefined, { base: 1 }), ranks(l, r, x), vars({ version: i, nodes: lc.length - 1 })])
+      if (left) lc[p] = insert(lc[pre], l, mid, x, i); else rc[p] = insert(rc[pre], mid + 1, r, x, i)
+      return p
+    }
+    for (let i = 1; i <= n; i++) root.push(insert(root[i - 1], 1, m, rankOf.get(a[i])!, i))
+    for (let j = 0; j < q; j++) {
+      const l = rd.int(), r = rd.int(), k0 = rd.int()
+      need(1 <= l && l <= r && r <= n && k0 >= 1 && k0 <= r - l + 1, `Question ${j + 1} needs 1 ≤ l ≤ r ≤ n and 1 ≤ k ≤ r − l + 1.`, `第 ${j + 1} 个询问须满足 1 ≤ l ≤ r ≤ n 且 1 ≤ k ≤ r − l + 1。`)
+      const range = () => arr('a', a.slice(1), tn({ dim: [...span(0, l - 2), ...span(r, n - 1)], cmp: span(l - 1, r - 1) }), undefined, { base: 1 })
+      let u = root[l - 1], v = root[r], lo = 1, hi = m, k = k0
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1, c = cnt[lc[v]] - cnt[lc[u]], left = k <= c, kk = k, a0 = lo, a1 = hi
+        t.s(left ? 'goleft' : 'goright', () => [[`Ranks ${a0}–${a1}: version ${r} minus version ${l - 1} has ${c} value${c === 1 ? '' : 's'} in the left half. k = ${kk} ${left ? '≤' : '>'} ${c}: go ${left ? 'left' : `right, looking for number ${kk - c}`}.`, `排名 ${a0}–${a1}：第 ${r} 个版本减去第 ${l - 1} 个版本，左半边有 ${c} 个数。k = ${kk} ${left ? '≤' : '>'} ${c}：${left ? '往左走' : `往右走，改为找第 ${kk - c} 小`}。`], range(), ranks(a0, a1), vars({ l, r, k: kk, 'in the left half': c })])
+        if (left) { u = lc[u]; v = lc[v]; hi = mid } else { u = rc[u]; v = rc[v]; lo = mid + 1; k -= c }
+      }
+      out.push(b[lo - 1])
+      const at = lo
+      t.s('ans', () => [[`A single rank is left: ${at}. The ${k0}${k0 === 1 ? 'st' : k0 === 2 ? 'nd' : k0 === 3 ? 'rd' : 'th'} smallest of a[${l}..${r}] is ${b[at - 1]}.`, `只剩下一个排名：${at}。a[${l}..${r}] 中第 ${k0} 小的数是 ${b[at - 1]}。`], range(), ranks(at, at, at), arr('answers', out)])
+    }
+    t.out(out.join('\n'))
+  },
+}
+
+const cdq: Lesson = {
+  id: 'cdq', title: ['CDQ divide and conquer: 3-D dominance', 'CDQ 分治：三维偏序'], level: 'N', cat: 'ds', diff: 9,
+  needs: ['merge-sort', 'fenwick'],
+  blurb: ['Three conditions at once: sort away the first, merge away the second, and count the third with a Fenwick tree.', '同时满足三个条件：第一维靠排序解决，第二维靠归并解决，第三维用树状数组统计。'],
+  ideas: [
+    ['Count the pairs (i, j) with aᵢ < aⱼ, bᵢ < bⱼ and cᵢ < cⱼ. Checking every pair costs n².', '统计满足 aᵢ < aⱼ、bᵢ < bⱼ、cᵢ < cⱼ 的数对 (i, j)。逐对检查需要 n² 次。'],
+    ['Sort by a. Now only pairs with i before j matter, and the a-condition is automatic.', '按 a 排序。这样只需考虑 i 排在 j 前面的数对，a 的条件自动成立。'],
+    ['Split in the middle. Pairs inside one half are counted recursively; what remains are pairs with i in the left half and j in the right.', '从中间分开。两个点都在同一半的数对递归统计；剩下的是 i 在左半、j 在右半的数对。'],
+    ['For those, a is settled. Sort both halves by b and sweep with two pointers, as in merge sort: when a right point is reached, exactly the left points with smaller b have been passed.', '对这些数对，a 已经不用管了。把两半各自按 b 排序，像归并排序那样用双指针扫描：扫到右半的某个点时，b 更小的左半的点恰好都已经扫过。'],
+    ['Put the c of each passed left point into a Fenwick tree; a right point asks how many are below its own c.', '把扫过的左半的点的 c 放进树状数组；右半的点询问有多少个比自己的 c 小。'],
+  ],
+  time: 'O(n log² n)', space: 'O(n)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+const int N = 100005;
+struct P { int a, b, c; } p[N], tmp[N];
+int n, bit[N];
+long long ans;
+
+void add(int i, int v) { for (; i <= n; i += i & -i) bit[i] += v; }
+int sum(int i) { int s = 0; for (; i > 0; i -= i & -i) s += bit[i]; return s; }
+
+void solve(int l, int r) {  // p[l..r] is sorted by a on entry and by b on return
+    if (l >= r) return;
+    int mid = (l + r) / 2;
+    solve(l, mid); solve(mid + 1, r);  //@split
+    int i = l, k = l;
+    for (int j = mid + 1; j <= r; j++) {
+        while (i <= mid && p[i].b < p[j].b) { add(p[i].c, 1); tmp[k++] = p[i++]; }  //@feed
+        ans += sum(p[j].c - 1);  //@ask
+        tmp[k++] = p[j];
+    }
+    for (int x = l; x < i; x++) add(p[x].c, -1);  //@clear
+    while (i <= mid) tmp[k++] = p[i++];
+    for (int x = l; x <= r; x++) p[x] = tmp[x];  //@merge
+}
+
+int main() {
+    scanf("%d", &n);
+    for (int i = 1; i <= n; i++) scanf("%d%d%d", &p[i].a, &p[i].b, &p[i].c);
+    sort(p + 1, p + n + 1, [](const P& x, const P& y) { return x.a < y.a; });  //@sort
+    solve(1, n);
+    printf("%lld\n", ans);  //@done
+}`,
+  notes: [
+    ['split', ['After the two calls each half is sorted by b — but every point of the left half still has a smaller a than every point of the right half.', '两次递归调用之后，两半各自按 b 有序——但左半每个点的 a 仍然小于右半每个点的 a。']],
+    ['feed', ['Left points with a smaller b than the current right point go into the Fenwick tree, indexed by c.', '把 b 比当前右半的点小的左半的点，按 c 放进树状数组。']],
+    ['ask', ['How many of them also have a smaller c? Those are the left partners of point j.', '其中有多少个的 c 也更小？它们就是点 j 在左半的配对对象。']],
+    ['clear', ['Undo exactly the insertions that were made. Zeroing the whole tree at every call would cost n each time.', '只撤销刚才做过的那些插入。如果每次都把整个树状数组清零，每次调用就要多花 n 的时间。']],
+    ['merge', ['The merged order by b is what the caller one level up needs.', '按 b 归并之后的顺序，正是上一层调用所需要的。']],
+  ],
+  input: ['n, then n lines "a b c". The a values are 1 … n in some order, and so are the b values and the c values. Prints the number of pairs of points where one is smaller than the other in all three coordinates.', 'n，随后 n 行 “a b c”。所有的 a 是 1 … n 的一个排列，b 和 c 也各是一个排列。输出有多少对点，其中一个点的三个坐标都小于另一个点。'],
+  sizes: [5, 6, 8], lab: [10, 1000, 20000, 100000],
+  gen(n, r) {
+    const a = r.shuffle(span(1, n)), b = r.shuffle(span(1, n)), c = r.shuffle(span(1, n))
+    return `${n}\n` + span(0, n - 1).map(i => `${a[i]} ${b[i]} ${c[i]}`).join('\n') + '\n'
+  },
+  run(inp, t) {
+    const rd = reader(inp), n = rd.int()
+    need(Number.isInteger(n) && n >= 1 && n <= 100000, 'n must be between 1 and 100,000.', 'n 须在 1 到 100,000 之间。')
+    let p = span(1, n).map(() => rd.ints(3))
+    for (const k of [0, 1, 2]) need(new Set(p.map(x => x[k])).size === n && p.every(x => Number.isInteger(x[k]) && x[k] >= 1 && x[k] <= n), 'Each coordinate must be a permutation of 1 … n.', '每一维坐标都必须是 1 … n 的一个排列。')
+    p = [[0, 0, 0], ...p.sort((x, y) => x[0] - y[0])]
+    const tmp = p.slice(), bit = new Int32Array(n + 1)
+    let ans = 0
+    const add = (i: number, v: number) => { for (; i <= n; i += i & -i) { bit[i] += v; t.tick() } }
+    const sum = (i: number) => { let s = 0; for (; i > 0; i -= i & -i) { s += bit[i]; t.tick() } return s }
+    // What the Fenwick tree holds, shown as a plain array of 0/1 per value of c.
+    const held = new Uint8Array(n + 1)
+    const view = (l: number, mid: number, r: number, hi: Record<number, Tone> = {}) => {
+      const tones: Record<string, Tone> = {}
+      for (let x = 1; x <= n; x++) { const tone = hi[x] ?? (x < l || x > r ? 'dim' : x <= mid ? 'cmp' : 'alt'); for (let k = 0; k < 3; k++) tones[`${k},${x - 1}`] = tone }
+      return [grid('points in their current order (blue: left half, purple: right half)', [0, 1, 2].map(k => p.slice(1).map(x => x[k])), tones, { rows: ['a', 'b', 'c'] }), arr('c values in the Fenwick tree', span(1, n).map(c => (held[c] ? c : '')), tn({ ok: span(1, n).filter(c => held[c]).map(c => c - 1) }), undefined, { base: 1 })] as const
+    }
+    t.s('sort', () => [['Sort the points by a. From now on, "i before j" already means aᵢ < aⱼ.', '把所有点按 a 排序。从现在起，“i 排在 j 前面”就意味着 aᵢ < aⱼ。'], ...view(1, n, n)])
+    const solve = (l: number, r: number) => {
+      if (l >= r) return
+      const mid = (l + r) >> 1
+      solve(l, mid); solve(mid + 1, r)
+      t.s('split', () => [[`Positions ${l}–${r}: both halves are now sorted by b. Count the pairs with one point in each half.`, `位置 ${l}–${r}：两半现在各自按 b 有序。统计一个点在左半、一个点在右半的数对。`], ...view(l, mid, r), vars({ pairs: ans })])
+      let i = l, k = l
+      for (let j = mid + 1; j <= r; j++) {
+        while (i <= mid && p[i][1] < p[j][1]) {
+          add(p[i][2], 1); held[p[i][2]] = 1; tmp[k++] = p[i++]
+          const ii = i - 1
+          t.s('feed', () => [[`Left point ${ii} has b = ${p[ii][1]} < ${p[j][1]}: put its c = ${p[ii][2]} into the tree.`, `左半的点 ${ii} 的 b = ${p[ii][1]} < ${p[j][1]}：把它的 c = ${p[ii][2]} 放进树状数组。`], ...view(l, mid, r, { [ii]: 'act', [j]: 'vis' }), vars({ pairs: ans })])
+        }
+        const got = sum(p[j][2] - 1)
+        ans += got
+        const total = ans
+        t.s('ask', () => [[`Right point ${j} (b = ${p[j][1]}, c = ${p[j][2]}): ${got} value${got === 1 ? '' : 's'} below ${p[j][2]} in the tree, so ${got} new pair${got === 1 ? '' : 's'}.`, `右半的点 ${j}（b = ${p[j][1]}，c = ${p[j][2]}）：树状数组中比 ${p[j][2]} 小的有 ${got} 个，新增 ${got} 对。`], ...view(l, mid, r, { [j]: 'act' }), vars({ pairs: total })])
+        tmp[k++] = p[j]
+      }
+      for (let x = l; x < i; x++) { add(p[x][2], -1); held[p[x][2]] = 0 }
+      while (i <= mid) tmp[k++] = p[i++]
+      for (let x = l; x <= r; x++) p[x] = tmp[x]
+      t.s('merge', () => [[`Empty the tree and merge positions ${l}–${r} into order of b.`, `清空树状数组，并把位置 ${l}–${r} 按 b 归并成有序。`], ...view(l, r, r), vars({ pairs: ans })])
+    }
+    solve(1, n)
+    const res = ans
+    t.s('done', () => [[`${res} pair${res === 1 ? '' : 's'} in all.`, `一共 ${res} 对。`], vars({ answer: res })])
+    t.out(res)
+  },
+}
+
+export default [stack, traversal, huffman, bst, monoQueue, sparse, dsu, fenwick, segtree, trie, treap, sqrtDec, leftist, linkedList, sweepLine, hashTable, persistentSeg, cdq]
