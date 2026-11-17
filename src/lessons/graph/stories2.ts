@@ -25,6 +25,10 @@ const HOUSE_ES = ed([[0, 1], [1, 3], [3, 2], [2, 0], [0, 3], [2, 4], [4, 3], [1,
 const W2_POS = at([[0, 1], [1, 0], [1, 2], [2, 1]])
 const W2_ES = ed([[0, 1, 2], [0, 2, 3], [1, 3, 3], [2, 3, 4], [1, 2, 2]])
 
+/** The implication graph of "x1 or x2" and "not x1 or x2": vertices x1, x2, not-x1, not-x2. */
+const SAT_POS = at([[0, 0], [2, 0], [0, 1], [2, 1]])
+const SAT_ES = ed([[2, 1], [3, 0], [0, 1], [3, 2]], true)
+
 const NET_POS = at([[0, 1], [1, 0], [1, 2], [2, 1]])
 const NET_LABEL = ['s', 'a', 'b', 't']
 const NET_ES = ed([[0, 1, 1], [0, 2, 1], [1, 2, 1], [1, 3, 1], [2, 3, 1]], true)
@@ -270,6 +274,54 @@ export const GRAPH2: Record<string, Extras> = {
       { id: 'first', text: ['nd < d1[v] ?   swap them, push the new d1[v]', 'nd < d1[v] ？交换两者，新的 d1[v] 入堆'] },
       { id: 'second', text: ['d1[v] < nd < d2[v] ?   d2[v] = nd, push it', 'd1[v] < nd < d2[v] ？d2[v] = nd，入堆'], next: 'loop' },
       { id: 'done', kind: 'end', text: ['print d2[n]  (−1 if it is still ∞)', '输出 d2[n]（仍为 ∞ 则输出 −1）'] },
+    ],
+  },
+
+  'two-sat': {
+    story: [
+      { kind: 'naive', title: ['Start simple: try every combination', '先从最简单的做起：试遍所有组合'],
+        body: ['n yes/no variables have **2ⁿ combinations**. With 30 variables that is a billion; with 100 000, hopeless. And for conditions with three options each, nobody knows anything fundamentally better.', 'n 个“是/否”变量有 **2ⁿ 种组合**。30 个变量就是十亿种；10 万个变量则毫无指望。而如果每个条件有三个选项，至今没有人知道本质上更好的办法。'] },
+      { kind: 'insight', title: ['"A or B" is two implications', '“A 或 B”就是两条推导关系'],
+        body: ['If A is false, B must be true. If B is false, A must be true. That is all "A or B" says. So each condition becomes ==two arrows==: `¬A → B` and `¬B → A`. Draw a vertex for every literal (x and ¬x for each variable) and these arrows as edges. Walking along edges is following what is __forced__.', 'A 为假，则 B 必须为真。B 为假，则 A 必须为真。“A 或 B”说的就是这些。所以每个条件变成==两个箭头==：`¬A → B` 和 `¬B → A`。为每个文字（每个变量的 x 和 ¬x）画一个顶点，把这些箭头画成边。沿着边走，就是沿着__必然的后果__走。'],
+        fig: () => [graph(SAT_POS, SAT_ES, { name: '"x1 or x2" and "¬x1 or x2"', label: ['x1', 'x2', '¬x1', '¬x2'], et: { 0: 'cmp', 1: 'cmp', 2: 'alt', 3: 'alt' } })] },
+      { kind: 'insight', title: ['A contradiction is a cycle through x and ¬x', '矛盾就是同时经过 x 和 ¬x 的环'],
+        body: ['Literals in the same strongly connected component can reach each other, so they are ==all true or all false together==. If x and ¬x share a component, x forces ¬x and ¬x forces x: no value works. And if no variable has this problem, a solution always exists.', '同一个强连通分量里的文字可以互相到达，所以它们==要么全真，要么全假==。如果 x 和 ¬x 在同一个分量里，x 能推出 ¬x，¬x 也能推出 x：取什么值都不行。而只要没有变量出现这种情况，就一定有解。'] },
+      { kind: 'how', title: ['Choose the literal that comes later', '选拓扑序靠后的那个文字'],
+        body: ['Shrink each component to a point: what remains has no cycles. For each variable choose the literal whose component is ==later in topological order==. A chosen literal only forces literals that are later still — and the graph\'s symmetry (A → B always comes with ¬B → ¬A) guarantees those are chosen ones too. Tarjan numbers components in reverse topological order, so the rule is: `x = 1` if `comp[x] < comp[¬x]`.', '把每个分量缩成一个点：剩下的图没有环。对每个变量，选所在分量==拓扑序更靠后==的那个文字。被选中的文字只会推出更靠后的文字——而图的对称性（有 A → B 就一定有 ¬B → ¬A）保证了那些文字也都是被选中的。Tarjan 给分量的编号是逆拓扑序，所以规则是：若 `comp[x] < comp[¬x]`，就取 `x = 1`。'] },
+      { kind: 'result', title: ['Logic solved by one graph traversal', '一次图的遍历解决了逻辑问题'],
+        body: ['2n vertices, 2m edges, one run of Tarjan: **O(n + m)**. Many puzzles reduce to it whenever each object has exactly two options and the rules forbid certain pairs: "at most one of these two", "if this then that", "these two differ".', '2n 个顶点，2m 条边，跑一遍 Tarjan：**O(n + m)**。只要每个对象恰好有两种选择，而规则是禁止某些成对的组合——“这两个至多选一个”“选了这个就必须选那个”“这两个必须不同”——许多问题都能转化成它。'] },
+    ],
+    flow: [
+      { id: 'clause', kind: 'start', text: ['for each condition "A or B":   edges ¬A → B and ¬B → A', '对每个条件“A 或 B”：连边 ¬A → B 和 ¬B → A'] },
+      { id: 'scc', text: ['find the strongly connected components (Tarjan)', '求强连通分量（Tarjan）'] },
+      { id: 'clash', kind: 'test', text: ['some x in the same component as ¬x ?', '存在 x 与 ¬x 在同一个分量里 ？'], yes: 'no', no: 'pick' },
+      { id: 'pick', kind: 'end', text: ['POSSIBLE:   x = 1 if comp[x] < comp[¬x], else 0', '有解：若 comp[x] < comp[¬x] 则 x = 1，否则 x = 0'] },
+      { id: 'no', kind: 'end', text: ['IMPOSSIBLE', '无解'], on: [] },
+    ],
+  },
+
+  km: {
+    story: [
+      { kind: 'naive', title: ['Start simple: take the largest numbers', '先从最简单的做起：挑最大的数'],
+        body: ['Give each worker the most valuable job still free. In the table below worker 1 takes job 1 (9), and worker 2 is left with job 2 (1): total 10. But swapping gives 8 + 7 = **15**. Trying all assignments instead means n! of them.', '让每个工人去拿还空着的、价值最高的工作。在下面的表里，工人 1 拿走工作 1（9），工人 2 只剩工作 2（1）：总共 10。但交换一下就是 8 + 7 = **15**。而把所有分配方案都试一遍，就要试 n! 种。'],
+        fig: () => [grid('greedy: 9 + 1 = 10;   best: 8 + 7 = 15', [[9, 8], [7, 1]], gt({ bad: [[0, 0], [1, 1]], ok: [[0, 1], [1, 0]] }), { rows: ['worker 1', 'worker 2'], cols: ['job 1', 'job 2'] })] },
+      { kind: 'term', title: ['Labels and tight edges', '顶标与相等边'],
+        body: ['Give each worker a label `u[i]` and each job a label `v[j]` with ==u[i] + v[j] ≥ w[i][j]== for every pair: a **feasible labelling**. Add this up over the n pairs of any assignment: its total weight is at most the sum of all labels. An edge is **tight** if `u[i] + v[j] = w[i][j]`. An assignment made only of tight edges has weight __equal__ to the label sum — it meets the upper bound, so no assignment can beat it.', '给每个工人一个顶标 `u[i]`，给每项工作一个顶标 `v[j]`，并使每一对都满足 ==u[i] + v[j] ≥ w[i][j]==：这叫**可行顶标**。把这个不等式对任意一种分配方案的 n 对加起来：方案的总权值不超过所有顶标之和。如果 `u[i] + v[j] = w[i][j]`，这条边就叫**相等边**。只由相等边组成的分配方案，权值恰好__等于__顶标之和——它达到了上界，所以不可能有更好的方案。'],
+        fig: () => [grid('labels u = 8, 6 and v = 1, 0: every sum covers its weight, three edges are tight, and the label sum is 15', [[9, 8], [7, 1]], gt({ vis: [[0, 0]], ok: [[0, 1], [1, 0]] }), { rows: ['worker 1  u=8', 'worker 2  u=6'], cols: ['job 1 v=1', 'job 2 v=0'] })] },
+      { kind: 'insight', title: ['Search among tight edges; when stuck, move the labels', '在相等边中搜索；卡住时就调整顶标'],
+        body: ['Look for an augmenting path for the next worker using tight edges only. If none exists, the search has reached a set of workers and jobs with no tight edge leading out. Find the ==smallest slack== `u + v − w` on an edge from a reached worker to an unreached job, lower all reached workers by it and raise all reached jobs by it. Inside the set nothing changes; outside, one edge becomes tight; nowhere does a sum drop below a weight.', '只用相等边为下一个工人寻找增广路。如果找不到，说明搜索到达的工人和工作构成的集合没有相等边通向外面。在“已到达的工人—未到达的工作”这些边里找出==最小的松弛量== `u + v − w`，把所有已到达的工人的顶标减去它，所有已到达的工作的顶标加上它。集合内部什么都没变；通向外面的边里有一条变成了相等边；而任何一对顶标之和都不会降到权值以下。'] },
+      { kind: 'how', title: ['Remember the smallest slack of every job', '记住每项工作的最小松弛量'],
+        body: ['Keep `minv[j]`, the smallest slack from any reached worker to job j, and `way[j]`, where it came from. Each step adds one job to the tree: the one with the smallest `minv`. If that job is free, walk back along `way` and ==flip the path==; otherwise continue from the worker who holds it. One step costs n, at most n steps per worker.', '保存 `minv[j]`——从任何已到达的工人到工作 j 的最小松弛量——以及 `way[j]`，记录它是从哪里来的。每一步把一项工作加入搜索树：`minv` 最小的那一项。如果这项工作是空闲的，就沿着 `way` 往回走并==翻转这条路径==；否则从占有它的工人继续搜索。每一步代价是 n，每个工人至多 n 步。'] },
+      { kind: 'result', title: ['The best assignment, with a proof attached', '最优的分配，还附带一份证明'],
+        body: ['**O(n³)**: a 500 × 500 table in a fraction of a second. And the final labels are a certificate: their sum equals the weight of the matching found, so anyone can check that it is optimal without redoing the work. The labels are the "prices" of the dual problem — the idea behind linear programming.', '**O(n³)**：500 × 500 的表格不到一秒就能算完。最后的顶标还是一份证明：它们的和等于所求匹配的权值，任何人都可以据此验证它是最优的，而不必重算一遍。这些顶标就是对偶问题中的“价格”——线性规划背后的思想。'] },
+    ],
+    flow: [
+      { id: 'row', kind: 'start', text: ['next worker i;   put it on the dummy job 0;   j0 = 0', '下一个工人 i；先把他放在虚拟工作 0 上；j0 = 0'] },
+      { id: 'slack', text: ['i0 = worker of j0;   update minv[j] = min slack to each job outside the tree', 'i0 = j0 对应的工人；更新 minv[j] = 到树外每项工作的最小松弛量'] },
+      { id: 'relabel', text: ['delta = smallest minv;   tree workers −delta, tree jobs +delta', 'delta = 最小的 minv；树内工人的顶标 −delta，树内工作的顶标 +delta'] },
+      { id: 'grow', kind: 'test', text: ['add that job j1 to the tree:   is it free ?', '把这项工作 j1 加入搜索树：它是空闲的吗 ？'], no: 'slack' },
+      { id: 'flip', text: ['flip the path back to worker i;   more workers ?', '沿路径翻转，一直回到工人 i；还有工人吗 ？'], next: 'row' },
+      { id: 'done', kind: 'end', text: ['print the total weight of the matching', '输出匹配的总权值'] },
     ],
   },
 }

@@ -13,6 +13,78 @@ const same = (want: unknown, got: string): true | string => {
 const sorted = (skip: number): Oracle => ({ check: (i, o) => same(nums(i).slice(skip).sort((a, b) => a - b), o) })
 
 export const ORACLES: Record<string, Oracle | undefined> = {
+  determinant: { max: 6, check(i, o) {
+    const d = toks(i).map(BigInt), n = Number(d[0]), p = d[1], a = Array.from({ length: n }, (_, r) => d.slice(2 + r * n, 2 + (r + 1) * n))
+    // Expansion along the first row.
+    const det = (rows: bigint[][]): bigint => (rows.length === 0 ? 1n : rows[0].reduce((s, x, c) => s + (c % 2 ? -1n : 1n) * x * det(rows.slice(1).map(r => r.filter((_, k) => k !== c))), 0n))
+    return same(((det(a) % p) + p) % p, o)
+  } },
+  mobius: { max: 60, check(i, o) {
+    const [n, m] = nums(i)
+    let c = 0
+    for (let a = 1; a <= n; a++) for (let b = 1; b <= m; b++) { let x = a, y = b; while (y) [x, y] = [y, x % y]; if (x === 1) c++ }
+    return same(c, o)
+  } },
+  ntt: { max: 60, check(i, o) {
+    const d = toks(i).map(BigInt), n = Number(d[0]), m = Number(d[1]), a = d.slice(2, 3 + n), b = d.slice(3 + n, 4 + n + m), c = new Array<bigint>(n + m + 1).fill(0n)
+    for (let x = 0; x <= n; x++) for (let y = 0; y <= m; y++) c[x + y] = (c[x + y] + a[x] * b[y]) % 998244353n
+    return same(c, o)
+  } },
+  sam: { max: 60, check(i, o) {
+    const s = toks(i)[0], set = new Set<string>()
+    for (let a = 0; a < s.length; a++) for (let b = a + 1; b <= s.length; b++) set.add(s.slice(a, b))
+    return same(set.size, o)
+  } },
+  'two-sat': { max: 12, check(i, o) {
+    const d = nums(i), n = d[0], m = d[1], cl: number[][] = [], out = toks(o)
+    for (let k = 0; k < m; k++) cl.push(d.slice(2 + 4 * k, 6 + 4 * k))
+    const ok = (x: number[]) => cl.every(([a, va, b, vb]) => x[a - 1] === va || x[b - 1] === vb)
+    if (out[0] === 'POSSIBLE') { const x = out.slice(1).map(Number); return x.length === n && x.every(v => v === 0 || v === 1) && ok(x) ? true : 'the assignment breaks a condition' }
+    if (out[0] !== 'IMPOSSIBLE') return 'expected POSSIBLE or IMPOSSIBLE'
+    for (let mask = 0; mask < 1 << n; mask++) if (ok(Array.from({ length: n }, (_, k) => mask >> k & 1))) return 'a valid assignment exists'
+    return true
+  } },
+  km: { max: 7, check(i, o) {
+    const d = nums(i), n = d[0], w = Array.from({ length: n }, (_, r) => d.slice(1 + r * n, 1 + (r + 1) * n))
+    let best = -Infinity
+    const go = (r: number, used: number, s: number) => { if (r === n) { best = Math.max(best, s); return } for (let c = 0; c < n; c++) if (!(used >> c & 1)) go(r + 1, used | 1 << c, s + w[r][c]) }
+    go(0, 0, 0)
+    return same(best, o)
+  } },
+  'expect-dp': { check(i, o) {
+    // Forwards instead: the chance of standing at each vertex, times the average length of its roads.
+    const P = 998244353n, d = nums(i), n = d[0], m = d[1], out: [number, bigint][][] = Array.from({ length: n + 1 }, () => [])
+    for (let k = 0; k < m; k++) out[d[2 + 3 * k]].push([d[3 + 3 * k], BigInt(d[4 + 3 * k])])
+    const pw = (a: bigint, e: bigint) => { let r = 1n; for (a %= P; e > 0n; e >>= 1n) { if (e & 1n) r = r * a % P; a = a * a % P } return r }
+    const prob = new Array<bigint>(n + 1).fill(0n)
+    prob[1] = 1n
+    let ans = 0n
+    for (let u = 1; u < n; u++) { const share = prob[u] * pw(BigInt(out[u].length), P - 2n) % P; for (const [v, w] of out[u]) { prob[v] = (prob[v] + share) % P; ans = (ans + share * w) % P } }
+    return same(ans, o)
+  } },
+  'persistent-seg': { max: 60, check(i, o) {
+    const d = nums(i), n = d[0], q = d[1], a = d.slice(2, 2 + n), res: number[] = []
+    for (let j = 0; j < q; j++) { const [l, r, k] = d.slice(2 + n + 3 * j); res.push(a.slice(l - 1, r).sort((x, y) => x - y)[k - 1]) }
+    return same(res, o)
+  } },
+  cdq: { max: 60, check(i, o) {
+    const d = nums(i), n = d[0], p = Array.from({ length: n }, (_, k) => d.slice(1 + 3 * k, 4 + 3 * k))
+    let c = 0
+    for (const x of p) for (const y of p) if (x[0] < y[0] && x[1] < y[1] && x[2] < y[2]) c++
+    return same(c, o)
+  } },
+  'xor-basis': { max: 12, check(i, o) {
+    const [, ...a] = toks(i).map(BigInt)
+    let best = 0n
+    for (let mask = 0; mask < 1 << a.length; mask++) { let x = 0n; a.forEach((v, k) => { if (mask >> k & 1) x ^= v }); if (x > best) best = x }
+    return same(best, o)
+  } },
+  bsgs: { min: 2, max: 12, check(i, o) {
+    const [a, b, p] = nums(i)
+    let cur = 1 % p
+    for (let x = 0; x < p; x++) { if (cur === b % p) return same(x, o); cur = cur * (a % p) % p }
+    return same(-1, o)
+  } },
   'mod-inverse': { min: 2, max: 8, check(i, o) {
     const [a, b, p] = toks(i).map(BigInt), x = BigInt(toks(o)[0] ?? '-1')
     return x >= 0n && x < p && (b * x - a) % p === 0n ? true : `${b} · ${x} is not ≡ ${a} (mod ${p})`

@@ -57,6 +57,16 @@ export const TEXT: Record<string, Prose> = {
       ['Forgetting the edge back to the start gives the shortest path, not the shortest tour.', '忘记加上回到起点的边，求出的是最短路径而不是最短回路。'],
     ],
   },
+  'expect-dp': {
+    problem: ['In a road network without cycles, a walker starts at junction 1 and at every junction picks one of the outgoing roads at random, each equally likely, until junction n is reached. What is the expected total length walked?', '在一个没有环的道路网中，一个人从路口 1 出发，在每个路口等概率地随机选一条出去的路，直到到达路口 n。他走过的总长度的期望是多少？'],
+    why: ['The expectation of a random quantity is its average weighted by probability. Listing all routes with their probabilities would work in principle, but there can be exponentially many routes. Instead ask the same question at every junction: let f[u] be the expected length still to walk when standing at u. At the target, f[n] = 0. Anywhere else, the walker first chooses a road. Given that the road u → v of length w was chosen, the rest of the walk has expected length w + f[v] — nothing about the past matters. Averaging over the choice gives f[u] = (1 / deg(u)) · Σ (w + f[v]). This step, splitting an expectation by the first decision, is the law of total expectation, and it is what makes expectations fit dynamic programming so well: only the average needs to be carried, not the whole distribution. The values must be computed so that every f[v] is ready before f[u] needs it, which means from the target backwards, in reverse topological order. The program does this with the reversed edges and a counter per vertex: a vertex is finished when all its outgoing edges have been accounted for. The true answer is a fraction, so the problem asks for it modulo a prime; dividing by deg(u) then means multiplying by its modular inverse.', '随机量的期望是它按概率加权的平均值。把所有路线连同它们的概率都列出来，原则上可行，但路线可能有指数级那么多。换个办法，在每个路口都问同一个问题：设 f[u] 表示站在 u 时还要走的期望长度。在终点，f[n] = 0。在其他地方，行人先要选一条路。假如选中的是长度为 w 的路 u → v，那么剩下的路程的期望长度就是 w + f[v]——过去怎么走来的毫无影响。对这次选择取平均，得到 f[u] = (1 / deg(u)) · Σ (w + f[v])。这一步——按第一次决定把期望拆开——就是全期望公式，也正是期望特别适合做动态规划的原因：只需要传递平均值，不需要传递整个分布。计算时要保证 f[u] 用到的每个 f[v] 都已经算好，也就是从终点往回算，按逆拓扑序进行。程序用反向边加上每个顶点的一个计数器来实现：一个顶点的所有出边都处理完时，它就完成了。真正的答案是一个分数，所以题目要求对一个质数取模；这时除以 deg(u) 就是乘以它的乘法逆元。'],
+    pitfalls: [
+      ['Expectations of this kind are computed backwards from the end. Going forwards from the start needs the probability of reaching each vertex as well.', '这类期望要从终点往回算。如果从起点往后推，还需要同时知道到达每个顶点的概率。'],
+      ['Dividing with / on remainders is wrong. Under a modulus every division is a multiplication by an inverse.', '直接对余数用 / 做除法是错的。在模意义下，每一次除法都要换成乘以逆元。'],
+      ['On a graph with cycles the equations refer to each other and cannot be evaluated in order: they form a linear system for Gaussian elimination.', '如果图里有环，这些方程会互相引用，无法按顺序求值：它们构成一个线性方程组，要用高斯消元来解。'],
+      ['The expected value of a product is not the product of expected values, unless the quantities are independent. Sums are always safe.', '乘积的期望不等于期望的乘积，除非两个量相互独立。和的期望则总是等于期望的和。'],
+    ],
+  },
 }
 
 /** Where each problem shows up outside contests, shown on the Problem tab. Same inline markup as the Ideas story. */
@@ -67,4 +77,5 @@ export const REAL: Record<string, L> = {
   lcs: ['`diff` and **`git`** show what changed between two versions of a file by finding the longest sequence of lines they share. Biologists compare DNA sequences the same way.', '`diff` 和 **`git`** 通过找出两个版本共有的最长行序列，来显示文件改了什么。生物学家也是用同样的方法比较 DNA 序列。'],
   'tree-dp': ['A **company party** where nobody wants to sit with their direct boss: who should be invited to make it the most fun? Placing guards or wireless transmitters on a tree-shaped network is the same kind of problem.', '**公司聚会**上，谁都不想和自己的直属上司同桌：应该邀请哪些人，才能让气氛最好？在树形网络上布置警卫或无线发射器，是同一类问题。'],
   'bitmask-dp': ['A **delivery van** visiting a dozen addresses and returning to the depot by the shortest tour. Drilling holes in a circuit board and planning a telescope\'s night of observations are the same travelling-salesman problem.', '**快递车**要跑遍十几个地址再回到站点，走哪条路线最短？给电路板钻孔、安排望远镜一夜的观测顺序，都是同一个旅行商问题。'],
+  'expect-dp': ['An **insurance company** prices a policy by its expected payout; a board-game designer checks that a game lasts about half an hour on average; a network engineer estimates the average delay of a packet that is routed at random. All three compute an expectation step by step, backwards from the end, without ever listing every possible course of events.', '**保险公司**按期望赔付额给保单定价；桌游设计师要检验一局游戏平均大约持续半小时；网络工程师估算随机路由的数据包的平均延迟。这三件事都是从结局往回、一步一步地计算期望，而不需要把每一种可能的经过都列出来。'],
 }

@@ -200,4 +200,30 @@ int main() {
       },
     },
   },
+
+  'expect-dp': {
+    story: [
+      { kind: 'term', title: ['Probability and expectation', '概率与期望'],
+        body: ['An experiment has **outcomes**; a set of outcomes is an **event**, and its **probability** is a number from 0 to 1 — for equally likely outcomes, favourable ÷ total. A **random variable** X assigns a number to each outcome. Its **expectation** is the probability-weighted average, `E[X] = Σ x · P(X = x)`: a fair die has E = (1 + 2 + … + 6) / 6 = 3.5. The single most useful fact is ==linearity==: `E[X + Y] = E[X] + E[Y]`, always, even when X and Y depend on each other. The **variance** `Var(X) = E[(X − E[X])²] = E[X²] − E[X]²` measures how far X typically strays from its expectation; for the die it is 35/12.', '一次试验有若干种**结果**；若干结果组成的集合叫**事件**，它的**概率**是 0 到 1 之间的一个数——各结果等可能时，就是有利结果数除以总结果数。**随机变量** X 给每个结果指定一个数值。它的**期望**是按概率加权的平均值，`E[X] = Σ x · P(X = x)`：一颗均匀骰子的期望是 (1 + 2 + … + 6) / 6 = 3.5。最有用的一条性质是==期望的线性性==：`E[X + Y] = E[X] + E[Y]`，无论 X 和 Y 是否相互影响，它都成立。**方差** `Var(X) = E[(X − E[X])²] = E[X²] − E[X]²` 衡量 X 通常偏离期望有多远；骰子的方差是 35/12。'] },
+      { kind: 'naive', title: ['Start simple: list every route', '先从最简单的做起：列出每一条路线'],
+        body: ['Write down each route from 1 to n with its probability and its length, multiply and add. Correct — but a graph with n junctions can have **2ⁿ routes**. Simulating the walk a million times only gives an approximation.', '把从 1 到 n 的每条路线连同它的概率和长度写下来，相乘再相加。这是对的——但 n 个路口的图可能有 **2ⁿ 条路线**。而把这次行走模拟一百万遍，也只能得到近似值。'],
+        fig: () => [grid('three routes from 1 to 4', [['1 → 2 → 4', '1/2 · 1', '3 + 2 = 5'], ['1 → 3 → 4', '1/2 · 1/2', '1 + 4 = 5'], ['1 → 3 → 2 → 4', '1/2 · 1/2', '1 + 1 + 2 = 4']], gt({ cmp: col(1, 0, 2) }), { cols: ['route', 'probability', 'length'] })] },
+      { kind: 'term', title: ['Conditional probability and Bayes\' formula', '条件概率与贝叶斯公式'],
+        body: ['The **conditional probability** of A given B is `P(A | B) = P(A and B) / P(B)`: the share of B in which A also happens. Splitting on what happened first gives the ==law of total probability==, `P(A) = Σ P(Bᵢ) · P(A | Bᵢ)`, and in the same way the law of total expectation, `E[X] = Σ P(Bᵢ) · E[X | Bᵢ]` — the formula this lesson runs on. **Bayes\' formula** turns a condition round: `P(B | A) = P(A | B) · P(B) / P(A)`. If 1% of e-mails are spam, a filter flags 90% of spam and 5% of honest mail, then a flagged mail is spam with probability 0.9 · 0.01 / (0.9 · 0.01 + 0.05 · 0.99) ≈ 15% — far less than most people guess.', '在 B 发生的条件下 A 的**条件概率**是 `P(A | B) = P(A 且 B) / P(B)`：在 B 发生的情况里，A 也发生的那一部分所占的比例。按“先发生了什么”来分情况，就得到==全概率公式== `P(A) = Σ P(Bᵢ) · P(A | Bᵢ)`，以及同样形式的全期望公式 `E[X] = Σ P(Bᵢ) · E[X | Bᵢ]`——本课依靠的正是这个公式。**贝叶斯公式**把条件倒过来：`P(B | A) = P(A | B) · P(B) / P(A)`。假如 1% 的邮件是垃圾邮件，过滤器能拦下 90% 的垃圾邮件，但也会误拦 5% 的正常邮件，那么一封被拦下的邮件是垃圾邮件的概率是 0.9 · 0.01 / (0.9 · 0.01 + 0.05 · 0.99) ≈ 15%——比大多数人猜的要低得多。'] },
+      { kind: 'insight', title: ['Ask the question at every vertex', '在每个顶点都问同一个问题'],
+        body: ['Let `f[u]` be the expected length still to go from u. Standing at u, the walker picks one of deg(u) roads. ==Given== the road u → v of length w, what lies ahead is `w + f[v]` on average. So average over the choice: `f[u] = (1 / deg(u)) · Σ (w + f[v])`. Only one number per vertex is needed — never the routes.', '设 `f[u]` 为从 u 出发还要走的期望长度。站在 u 时，行人要从 deg(u) 条路中选一条。==在已知==选的是长度为 w 的路 u → v 的条件下，前面平均还有 `w + f[v]`。所以对这次选择取平均：`f[u] = (1 / deg(u)) · Σ (w + f[v])`。每个顶点只需要一个数——完全不需要枚举路线。'] },
+      { kind: 'how', title: ['Backwards from the target', '从终点往回推'],
+        body: ['`f[n] = 0`. A vertex can be computed once ==all the vertices its roads lead to== are done, so go through the graph in reverse topological order: for each finished vertex v, add `w + f[v]` to the sum of every u with a road u → v; when a vertex has received all its roads, divide by their number. Under a prime modulus the division is a multiplication by the inverse of deg(u).', '`f[n] = 0`。一个顶点要等==它的路通向的所有顶点==都算完之后才能计算，所以按逆拓扑序走遍整张图：每算完一个顶点 v，就把 `w + f[v]` 加到每个有路 u → v 的顶点 u 的累加和里；当一个顶点的所有出边都加完时，再除以出边的条数。在质数模下，这个除法就是乘以 deg(u) 的逆元。'],
+        fig: () => [grid('the same graph, one number per vertex', [[4, 2, 3, 1], [0, 2, '(4 + 3) / 2 = 3.5', '(5 + 4.5) / 2 = 4.75']], gt({ ok: [[1, 3]] }), { rows: ['vertex', 'f'] })] },
+      { kind: 'result', title: ['Every edge once', '每条边只看一次'],
+        body: ['**O(n + m)** additions plus one inverse per vertex. The pattern — define the expected remaining cost of a state, average over the next random step — covers dice games, random walks, "expected number of draws until…" and much more. When states can be revisited, the same equations form a system to solve by elimination.', '只需 **O(n + m)** 次加法，外加每个顶点求一次逆元。这个套路——定义某个状态“还需要的期望代价”，再对下一步的随机选择取平均——适用于掷骰子游戏、随机游走、“期望抽多少次才能……”等大量问题。如果状态可以重复到达，同样的方程就构成一个需要用消元法求解的方程组。'] },
+    ],
+    flow: [
+      { id: 'start', kind: 'start', text: ['f[n] = 0;   queue = {n}', 'f[n] = 0；队列 = {n}'] },
+      { id: 'loop', kind: 'test', text: ['queue not empty ?   take v', '队列非空 ？取出 v'], no: 'done', on: [] },
+      { id: 'edge', text: ['for each edge u → v of length w:   sum[u] += w + f[v]', '对每条长度为 w 的边 u → v：sum[u] += w + f[v]'] },
+      { id: 'avg', text: ['all edges of u done ?   f[u] = sum[u] / deg(u);   push u', 'u 的出边都处理完了 ？f[u] = sum[u] / deg(u)；u 入队'], next: 'loop' },
+      { id: 'done', kind: 'end', text: ['print f[1]', '输出 f[1]'] },
+    ],
+  },
 }

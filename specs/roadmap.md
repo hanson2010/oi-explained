@@ -4,8 +4,8 @@ Revised 2026-11-16 after a review against the code. The audience is self-learner
 
 ## Where the project stands
 
-- 90 lessons: 35 CSP-J, 44 CSP-S, 11 NOI. 16 have an earlier version, 10 ask questions, 5 have a broken version to fix.
-- Milestones 0.2 to 0.6 are done. Next is 0.7, the NOI lessons, then 0.8, practice problems.
+- 101 lessons: 35 CSP-J, 44 CSP-S, 22 NOI. 16 have an earlier version, 10 ask questions, 5 have a broken version to fix.
+- Milestones 0.2 to 0.7 are done. Next is 0.8, practice problems.
 - A lesson costs about 150 lines on average, counting its program, story, text and oracle.
 
 Syllabus points with a lesson, out of the points that should have one:
@@ -14,7 +14,7 @@ Syllabus points with a lesson, out of the points that should have one:
 |---|---|---|---|
 | CSP-J | 54 | 54 | 62 |
 | CSP-S | 75 | 78 | 16 |
-| NOI | 14 | 59 | 8 |
+| NOI | 33 | 59 | 8 |
 
 Out of scope are computer basics, the C++ language itself, school mathematics, and concepts with no program to animate. The Syllabus page shows them greyed with the reason.
 
@@ -84,23 +84,29 @@ Practice problems were planned for this milestone and moved to 0.8.
 
 ---
 
-## Milestone 0.7 onward: NOI
+## Milestone 0.7: NOI lessons (done)
 
-In priority order. Each needs lessons that exist by then.
+Eleven lessons, with background cards that cover 19 NOI syllabus points between them:
 
-| Lesson | Syllabus point | Needs |
-|---|---|---|
-| Persistent segment tree | 2.3.2 [8] | `segment-tree` |
-| 2-SAT | 2.3.3 [8] | `tarjan-scc` |
-| Linear (XOR) basis | 2.3.4 [9] | – |
-| Baby-step giant-step | 2.3.4 [8] | Hash table, modular inverse |
-| Expectation DP | 2.3.4 [8–9] | Carries the probability points as cards |
-| Determinant | 2.3.4 [9] | `gauss`, modular inverse |
-| Möbius inversion | 2.3.4 [9] | `linear-sieve`. Carries Dirichlet convolution |
-| Offline divide and conquer (CDQ) | 2.3.3 [8–9] | `merge-sort`, `fenwick` |
-| Number-theoretic transform | 2.3.4 [10] | Covers the FFT point with exact output the oracle can check |
-| Suffix automaton | 2.3.3 [10] | May need a new view for states and transitions |
-| Kuhn–Munkres | 2.3.3 [10] | `hungarian` |
+| Lesson | Points it covers |
+|---|---|
+| Persistent segment tree (k-th smallest in a range) | Persistent segment tree |
+| CDQ divide and conquer (3-D dominance) | Offline processing; advanced divide and conquer |
+| Linear (XOR) basis | Vector spaces and linear dependence; bases |
+| Baby-step giant-step | Baby-step giant-step |
+| 2-SAT | 2-SAT |
+| Kuhn–Munkres | Kuhn–Munkres algorithm |
+| Expectation DP (random walk on a DAG) | Probability; expectation and variance; conditional probability; Bayes' formula |
+| Determinant (elimination by Euclid's algorithm, any modulus) | Determinants; inverse matrices |
+| Möbius inversion (coprime pairs) | Möbius inversion; Dirichlet convolution |
+| Number-theoretic transform | Fast Fourier transform |
+| Suffix automaton (number of distinct substrings) | Suffix automaton; finite automata |
+
+Changed from the plan: the suffix automaton is drawn as its tree of suffix links, with each state labelled by its longest string, so no new view was needed. The determinant avoids division, so it works for any modulus, not only primes. None of the eleven has an earlier version, a quiz or a broken version yet.
+
+NOI now has a lesson for 33 of its 59 points in scope. The other 26 are in "Deferred" below.
+
+---
 
 ## Milestone 0.8: practice problems
 
@@ -151,5 +157,5 @@ Already in place, so removed from the plan: links to a tab and an animation step
 | 0.4 (done) | Profile v2, predict the next step | 7 CSP-S | 83 |
 | 0.5 (done) | Broken versions | 7 CSP-S | 90 |
 | 0.6 (done) | Review | – | 90 |
-| 0.7 | – | 11 NOI | 101 |
+| 0.7 (done) | – | 11 NOI | 101 |
 | 0.8 | Practice links (AcWing, Luogu, Codeforces), link checker | – | 101 |

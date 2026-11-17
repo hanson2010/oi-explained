@@ -1031,4 +1031,457 @@ int main() {
   },
 }
 
-export default [gcd, exgcd, sieve, linearSieve, pascal, gauss, nimSg, hull, prufer, primeFactor, modInverse, crt, binomialMod, inclExcl, matrixPower]
+const mulmodN = (a: number, b: number, p: number) => (a * (b >>> 16) % p * 65536 + a * (b & 65535)) % p
+const xorBasis: Lesson = {
+  id: 'xor-basis', title: ['Linear basis (XOR basis)', '线性基'], level: 'N', cat: 'math', diff: 9,
+  needs: ['gauss'],
+  blurb: ['Boil n numbers down to at most 60 that produce exactly the same XOR values — then the largest XOR is found greedily, bit by bit.', '把 n 个数浓缩成至多 60 个数，它们能异或出的值与原来完全一样——之后从高位到低位贪心，就能得到最大的异或和。'],
+  ideas: [
+    ['Treat a number as a vector of bits. XOR is then addition of vectors, without carries.', '把一个数看成由二进制位组成的向量。异或就是不进位的向量加法。'],
+    ['A basis is a small set of numbers whose XOR combinations are exactly the XOR combinations of all the given numbers.', '线性基是一小组数，它们能异或出的值，恰好就是所有给定的数能异或出的值。'],
+    ['Keep at most one basis number for each bit position: p[i] has its highest 1 at bit i.', '每个二进制位上至多保留一个数：p[i] 的最高位的 1 在第 i 位。'],
+    ['To insert x, scan its bits from the top. If bit i is 1 and p[i] is empty, store x there. Otherwise XOR x with p[i], which clears that bit, and go on.', '插入 x 时，从高位到低位扫描。如果第 i 位是 1 而 p[i] 为空，就把 x 存进去。否则让 x 异或上 p[i]，把这一位消掉，然后继续。'],
+    ['If x becomes 0, it was already a combination of the basis and adds nothing.', '如果 x 变成了 0，说明它本来就能由线性基中的数异或得到，不带来任何新东西。'],
+  ],
+  time: 'O(n · 60)', space: 'O(60)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+long long p[61];  // p[i]: the basis number whose highest 1 is bit i, or 0
+
+void insert(long long x) {
+    for (int i = 60; i >= 0; i--) {
+        if (!(x >> i & 1)) continue;
+        if (!p[i]) { p[i] = x; return; }  //@keep
+        x ^= p[i];  //@reduce
+    }
+}  //@zero
+
+int main() {
+    int n;
+    scanf("%d", &n);
+    for (int i = 0; i < n; i++) {
+        long long x;
+        scanf("%lld", &x);
+        insert(x);
+    }
+    long long ans = 0;
+    for (int i = 60; i >= 0; i--)
+        if ((ans ^ p[i]) > ans) ans ^= p[i];  //@max
+    printf("%lld\n", ans);  //@done
+}`,
+  notes: [
+    ['keep', ['No basis number starts at this bit yet: x fills the gap.', '还没有哪个基中的数以这一位为最高位：x 正好填上这个空缺。']],
+    ['reduce', ['p[i] also has bit i set, so the XOR clears it. What x can combine to is unchanged.', 'p[i] 的第 i 位也是 1，所以异或之后这一位被消掉。x 能参与异或出的值并不会因此改变。']],
+    ['zero', ['x was reduced to 0: it is a combination of numbers already in the basis.', 'x 被消成了 0：它可以由基中已有的数异或得到。']],
+    ['max', ['Taking p[i] can only change bits i and below. If it makes the answer larger, it sets bit i, which outweighs everything lower.', '选用 p[i] 只会改变第 i 位及更低的位。如果它能让答案变大，就说明它把第 i 位变成了 1，这比所有更低的位加起来都重要。']],
+  ],
+  input: ['n, then n integers from 0 to 2⁵⁰. Prints the largest value obtainable as the XOR of some of them.', 'n，随后 n 个 0 到 2⁵⁰ 之间的整数。从中选出若干个数，输出它们的异或和的最大值。'],
+  sizes: [3, 4, 5], lab: [10, 1000, 20000, 100000],
+  gen: (n, r) => `${n}\n${span(1, n).map(() => (n <= 30 ? r.int(1, 31) : Math.floor(r.next() * 2 ** 50))).join(' ')}\n`,
+  run(inp, t) {
+    const rd = reader(inp), n = rd.int(), xs = span(1, n).map(() => rd.str())
+    need(xs.every(s => /^\d+$/.test(s) && BigInt(s) <= 1n << 60n), 'The numbers must be integers between 0 and 2⁶⁰.', '这些数必须是 0 到 2⁶⁰ 之间的整数。')
+    const a = xs.map(BigInt), p = new Array<bigint>(61).fill(0n)
+    const W = Math.max(1, ...a.map(x => x.toString(2).length)), bin = (x: bigint) => x.toString(2).padStart(W, '0')
+    const basis = (hi: number, tone: Tone) => grid('basis: p[i] has its highest 1 at bit i', span(0, W - 1).map(k => [p[W - 1 - k] ? bin(p[W - 1 - k]) : '']), hi < 0 ? undefined : { [`${W - 1 - hi},0`]: tone }, { rows: span(0, W - 1).map(k => 'p[' + (W - 1 - k) + ']') })
+    const list = (i: number) => arr('numbers', a.map(bin), tn({ dim: span(0, i - 1), act: i }))
+    for (let j = 0; j < n; j++) {
+      let x = a[j], kept = false
+      for (let i = 60; i >= 0; i--) {
+        if (!((x >> BigInt(i)) & 1n)) continue
+        t.tick()
+        if (!p[i]) {
+          p[i] = x; kept = true
+          const v = x
+          t.s('keep', () => [[`${bin(v)} has its highest 1 at bit ${i}, and p[${i}] is empty: keep it there.`, `${bin(v)} 的最高位的 1 在第 ${i} 位，而 p[${i}] 为空：把它存进去。`], list(j), basis(i, 'ok'), vars({ x: bin(v) })])
+          break
+        }
+        const old = x
+        x ^= p[i]
+        const v = x
+        t.s('reduce', () => [[`Bit ${i} of ${bin(old)} is 1 and p[${i}] = ${bin(p[i])}: XOR them, leaving ${bin(v)}.`, `${bin(old)} 的第 ${i} 位是 1，而 p[${i}] = ${bin(p[i])}：异或之后剩下 ${bin(v)}。`], list(j), basis(i, 'cmp'), vars({ x: bin(v) })])
+      }
+      if (!kept) t.s('zero', () => [[`${bin(a[j])} has been reduced to 0: it is a combination of the basis, and is not needed.`, `${bin(a[j])} 被消成了 0：它能由基中的数异或得到，不需要保留。`], list(j), basis(-1, 'ok'), vars({ x: bin(0n) })])
+    }
+    let ans = 0n
+    for (let i = 60; i >= 0; i--) {
+      if (!p[i]) continue
+      const old = ans, take = (ans ^ p[i]) > ans
+      if (take) ans ^= p[i]
+      const v = ans
+      t.s('max', () => [take ? [`p[${i}] = ${bin(p[i])}: taking it turns ${bin(old)} into ${bin(v)}, which is larger. Take it.`, `p[${i}] = ${bin(p[i])}：选它能把 ${bin(old)} 变成 ${bin(v)}，变大了。选上。`] : [`p[${i}] = ${bin(p[i])}: bit ${i} of the answer is already 1, taking it would clear it. Skip.`, `p[${i}] = ${bin(p[i])}：答案的第 ${i} 位已经是 1，选它反而会把这一位消掉。跳过。`], basis(i, take ? 'ok' : 'dim'), vars({ answer: bin(v) })])
+    }
+    const res = ans
+    t.s('done', () => [[`The largest XOR is ${bin(res)} = ${res}.`, `最大的异或和是 ${bin(res)} = ${res}。`], basis(-1, 'ok'), vars({ answer: String(res) })])
+    t.out(res)
+  },
+}
+
+const bsgs: Lesson = {
+  id: 'bsgs', title: ['Baby-step giant-step', '大步小步算法（BSGS）'], level: 'N', cat: 'math', diff: 8,
+  needs: ['hash-table', 'mod-inverse'],
+  blurb: ['To solve aˣ ≡ b (mod p), write x = i · m − j with m ≈ √p. Store the m small steps in a hash table, then take m big steps and look each one up.', '要解 aˣ ≡ b (mod p)，把 x 写成 i · m − j，其中 m ≈ √p。把 m 个“小步”存进哈希表，再走 m 个“大步”，每一步都去表里查一查。'],
+  ideas: [
+    ['The powers of a repeat with a period dividing p − 1, so if a solution exists, one lies in 0 … p − 1.', 'a 的幂会循环，周期整除 p − 1，所以如果有解，就一定有一个解在 0 … p − 1 之间。'],
+    ['Trying every x costs p steps. Split x into two parts instead: x = i · m − j with 0 ≤ j < m and 1 ≤ i ≤ m.', '逐个尝试 x 需要 p 步。换个办法，把 x 拆成两部分：x = i · m − j，其中 0 ≤ j < m，1 ≤ i ≤ m。'],
+    ['Then aˣ ≡ b becomes a^(i·m) ≡ b · aʲ: the unknowns i and j are on different sides.', '于是 aˣ ≡ b 变成 a^(i·m) ≡ b · aʲ：未知数 i 和 j 被分到了等号的两边。'],
+    ['Baby steps: store b · aʲ for every j in a hash table. Giant steps: compute a^(i·m) for i = 1, 2, … and look for it in the table.', '小步：把每个 j 对应的 b · aʲ 存进哈希表。大步：依次计算 i = 1, 2, … 时的 a^(i·m)，并到表里去找。'],
+    ['The first hit gives the smallest x, provided the table keeps the largest j for each value.', '只要哈希表里对每个值保留最大的 j，第一次命中得到的就是最小的 x。'],
+  ],
+  time: 'O(√p)', space: 'O(√p)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    long long a, b, p;
+    scanf("%lld%lld%lld", &a, &b, &p);
+    a %= p; b %= p;
+    if (b == 1 % p) { puts("0"); return 0; }  //@zero
+    long long m = 1;
+    while (m * m < p) m++;  //@size
+    unordered_map<long long, long long> tab;
+    long long cur = b;
+    for (long long j = 0; j < m; j++) { tab[cur] = j; cur = cur * a % p; }  //@baby
+    long long am = 1;
+    for (long long j = 0; j < m; j++) am = am * a % p;  //@step
+    cur = 1;
+    for (long long i = 1; i <= m; i++) {
+        cur = cur * am % p;  //@giant
+        if (tab.count(cur)) { printf("%lld\n", i * m - tab[cur]); return 0; }  //@hit
+    }
+    puts("-1");  //@none
+}`,
+  notes: [
+    ['zero', ['a⁰ = 1, so x = 0 works. The search below only finds x ≥ 1.', 'a⁰ = 1，所以 x = 0 就是解。下面的搜索只能找到 x ≥ 1 的解。']],
+    ['size', ['m is the smallest integer with m² ≥ p, so i · m − j reaches every x from 1 to p.', 'm 是满足 m² ≥ p 的最小整数，这样 i · m − j 能取遍 1 到 p 的每个 x。']],
+    ['baby', ['A later j overwrites an earlier one with the same value: the table keeps the largest j, which gives the smallest x.', '值相同时，后面的 j 会覆盖前面的：表里保留的是最大的 j，对应最小的 x。']],
+    ['step', ['One giant step multiplies by aᵐ.', '每走一大步，就是乘上一个 aᵐ。']],
+    ['hit', ['a^(i·m) = b · aʲ. Since a has an inverse modulo p, this means a^(i·m − j) = b.', 'a^(i·m) = b · aʲ。由于 a 在模 p 下有逆元，这就意味着 a^(i·m − j) = b。']],
+  ],
+  input: ['a b p — p is a prime below 2³¹ and a is not a multiple of p. Prints the smallest x ≥ 0 with aˣ ≡ b (mod p), or −1 if there is none. (In the generator, n is the number of bits of p.)', 'a b p —— p 是小于 2³¹ 的质数，a 不是 p 的倍数。输出满足 aˣ ≡ b (mod p) 的最小非负整数 x，无解则输出 −1。（生成器中 n 表示 p 的二进制位数。）'],
+  sizes: [4, 5, 6], lab: [4, 8, 16, 24, 30],
+  gen(n, r) {
+    const lo = Math.max(3, 2 ** (n - 1)), hi = Math.max(5, 2 ** n - 1)
+    let p = r.int(lo, hi)
+    while (!isPrimeN(p)) p = p >= hi ? lo : p + 1
+    const a = r.int(2, p - 1)
+    let b = r.int(1, p - 1)
+    if (r.int(0, 3)) { b = 1; for (let k = r.int(1, Math.min(p - 2, 200)); k > 0; k--) b = mulmodN(b, a, p) }
+    return `${a} ${b} ${p}\n`
+  },
+  run(inp, t) {
+    const rd = reader(inp), a0 = rd.int(), b0 = rd.int(), p = rd.int()
+    need(Number.isInteger(p) && p >= 2 && p < 2 ** 31 && isPrimeN(p), 'p must be a prime below 2³¹.', 'p 必须是小于 2³¹ 的质数。')
+    need(Number.isInteger(a0) && Number.isInteger(b0) && a0 >= 0 && b0 >= 0 && a0 % p !== 0, 'Need a, b ≥ 0 and a not divisible by p.', '需要 a, b ≥ 0，且 a 不是 p 的倍数。')
+    const a = a0 % p, b = b0 % p
+    if (b === 1 % p) { t.s('zero', () => [[`b = 1 and a⁰ = 1: the answer is 0.`, `b = 1，而 a⁰ = 1：答案是 0。`], vars({ a, b, p, answer: 0 })]); t.out(0); return }
+    let m = 1
+    while (m * m < p) m++
+    const tab = new Map<number, number>(), small = m <= 16, js: number[] = [], vals: number[] = []
+    const baby = (hit = -1) => small && grid(`baby steps: b · aʲ mod ${p}`, [js, vals], gt({ ok: hit < 0 ? [] : [[0, hit], [1, hit]] }), { rows: ['j', 'b · aʲ'] })
+    t.s('size', () => [[`m = ${m} is the smallest number with m² ≥ ${p}. Write x = i · ${m} − j with 0 ≤ j < ${m} and 1 ≤ i ≤ ${m}.`, `m = ${m} 是满足 m² ≥ ${p} 的最小的数。把 x 写成 i · ${m} − j，其中 0 ≤ j < ${m}，1 ≤ i ≤ ${m}。`], vars({ a, b, p, m })])
+    let cur = b
+    for (let j = 0; j < m; j++) {
+      tab.set(cur, j)
+      if (small) { js.push(j); vals.push(cur) }
+      const v = cur
+      t.s('baby', () => [[`Baby step j = ${j}: b · a^${j} = ${v}. Store it.`, `小步 j = ${j}：b · a^${j} = ${v}。存进表里。`], baby(j), vars({ a, b, p, m })])
+      cur = mulmodN(cur, a, p)
+    }
+    let am = 1
+    for (let j = 0; j < m; j++) { am = mulmodN(am, a, p); t.tick() }
+    t.s('step', () => [[`One giant step multiplies by a^${m} = ${am}.`, `每一大步乘上 a^${m} = ${am}。`], baby(), vars({ 'a^m': am, m })])
+    cur = 1
+    for (let i = 1; i <= m; i++) {
+      cur = mulmodN(cur, am, p)
+      const v = cur, j = tab.get(cur)
+      if (j !== undefined) {
+        const x = i * m - j
+        t.s('hit', () => [[`Giant step i = ${i}: a^${i * m} = ${v}, which is in the table at j = ${j}. So x = ${i} · ${m} − ${j} = ${x}.`, `大步 i = ${i}：a^${i * m} = ${v}，它在表中，对应 j = ${j}。所以 x = ${i} · ${m} − ${j} = ${x}。`], baby(j), vars({ a, b, p, answer: x })])
+        t.out(x); return
+      }
+      t.s('giant', () => [[`Giant step i = ${i}: a^${i * m} = ${v} is not in the table.`, `大步 i = ${i}：a^${i * m} = ${v}，不在表中。`], baby(), vars({ i, 'a^(i·m)': v })])
+    }
+    t.s('none', () => [[`All ${m} giant steps missed: no power of ${a} is ${b} modulo ${p}.`, `${m} 个大步全都没有命中：${a} 的任何次幂模 ${p} 都不等于 ${b}。`], baby(), vars({ answer: -1 })])
+    t.out(-1)
+  },
+}
+
+const determinant: Lesson = {
+  id: 'determinant', title: ['Determinant', '行列式'], level: 'N', cat: 'math', diff: 9,
+  needs: ['gauss', 'gcd'],
+  blurb: ['Turn the matrix into a triangle with row operations that only flip the sign of the determinant or leave it alone; then multiply the diagonal.', '用只会改变行列式符号、或者完全不改变它的行变换，把矩阵化成三角形；然后把对角线上的数乘起来。'],
+  ideas: [
+    ['The determinant of a triangular matrix is the product of its diagonal.', '三角矩阵的行列式等于对角线上各数的乘积。'],
+    ['Adding a multiple of one row to another does not change the determinant. Swapping two rows flips its sign.', '把一行的若干倍加到另一行上，行列式不变。交换两行，行列式变号。'],
+    ['So eliminate below the diagonal column by column, keeping count of the swaps.', '所以逐列把对角线下方消成 0，同时记下交换的次数。'],
+    ['To clear a[j][i] without dividing, run Euclid\'s algorithm on the pair (a[i][i], a[j][i]) with whole rows: subtract a multiple, swap, repeat until one is 0.', '要在不做除法的前提下把 a[j][i] 消成 0，就对 (a[i][i], a[j][i]) 这一对数做辗转相除，只不过操作的是整行：减去若干倍，交换，如此重复直到其中一个变成 0。'],
+    ['No division means it works modulo any number, prime or not.', '不用除法，意味着它对任意模数都适用，不管是不是质数。'],
+  ],
+  time: 'O(n³ + n² log p)', space: 'O(n²)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+int n;
+long long p, a[205][205];
+
+long long norm(long long x) {  // the remainder of x that is closest to 0
+    x %= p;
+    if (x > p / 2) x -= p;
+    if (x < -(p / 2)) x += p;
+    return x;
+}
+
+int main() {
+    scanf("%d%lld", &n, &p);
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++) { scanf("%lld", &a[i][j]); a[i][j] = norm(a[i][j]); }
+    long long sign = 1;
+    for (int i = 0; i < n; i++)
+        for (int j = i + 1; j < n; j++)
+            while (a[j][i] != 0) {
+                long long q = a[i][i] / a[j][i];  //@quot
+                for (int k = i; k < n; k++) a[i][k] = norm(a[i][k] - q * a[j][k]);  //@sub
+                swap(a[i], a[j]);  //@swap
+                sign = -sign;
+            }
+    long long det = sign;
+    for (int i = 0; i < n; i++) det = norm(det * a[i][i]);  //@diag
+    printf("%lld\n", ((det % p) + p) % p);  //@done
+}`,
+  notes: [
+    ['quot', ['The quotient of Euclid\'s algorithm, rounded toward zero.', '辗转相除中的商，向零取整。']],
+    ['sub', ['Row i minus q times row j: the determinant is unchanged, and a[i][i] becomes the remainder, smaller than a[j][i].', '第 i 行减去第 j 行的 q 倍：行列式不变，而 a[i][i] 变成余数，绝对值小于 a[j][i]。']],
+    ['swap', ['The smaller number goes to the bottom, as in Euclid\'s algorithm. Each swap flips the sign.', '较小的数换到下面，和辗转相除一样。每交换一次，符号就变一次。']],
+    ['diag', ['Below the diagonal everything is 0 now, so the determinant is the product of the diagonal, times the sign.', '现在对角线下方全是 0，所以行列式等于对角线上各数之积，再乘上符号。']],
+  ],
+  input: ['n p (n ≤ 200, 2 ≤ p < 2³¹), then an n × n table of integers. Prints the determinant modulo p, as a number from 0 to p − 1.', 'n p（n ≤ 200，2 ≤ p < 2³¹），随后是 n × n 的整数表格。输出行列式对 p 取模的值，范围在 0 到 p − 1 之间。'],
+  sizes: [2, 3, 4], lab: [5, 20, 50, 100],
+  gen: (n, r) => `${n} 998244353\n` + span(1, n).map(() => span(1, n).map(() => (n <= 30 ? r.int(-4, 9) : r.int(0, 998244352))).join(' ')).join('\n') + '\n',
+  run(inp, t) {
+    const rd = reader(inp), n = rd.int(), p = rd.int()
+    need(Number.isInteger(n) && n >= 1 && n <= 200 && Number.isInteger(p) && p >= 2 && p < 2 ** 31, 'Need 1 ≤ n ≤ 200 and 2 ≤ p < 2³¹.', '需要 1 ≤ n ≤ 200 且 2 ≤ p < 2³¹。')
+    const half = Math.floor(p / 2), P = BigInt(p)
+    const norm = (x: number) => { x %= p; if (x > half) x -= p; if (x < -half) x += p; return x }
+    // x − q · y, exactly: the product can pass 2⁵³ when p is large.
+    const subMul = (x: number, q: number, y: number) => (Math.abs(q) * Math.abs(y) < 2 ** 52 ? norm(x - q * y) : norm(Number((BigInt(x) - BigInt(q) * BigInt(y)) % P)))
+    let a = span(1, n).map(() => rd.ints(n).map(norm)), sign = 1
+    const view = (i: number, j: number, col: number) => {
+      const tones: Record<string, Tone> = {}
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) tones[`${r},${c}`] = c < r && c < col ? 'dim' : r === i ? 'act' : r === j ? 'cmp' : c < r && a[r][c] === 0 ? 'dim' : (undefined as unknown as Tone)
+      for (const k in tones) if (!tones[k]) delete tones[k]
+      return grid('the matrix (remainders written as the number closest to 0)', a, tones, { rows: span(1, n).map(r => 'row ' + r) })
+    }
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) while (a[j][i] !== 0) {
+      const q = Math.trunc(a[i][i] / a[j][i]), x = a[i][i], y = a[j][i]
+      for (let k = i; k < n; k++) { a[i][k] = subMul(a[i][k], q, a[j][k]); t.tick() }
+      t.s('sub', () => [[`Column ${i + 1}: ${x} = ${q} · ${y} + ${a[i][i]}. Subtract ${q} × row ${j + 1} from row ${i + 1}; the determinant does not change.`, `第 ${i + 1} 列：${x} = ${q} · ${y} + ${a[i][i]}。从第 ${i + 1} 行中减去第 ${j + 1} 行的 ${q} 倍；行列式不变。`], view(i, j, i), vars({ sign: sign > 0 ? '+' : '−' })])
+      const tmp = a[i]; a[i] = a[j]; a[j] = tmp
+      sign = -sign
+      const sg = sign
+      t.s('swap', () => [[`Swap rows ${i + 1} and ${j + 1}: the sign flips to ${sg > 0 ? '+' : '−'}.${a[j][i] === 0 ? ` The entry below the diagonal is now 0.` : ''}`, `交换第 ${i + 1} 行和第 ${j + 1} 行：符号变为 ${sg > 0 ? '+' : '−'}。${a[j][i] === 0 ? '对角线下方的这个数已经是 0 了。' : ''}`], view(i, j, i), vars({ sign: sg > 0 ? '+' : '−' })])
+    }
+    a = a.slice()
+    let det = sign
+    for (let i = 0; i < n; i++) det = subMul(0, -det, a[i][i])
+    const d = det, res = ((det % p) + p) % p
+    t.s('diag', () => [[`The matrix is triangular: determinant = ${sign > 0 ? '' : '− '}${a.map((row, i) => (row[i] < 0 ? `(${row[i]})` : row[i])).join(' · ')} = ${d} (mod ${p}).`, `矩阵已化为三角形：行列式 = ${sign > 0 ? '' : '− '}${a.map((row, i) => (row[i] < 0 ? `(${row[i]})` : row[i])).join(' · ')} = ${d}（mod ${p}）。`], grid('triangular form', a, Object.fromEntries(span(0, n - 1).map(i => [`${i},${i}`, 'ok' as Tone])), { rows: span(1, n).map(r => 'row ' + r) }), vars({ sign: sign > 0 ? '+' : '−' })])
+    t.s('done', () => [[`As a remainder from 0 to p − 1: ${res}.`, `写成 0 到 p − 1 之间的余数：${res}。`], vars({ answer: res })])
+    t.out(res)
+  },
+}
+
+const mobius: Lesson = {
+  id: 'mobius', title: ['Möbius inversion: counting coprime pairs', '莫比乌斯反演：统计互质数对'], level: 'N', cat: 'math', diff: 9,
+  needs: ['linear-sieve', 'incl-excl'],
+  blurb: ['Replace the condition "gcd = 1" by a sum of μ(d) over the common divisors d. The sums can then be swapped, and each d contributes ⌊n/d⌋ · ⌊m/d⌋.', '把条件“gcd = 1”换成对公约数 d 求和的 μ(d)。这样求和顺序就可以交换，每个 d 的贡献是 ⌊n/d⌋ · ⌊m/d⌋。'],
+  ideas: [
+    ['Count the pairs (i, j) with 1 ≤ i ≤ n, 1 ≤ j ≤ m and gcd(i, j) = 1. Checking each pair costs n · m gcds.', '统计满足 1 ≤ i ≤ n、1 ≤ j ≤ m 且 gcd(i, j) = 1 的数对 (i, j)。逐对检查需要算 n · m 次 gcd。'],
+    ['The Möbius function μ(d) is 1 for d = 1, (−1)ᵏ for a product of k different primes, and 0 if a square divides d.', '莫比乌斯函数 μ(d)：d = 1 时为 1；d 是 k 个不同质数的乘积时为 (−1)ᵏ；d 含有平方因子时为 0。'],
+    ['Its key property: the sum of μ(d) over all divisors d of g is 1 if g = 1 and 0 otherwise.', '它的关键性质：对 g 的所有约数 d 求 μ(d) 之和，g = 1 时结果是 1，否则是 0。'],
+    ['So [gcd(i, j) = 1] equals the sum of μ(d) over the common divisors d of i and j.', '所以 [gcd(i, j) = 1] 等于对 i 和 j 的所有公约数 d 求和的 μ(d)。'],
+    ['Swap the sums: for a fixed d, the pairs with d dividing both number ⌊n/d⌋ · ⌊m/d⌋. μ comes from the linear sieve.', '交换求和顺序：对固定的 d，两个数都能被 d 整除的数对有 ⌊n/d⌋ · ⌊m/d⌋ 个。μ 用线性筛求出。'],
+  ],
+  time: 'O(min(n, m))', space: 'O(min(n, m))',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+const int N = 10000005;
+int mu[N], pr[N / 10], cnt;
+bool comp[N];
+
+int main() {
+    long long n, m;
+    scanf("%lld%lld", &n, &m);
+    int k = min(n, m);
+    mu[1] = 1;  //@one
+    for (int i = 2; i <= k; i++) {
+        if (!comp[i]) { pr[cnt++] = i; mu[i] = -1; }  //@prime
+        for (int j = 0; j < cnt && (long long)i * pr[j] <= k; j++) {
+            comp[i * pr[j]] = true;
+            if (i % pr[j] == 0) { mu[i * pr[j]] = 0; break; }  //@square
+            mu[i * pr[j]] = -mu[i];  //@flip
+        }
+    }
+    long long ans = 0;
+    for (int d = 1; d <= k; d++) ans += mu[d] * (n / d) * (m / d);  //@term
+    printf("%lld\n", ans);  //@done
+}`,
+  notes: [
+    ['prime', ['A prime is a product of one prime: μ = −1.', '质数是一个质数的乘积：μ = −1。']],
+    ['square', ['pr[j] divides i, so pr[j]² divides the product: μ = 0. As in the linear sieve, stop here.', 'pr[j] 整除 i，所以乘积含有 pr[j]²：μ = 0。与线性筛一样，到这里就停。']],
+    ['flip', ['One more prime factor, different from all the others: the sign changes.', '多了一个与其他质因数都不同的质因数：符号改变。']],
+    ['term', ['The pairs in which both numbers are multiples of d, with the sign μ(d).', '两个数都是 d 的倍数的数对的个数，带上符号 μ(d)。']],
+  ],
+  input: ['n m (both at most 10⁷). Prints the number of pairs (i, j) with 1 ≤ i ≤ n, 1 ≤ j ≤ m and gcd(i, j) = 1.', 'n m（都不超过 10⁷）。输出满足 1 ≤ i ≤ n、1 ≤ j ≤ m 且 gcd(i, j) = 1 的数对 (i, j) 的个数。'],
+  sizes: [6, 10, 14], lab: [10, 1000, 100000, 1000000, 5000000],
+  gen: (n, r) => `${n} ${Math.max(1, n - r.int(0, n >> 2))}\n`,
+  run(inp, t) {
+    const rd = reader(inp), n = rd.int(), m = rd.int()
+    need(Number.isInteger(n) && Number.isInteger(m) && n >= 1 && m >= 1 && n <= 1e7 && m <= 1e7, 'n and m must be between 1 and 10⁷.', 'n 和 m 须在 1 到 10⁷ 之间。')
+    const k = Math.min(n, m), mu = new Int8Array(k + 1), comp = new Uint8Array(k + 1), known = new Uint8Array(k + 1), pr: number[] = []
+    const small = k <= 24
+    const table = (hi: Record<number, Tone> = {}, terms?: number[]) => small && grid('the Möbius function', [span(1, k), span(1, k).map(d => (known[d] ? mu[d] : '')), ...(terms ? [span(1, k).map(d => (d <= terms.length ? terms[d - 1] : ''))] : [])], Object.fromEntries(Object.entries(hi).flatMap(([d, tone]) => [[`0,${+d - 1}`, tone], [`1,${+d - 1}`, tone]])), { rows: ['d', 'μ(d)', ...(terms ? ['term'] : [])] })
+    mu[1] = 1; known[1] = 1
+    t.s('one', () => [['μ(1) = 1.', 'μ(1) = 1。'], table({ 1: 'ok' })])
+    for (let i = 2; i <= k; i++) {
+      if (!comp[i]) { pr.push(i); mu[i] = -1; known[i] = 1; t.s('prime', () => [[`${i} is prime: μ(${i}) = −1.`, `${i} 是质数：μ(${i}) = −1。`], table({ [i]: 'act' })]) }
+      for (let j = 0; j < pr.length && i * pr[j] <= k; j++) {
+        const x = i * pr[j], q = pr[j]
+        comp[x] = 1; known[x] = 1
+        if (i % q === 0) { mu[x] = 0; t.s('square', () => [[`${x} = ${i} · ${q}, and ${q} already divides ${i}: ${x} contains ${q}², so μ(${x}) = 0.`, `${x} = ${i} · ${q}，而 ${q} 已经整除 ${i}：${x} 含有 ${q}²，所以 μ(${x}) = 0。`], table({ [i]: 'cmp', [x]: 'bad' })]); break }
+        mu[x] = -mu[i]
+        t.s('flip', () => [[`${x} = ${i} · ${q} with a new prime ${q}: μ(${x}) = −μ(${i}) = ${mu[x]}.`, `${x} = ${i} · ${q}，${q} 是一个新的质因数：μ(${x}) = −μ(${i}) = ${mu[x]}。`], table({ [i]: 'cmp', [x]: 'act' })])
+      }
+    }
+    let ans = 0
+    const terms: number[] = []
+    for (let d = 1; d <= k; d++) {
+      const term = mu[d] * Math.floor(n / d) * Math.floor(m / d)
+      ans += term
+      if (small) terms.push(term)
+      const total = ans
+      t.s('term', () => [mu[d] === 0 ? [`d = ${d}: μ = 0, no contribution.`, `d = ${d}：μ = 0，没有贡献。`] : [`d = ${d}: μ = ${mu[d]}, and ⌊${n}/${d}⌋ · ⌊${m}/${d}⌋ = ${Math.floor(n / d)} · ${Math.floor(m / d)} pairs are both multiples of ${d}. Term ${term}, total ${total}.`, `d = ${d}：μ = ${mu[d]}，两个数都是 ${d} 的倍数的数对有 ⌊${n}/${d}⌋ · ⌊${m}/${d}⌋ = ${Math.floor(n / d)} · ${Math.floor(m / d)} 个。这一项是 ${term}，累计 ${total}。`], table({ [d]: mu[d] > 0 ? 'ok' : mu[d] < 0 ? 'bad' : 'dim' }, terms.slice()), vars({ n, m, total })])
+    }
+    const res = ans
+    t.s('done', () => [[`${res} of the ${n * m} pairs are coprime.`, `${n * m} 个数对中有 ${res} 对互质。`], vars({ answer: res })])
+    t.out(res)
+  },
+}
+
+const MODN = 998244353
+const powN = (a: number, e: number) => { let r = 1; for (a %= MODN; e > 0; e = Math.floor(e / 2)) { if (e % 2) r = mulmodN(r, a, MODN); a = mulmodN(a, a, MODN) } return r }
+const ntt: Lesson = {
+  id: 'ntt', title: ['Fast polynomial multiplication (NTT)', '快速多项式乘法（NTT）'], level: 'N', cat: 'math', diff: 10,
+  needs: ['mod-inverse', 'merge-sort'],
+  blurb: ['Evaluate both polynomials at the same cleverly chosen points, multiply the values point by point, and interpolate back — each of the three in n log n.', '在同一组精心挑选的点上求出两个多项式的值，把对应的值两两相乘，再插值还原——三步每一步都只需 n log n。'],
+  ideas: [
+    ['Multiplying coefficient lists directly costs n · m. But two polynomials given by their values at the same points multiply in linear time: just multiply the values.', '直接用系数相乘需要 n · m 次运算。但如果两个多项式是用同一组点上的取值给出的，相乘只需线性时间：把对应的值相乘即可。'],
+    ['A polynomial of degree below L is fixed by its values at L points. So: evaluate, multiply pointwise, interpolate.', '次数小于 L 的多项式由它在 L 个点上的值唯一确定。所以：求值，逐点相乘，再插值。'],
+    ['Choose the points as the powers of ω, a number with ω^L = 1 and no smaller power equal to 1. Squaring these points gives only half as many different values.', '把这些点取成 ω 的各次幂，其中 ω^L = 1，且更小的幂都不等于 1。把这些点平方之后，只剩下一半个数的不同的值。'],
+    ['Split the polynomial into even and odd coefficients: A(x) = E(x²) + x · O(x²). Both halves are needed only at the squared points — two problems of half the size.', '把多项式按偶次项和奇次项拆开：A(x) = E(x²) + x · O(x²)。两个部分都只需要在平方之后的点上求值——变成两个规模减半的问题。'],
+    ['Modulo 998244353 = 119 · 2²³ + 1 such an ω exists for every power of two up to 2²³: ω = 3^((p − 1) / L). All arithmetic is exact.', '在模 998244353 = 119 · 2²³ + 1 意义下，对不超过 2²³ 的每个 2 的幂 L，都存在这样的 ω：ω = 3^((p − 1) / L)。所有运算都是精确的。'],
+  ],
+  time: 'O(n log n)', space: 'O(n)',
+  code: cpp`#include <bits/stdc++.h>
+using namespace std;
+
+const long long MOD = 998244353, G = 3;
+const int N = 1 << 19;
+int n, m, len = 1, rev[N];
+long long a[N], b[N];
+
+long long power(long long x, long long e) {
+    long long r = 1;
+    for (x %= MOD; e > 0; e >>= 1) {
+        if (e & 1) r = r * x % MOD;
+        x = x * x % MOD;
+    }
+    return r;
+}
+
+void ntt(long long* f, int inv) {  // values at the powers of ω (inv = 1), or back to coefficients (inv = -1)
+    for (int i = 0; i < len; i++)
+        if (i < rev[i]) swap(f[i], f[rev[i]]);  //@rev
+    for (int h = 1; h < len; h <<= 1) {
+        long long wn = power(inv == 1 ? G : power(G, MOD - 2), (MOD - 1) / (2 * h));  //@layer
+        for (int i = 0; i < len; i += 2 * h) {
+            long long w = 1;
+            for (int j = i; j < i + h; j++, w = w * wn % MOD) {
+                long long x = f[j], y = f[j + h] * w % MOD;
+                f[j] = (x + y) % MOD; f[j + h] = (x - y + MOD) % MOD;  //@fly
+            }
+        }
+    }
+    if (inv == -1) {
+        long long il = power(len, MOD - 2);
+        for (int i = 0; i < len; i++) f[i] = f[i] * il % MOD;  //@scale
+    }
+}
+
+int main() {
+    scanf("%d%d", &n, &m);
+    for (int i = 0; i <= n; i++) scanf("%lld", &a[i]);
+    for (int i = 0; i <= m; i++) scanf("%lld", &b[i]);
+    while (len <= n + m) len <<= 1;  //@size
+    for (int i = 0; i < len; i++) rev[i] = (rev[i >> 1] >> 1) | ((i & 1) ? len >> 1 : 0);
+    ntt(a, 1); ntt(b, 1);
+    for (int i = 0; i < len; i++) a[i] = a[i] * b[i] % MOD;  //@mul
+    ntt(a, -1);
+    for (int i = 0; i <= n + m; i++) printf("%lld ", a[i]);  //@done
+}`,
+  notes: [
+    ['rev', ['The recursion sorts the coefficients by their index read backwards in binary. Doing that reordering first lets the rest run as plain loops.', '递归会把系数按“下标的二进制倒过来读”的顺序排好。先做完这个重排，剩下的部分就可以写成普通的循环。']],
+    ['layer', ['wn is a number whose 2h-th power is 1: the ω for blocks of length 2h. The inverse transform uses its inverse.', 'wn 的 2h 次幂等于 1：它就是长度为 2h 的块所用的 ω。逆变换用的是它的逆元。']],
+    ['fly', ['One "butterfly": from E and O at a squared point, the values at the two points x and −x are E + x·O and E − x·O.', '一次“蝴蝶操作”：由 E 和 O 在平方点上的值，得到 x 和 −x 这两个点上的值 E + x·O 和 E − x·O。']],
+    ['scale', ['Interpolation is the same transform with ω replaced by its inverse, followed by a division by the length.', '插值就是把 ω 换成它的逆元再做一遍同样的变换，最后除以长度。']],
+    ['size', ['The product has n + m + 1 coefficients; the length is the next power of two that holds them.', '乘积有 n + m + 1 个系数；长度取能容纳它们的最小的 2 的幂。']],
+  ],
+  input: ['n m (the degrees), then the n + 1 coefficients of the first polynomial and the m + 1 of the second, from the constant term up. Prints the n + m + 1 coefficients of the product modulo 998 244 353. (In the generator both degrees are n.)', 'n m（两个多项式的次数），随后是第一个多项式的 n + 1 个系数和第二个多项式的 m + 1 个系数，从常数项开始。输出乘积的 n + m + 1 个系数，对 998 244 353 取模。（生成器中两个次数都是 n。）'],
+  sizes: [1, 2, 3], lab: [4, 64, 1024, 16384, 65536],
+  gen: (n, r) => `${n} ${n}\n${r.ints(n + 1, n <= 8 ? 1 : 0, n <= 8 ? 5 : MODN - 1).join(' ')}\n${r.ints(n + 1, n <= 8 ? 1 : 0, n <= 8 ? 5 : MODN - 1).join(' ')}\n`,
+  run(inp, t) {
+    const rd = reader(inp), n = rd.int(), m = rd.int()
+    need(Number.isInteger(n) && Number.isInteger(m) && n >= 0 && m >= 0 && n + m < 1 << 19, 'The degrees must be at least 0 and their sum below 524,288.', '两个次数都不能为负，且它们的和要小于 524,288。')
+    let len = 1
+    while (len <= n + m) len <<= 1
+    const a = new Array<number>(len).fill(0), b = new Array<number>(len).fill(0)
+    for (let i = 0; i <= n; i++) a[i] = ((rd.int() % MODN) + MODN) % MODN
+    for (let i = 0; i <= m; i++) b[i] = ((rd.int() % MODN) + MODN) % MODN
+    const rev = new Int32Array(len)
+    for (let i = 0; i < len; i++) rev[i] = (rev[i >> 1] >> 1) | (i & 1 ? len >> 1 : 0)
+    const small = len <= 8, show = (name: string, f: number[], tone?: Tone) => small && arr(name, f, tone ? tn({ [tone]: span(0, len - 1) }) : undefined, undefined, { base: 0 })
+    t.s('size', () => [[`The product has ${n + m + 1} coefficients: work with length ${len}, padding with zeros.`, `乘积有 ${n + m + 1} 个系数：取长度 ${len}，不足的部分补 0。`], show('a (coefficients)', a), show('b (coefficients)', b)])
+    const transform = (f: number[], inv: number, name: string) => {
+      for (let i = 0; i < len; i++) if (i < rev[i]) { const x = f[i]; f[i] = f[rev[i]]; f[rev[i]] = x }
+      t.s('rev', () => [[`${name}: reorder by bit-reversed index, so that each half-size subproblem sits in one block.`, `${name}：按下标的二进制反转重新排列，让每个规模减半的子问题占据连续的一块。`], show(name, f, 'cmp')])
+      for (let h = 1; h < len; h <<= 1) {
+        const wn = powN(inv === 1 ? 3 : powN(3, MODN - 2), (MODN - 1) / (2 * h))
+        for (let i = 0; i < len; i += 2 * h) {
+          let w = 1
+          for (let j = i; j < i + h; j++) {
+            const x = f[j], y = mulmodN(f[j + h], w, MODN)
+            f[j] = (x + y) % MODN; f[j + h] = (x - y + MODN) % MODN
+            w = mulmodN(w, wn, MODN); t.tick()
+          }
+        }
+        t.s('layer', () => [[`${name}: combine blocks of length ${h} into blocks of length ${2 * h} (ω = ${wn}).`, `${name}：把长度为 ${h} 的块两两合并成长度为 ${2 * h} 的块（ω = ${wn}）。`], show(name, f, 'act'), vars({ 'block length': 2 * h, ω: wn })])
+      }
+      if (inv === -1) {
+        const il = powN(len, MODN - 2)
+        for (let i = 0; i < len; i++) f[i] = mulmodN(f[i], il, MODN)
+        t.s('scale', () => [[`Divide by the length ${len}: these are the coefficients of the product.`, `除以长度 ${len}：得到的就是乘积的各项系数。`], show('a · b (coefficients)', f, 'ok')])
+      }
+    }
+    transform(a, 1, 'a (values)'); transform(b, 1, 'b (values)')
+    for (let i = 0; i < len; i++) a[i] = mulmodN(a[i], b[i], MODN)
+    t.s('mul', () => [['Multiply the values at each point: these are the values of the product polynomial.', '把每个点上的两个值相乘：得到的就是乘积多项式在这些点上的值。'], show('a · b (values)', a, 'act'), show('b (values)', b)])
+    transform(a, -1, 'a · b (back to coefficients)')
+    const res = a.slice(0, n + m + 1)
+    t.s('done', () => [[`The product: ${res.slice(0, 12).join(', ')}${res.length > 12 ? ', …' : ''}.`, `乘积的系数：${res.slice(0, 12).join('，')}${res.length > 12 ? '，……' : ''}。`], arr('coefficients of the product', res.slice(0, 16), tn({ ok: span(0, Math.min(15, n + m)) }), undefined, { base: 0 })])
+    t.out(res.join(' '))
+  },
+}
+
+export default [gcd, exgcd, sieve, linearSieve, pascal, gauss, nimSg, hull, prufer, primeFactor, modInverse, crt, binomialMod, inclExcl, matrixPower, xorBasis, bsgs, determinant, mobius, ntt]
