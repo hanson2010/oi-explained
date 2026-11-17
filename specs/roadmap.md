@@ -5,7 +5,7 @@ Revised 2026-11-16 after a review against the code. The audience is self-learner
 ## Where the project stands
 
 - 90 lessons: 35 CSP-J, 44 CSP-S, 11 NOI. 16 have an earlier version, 10 ask questions, 5 have a broken version to fix.
-- Milestones 0.2 to 0.5 are done. Next is 0.6.
+- Milestones 0.2 to 0.6 are done. Next is 0.7, the NOI lessons, then 0.8, practice problems.
 - A lesson costs about 150 lines on average, counting its program, story, text and oracle.
 
 Syllabus points with a lesson, out of the points that should have one:
@@ -76,19 +76,11 @@ CSP-S now has a lesson for 75 of its 78 points in scope; the other three are def
 
 ---
 
-## Milestone 0.6: practice and review
+## Milestone 0.6: review (done)
 
-### Practice problems
+A learned lesson is due for review 1, 7 and 30 days after it was learned or last reviewed, then settled. The home page and the Profile page show what is due. A review opens the animation on new data at the middle size, with the questions on where the lesson has them; reaching the last step records it. Unmarking a lesson as learned forgets its reviews.
 
-`practice?: { judge: 'luogu' | 'loj' | 'cf' | 'atcoder'; id: string; title: L; diff?: number }[]`, shown as links, three to five per lesson: Luogu and LibreOJ (`loj`) first, as the judges of the Chinese community, then Codeforces and AtCoder; within a judge, easiest first. Problem statements are never copied. The learner ticks a problem as solved; it is stored in `solved`.
-
-A test checks the format of each id. Links can still go stale, so check them by script from time to time, not in CI.
-
-### Review
-
-The Profile page lists lessons due for review 1, 7 and 30 days after they were marked learned. Reviewing means doing the lesson's quiz on fresh data. Lessons without a quiz are reviewed by replaying the animation. Timestamps go in `review`.
-
-Do this only after the quiz has reached most lessons, or the review list will be mostly replays.
+Practice problems were planned for this milestone and moved to 0.8.
 
 ---
 
@@ -109,6 +101,18 @@ In priority order. Each needs lessons that exist by then.
 | Number-theoretic transform | 2.3.4 [10] | Covers the FFT point with exact output the oracle can check |
 | Suffix automaton | 2.3.3 [10] | May need a new view for states and transitions |
 | Kuhn–Munkres | 2.3.3 [10] | `hungarian` |
+
+## Milestone 0.8: practice problems
+
+Links from each lesson to problems on online judges that use it, on three sites, in this order: **AcWing**, **Luogu**, **Codeforces**.
+
+- `practice?: { judge: 'acwing' | 'luogu' | 'cf'; id: string; title: string }[]` on a lesson, kept in a `practice.ts` per category. `title` is the problem's own title in the judge's language. Statements are never copied.
+- A Practice tab on the lesson page lists the links, each with a box to tick when solved. Ticks go to `solved` in the profile, which already has the field, and the Profile page counts them.
+- One to five problems per lesson: only problems that clearly fit, easiest first within a judge.
+- `npm run check:practice`: a script that fetches every link and compares the page with the title listed. The judges are outside sites, so it is run by hand from a machine that can reach them, not in CI. Every link must pass it before the milestone is done.
+- Tests check the id format per judge, that a lesson has no repeats, and that a problem has the same title wherever it is listed.
+
+A first version was built during 0.6 with Luogu, LibreOJ and AtCoder, and withdrawn before merging: its links were written from memory in an environment that could not reach the judges, and none was verified. The Luogu part of that list is kept as a starting point in `specs/practice-draft.txt`; treat every line as unverified. AcWing and Codeforces problems are still to be chosen.
 
 ## Deferred
 
@@ -146,5 +150,6 @@ Already in place, so removed from the plan: links to a tab and an animation step
 | 0.3 (done) | Lesson links, three definition cards | 7 CSP-J | 76 |
 | 0.4 (done) | Profile v2, predict the next step | 7 CSP-S | 83 |
 | 0.5 (done) | Broken versions | 7 CSP-S | 90 |
-| 0.6 | Practice links, review | – | 90 |
-| 0.7+ | – | 11 NOI | 101 |
+| 0.6 (done) | Review | – | 90 |
+| 0.7 | – | 11 NOI | 101 |
+| 0.8 | Practice links (AcWing, Luogu, Codeforces), link checker | – | 101 |

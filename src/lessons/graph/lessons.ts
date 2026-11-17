@@ -1451,7 +1451,7 @@ int main() {
     ['split', ['Fewer than m + 1 vertices were recorded: some edges are in another piece of the graph.', '记录下来的顶点不足 m + 1 个：说明有些边在图的另一个连通块里。']],
   ],
   input: ['n m, then m lines "u v": an undirected edge. Prints the m + 1 vertices of a walk that uses every edge exactly once, or −1 if there is none.', 'n m，随后 m 行 “u v”：一条无向边。输出一条经过每条边恰好一次的路线上的 m + 1 个顶点，不存在则输出 −1。'],
-  sizes: [5, 6, 7], lab: [10, 1000, 100000, 300000],
+  sizes: [5, 6, 7], lab: [10, 1000, 100000, 200000],
   gen: genTrail,
   run(inp, t) {
     const { n, m, es } = readGraph(inp), g = adjOf(n, es), pos = lay(t.on, n, es), ed = toEdges(es)

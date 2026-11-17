@@ -14,10 +14,11 @@ export function Diff({ d }: { d: number }) {
   return <span className="diff" title={`${ui('difficulty')} ${d}/10`}>【{d}】</span>
 }
 
-export function LessonCard({ lesson }: { lesson: Meta }) {
+/** `to` replaces the usual link to the lesson's first tab. */
+export function LessonCard({ lesson, to }: { lesson: Meta; to?: string }) {
   const { tr, p } = useApp()
   return (
-    <a className={'lesson-card lv-' + lesson.level + (p.done[lesson.id] ? ' done' : '')} href={'#/learn/' + lesson.id}>
+    <a className={'lesson-card lv-' + lesson.level + (p.done[lesson.id] ? ' done' : '')} href={to ?? '#/learn/' + lesson.id}>
       <div className="lc-top">
         <LevelBadge level={lesson.level} />
         <span className="lc-cat">{tr(CATS[lesson.cat])}</span>
